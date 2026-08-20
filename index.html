@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baderomsguide — Fall, maling og vinylbelegg</title>
+<style>
+  :root {
+    --ink: #1c2530;
+    --ink-soft: #4a5568;
+    --paper: #f7f5f0;
+    --card: #ffffff;
+    --line: #dedad0;
+    --accent: #1b5e6b;
+    --accent-soft: #e4eef0;
+    --warn-bg: #fdf3e3;
+    --warn-line: #d9a441;
+    --code-bg: #eef1ea;
+    --max: 880px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.55;
+  }
+  a { color: var(--accent); }
+  header.site {
+    background: var(--ink);
+    color: #f2f0ea;
+    padding: 2.4rem 1.25rem 2rem;
+  }
+  header.site .inner { max-width: var(--max); margin: 0 auto; }
+  header.site h1 {
+    margin: 0 0 0.4rem;
+    font-size: clamp(1.6rem, 4vw, 2.1rem);
+    letter-spacing: -0.01em;
+  }
+  header.site p.lede {
+    margin: 0;
+    color: #c9c4b8;
+    max-width: 60ch;
+    font-size: 0.98rem;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(247,245,240,0.96);
+    backdrop-filter: blur(4px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav.toc .inner {
+    max-width: var(--max);
+    margin: 0 auto;
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    padding: 0.7rem 1.25rem;
+    font-size: 0.88rem;
+  }
+  nav.toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  main { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem 4rem; }
+  section { padding-top: 2.6rem; }
+  section > h2 {
+    font-size: 1.5rem;
+    margin: 0 0 0.3rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--accent);
+  }
+  section > p.section-intro {
+    color: var(--ink-soft);
+    margin-top: 0.8rem;
+    max-width: 68ch;
+  }
+  h3 {
+    font-size: 1.12rem;
+    margin: 2rem 0 0.6rem;
+    color: var(--ink);
+  }
+  h3 .tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.1rem 1.3rem;
+    margin: 0.9rem 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.9rem 0;
+    font-size: 0.92rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  caption { caption-side: top; text-align: left; font-weight: 600; margin-bottom: 0.4rem; }
+  th, td {
+    text-align: left;
+    padding: 0.65rem 0.8rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  code, .figure {
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+  .callout {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn-line);
+    border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+    margin: 1.1rem 0;
+    font-size: 0.94rem;
+  }
+  .callout strong { display: block; margin-bottom: 0.25rem; }
+  ol.steps {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+  }
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 0.15rem 0 1.05rem 2.6rem;
+    border-left: 2px solid var(--line);
+    margin-left: 0.9rem;
+  }
+  ol.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: -0.95rem;
+    top: -0.05rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  ol.steps > li strong { display: block; margin-bottom: 0.15rem; }
+  ul.plain { padding-left: 1.2rem; }
+  ul.plain li { margin-bottom: 0.4rem; }
+  .rule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.8rem;
+    margin: 1rem 0;
+  }
+  .rule-grid .card { margin: 0; }
+  .rule-grid .card .num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+  footer.site {
+    max-width: var(--max);
+    margin: 2rem auto 3rem;
+    padding: 1.4rem 1.25rem 0;
+    border-top: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+  footer.site h2 { font-size: 1.1rem; color: var(--ink); border: none; margin-bottom: 0.6rem; padding: 0; }
+  footer.site ul { padding-left: 1.1rem; }
+  footer.site li { margin-bottom: 0.35rem; }
+  .updated { font-size: 0.82rem; color: var(--ink-soft); margin-top: 1.6rem; }
+
+  @media (max-width: 560px) {
+    nav.toc .inner { gap: 0.9rem; font-size: 0.82rem; }
+    table { font-size: 0.85rem; }
+  }
+
+  @media print {
+    nav.toc { display: none; }
+    header.site { background: none; color: var(--ink); padding: 0 0 1rem; }
+    header.site p.lede { color: var(--ink-soft); }
+    .callout, .card, table { break-inside: avoid; }
+    a { color: var(--ink); text-decoration: underline; }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e8e6df;
+      --ink-soft: #a9a595;
+      --paper: #14181c;
+      --card: #1c2126;
+      --line: #2c333a;
+      --accent: #5fb8c9;
+      --accent-soft: #1d3238;
+      --warn-bg: #2c2416;
+      --warn-line: #d9a441;
+      --code-bg: #232a30;
+    }
+    header.site { background: #0d1013; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="inner">
+    <h1>Baderomsguide</h1>
+    <p class="lede">Praktisk oppslagsverk for fall til sluk, maling og legging av vinylbelegg — bygget rundt TEK17 §13-15, SINTEF Byggforsk og gjeldende bransjenorm. Personlig fagreferanse, ikke en erstatning for å lese gjeldende regelverk selv.</p>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="inner">
+    <a href="#fall">Fall til sluk</a>
+    <a href="#maling">Maling</a>
+    <a href="#vinyl">Vinylbelegg</a>
+    <a href="#kilder">Kilder</a>
+  </div>
+</nav>
+
+<main>
+
+  <div class="callout" style="margin-top:2rem;">
+    <strong>Sjekk alltid gjeldende regelverk før du bygger på tallene her</strong>
+    TEK17 og Byggforsk-detaljer oppdateres med jevne mellomrom. Tallene under er de preaksepterte ytelsene som gjaldt på research-tidspunktet (august 2026) — bruk denne siden som et raskt oppslag, men slå opp §13-15 og relevante Byggforsk-blad direkte før noe som faktisk skal dokumenteres eller godkjennes.
+  </div>
+
+  <section id="fall">
+    <h2>Fall til sluk</h2>
+    <p class="section-intro">TEK17 §13-15 krever at gulv i våtrom skal ha fall til sluk, uten motfall noe sted lekkasjevann kan oppstå. Kravene under er de tre preaksepterte løsningene — følger du dem, regnes kravet som oppfylt uten videre dokumentasjon.</p>
+
+    <table>
+      <caption>Minimumskrav til fall — TEK17 §13-15</caption>
+      <thead>
+        <tr><th>Situasjon</th><th>Krav til fall</th><th>Sone</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Dusj rett over sluk</td>
+          <td><code>1:50</code></td>
+          <td>Minst 0,8 m ut fra sluket</td>
+        </tr>
+        <tr>
+          <td>Dusj <em>ikke</em> rett over sluk</td>
+          <td><code>1:50</code></td>
+          <td>Fra dusjens nedslagsfelt og til sluket</td>
+        </tr>
+        <tr>
+          <td>Nedsenket dusjsone (min. 10 mm lavere enn resten av gulvet)</td>
+          <td><code>1:100</code></td>
+          <td>I dusjens nedslagsfelt</td>
+        </tr>
+        <tr>
+          <td>Resten av gulvet (alternativ løsning)</td>
+          <td><code>1:100</code></td>
+          <td>Hele gulvet, ikke bare dusjsonen</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="rule-grid">
+      <div class="card">
+        <span class="num">0 mm</span>
+        Motfall er ikke tillatt noe sted vann kan lekke — gulvet skal aldri lede vann bort fra sluket.
+      </div>
+      <div class="card">
+        <span class="num">25 mm</span>
+        Tettesjiktets (membranens) oppkant skal være minst 25 mm over ferdig gulv ved alle ytterkanter.
+      </div>
+      <div class="card">
+        <span class="num">15 mm</span>
+        Unntaket er døråpninger, der oppkanten kan reduseres til minst 15 mm.
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Fall er et minstekrav, ikke et måltall å ramme nøyaktig</strong>
+      Kravene i tabellen er minimum. For bratt fall nær sluket gir gjerne dårligere gangkomfort og økt snublefare uten at det tilfører noe — de fleste fagfolk sikter seg inn nær minstekravet i praksis, ikke over det. Sjekk fallet med vater/laser før membran og belegg legges, ikke bare etter.
+    </div>
+  </section>
+
+  <section id="maling">
+    <h2>Maling</h2>
+    <p class="section-intro">Riktig malingtype handler om fukttransport, ikke bare farge og glans. Hovedskillet står mellom diffusjonsåpne produkter (slipper vanndamp gjennom) og tettere produkter — og hva som er riktig valg er stikk motsatt inne og ute.</p>
+
+    <h3>Hva "diffusjonsåpen" faktisk betyr</h3>
+    <p>Et diffusjonsåpent produkt lar vanndamp passere gjennom laget uten å slippe inn vann i flytende form — det "puster". Fukt i underlaget kan dermed tørke ut gjennom malingen i stedet for å bli fanget bak et tett lag, som over tid løsner både maling og puss/sparkel.</p>
+
+    <h3>Utvendig fasade <span class="tag">Diffusjonsåpen anbefalt</span></h3>
+    <div class="card">
+      <p>På mur, puss, betong og lignende fuktutsatte fasader er diffusjonsåpen maling det klare rådet — <strong>silikatmaling</strong> og <strong>silikonharpiksmaling</strong> er typiske kategorier. Er malingen ikke diffusjonsåpen, kan fukt bygge seg opp bak laget og med tiden presse av både maling og puss.</p>
+      <p>Utvendig treverk (kledning, panel) males oftere med <strong>alkydmaling</strong>, som er tettere av natur — her er det treverkets egen fuktbalanse og korrekt forbehandling (grunning, eventuelt beis) som styrer valget mer enn diffusjonsevnen alene.</p>
+    </div>
+
+    <h3>Innendørs bad/våtrom <span class="tag">Diffusjonsåpen er ikke poenget her</span></h3>
+    <div class="card">
+      <p>Innendørs i våtrom er situasjonen snudd på hodet: det er <strong>membranen</strong> bak flis eller belegg som er selve fuktsperren, ikke malingen på tak og vegger utenfor de våtromssikrede flatene. Malingprodusenter er samstemte om at diffusjonsåpenhet ikke har noen praktisk hensikt innendørs — kravet hentes ofte inn av vane fra fasadeverden der det faktisk betyr noe.</p>
+      <p>For tak og vegger i bad (utenfor flislagte/membranbelagte flater) er den relevante kategorien <strong>våtromsmaling</strong> — typisk akrylbasert, ofte med sopphindrende tilsetning, og testet for høy luftfuktighet og jevnlig avvasking. Vanlig innendørsmaling holder normalt ikke mål over tid i et rom med dusj.</p>
+    </div>
+
+    <div class="callout">
+      <strong>Tommelfingerregel</strong>
+      Ute: fukten skal ut gjennom veggen → velg diffusjonsåpent. Inne i bad: fukten skal aldri inn i veggen i utgangspunktet (det er membranens jobb) → velg våtromsmaling for holdbarhet og soppmotstand, ikke for diffusjonsevne.
+    </div>
+  </section>
+
+  <section id="vinyl">
+    <h2>Vinylbelegg / gulvbelegg</h2>
+    <p class="section-intro">Legging av vinylbelegg i våtrom er strammere regulert enn i tørre rom, fordi beleggets skjøter er en del av det vanntette systemet. Rekkefølgen under følger normal arbeidsflyt fra forberedelse til ferdig sveiset gulv.</p>
+
+    <ol class="steps">
+      <li>
+        <strong>Akklimatisering</strong>
+        La belegget ligge og akklimatiseres i romtemperatur i minst 24 timer før montering — lenger ved store temperatur-/fuktforskjeller mellom lager og monteringsrom. Rulles belegget ut kaldt eller fra en annen fuktighet, kan det jobbe seg ut av form etter legging.
+      </li>
+      <li>
+        <strong>Krav til belegget i våtrom</strong>
+        Belegg som skal brukes i våtrom må være minst <code>1,5 mm</code> tykt og sveisbart — ikke alle vinylbelegg er godkjent for våtromsbruk, sjekk produktdatablad før innkjøp.
+      </li>
+      <li>
+        <strong>Kontroller fallet</strong>
+        Fall mot sluk skal kontrolleres ved montering — se <a href="#fall">Fall til sluk</a> over. Dette gjøres før liming, ikke som en etterkontroll.
+      </li>
+      <li>
+        <strong>Liming</strong>
+        Belegget limes fullt til undergulvet (helflating) i våtrom — flytende legging uten fullt lim er ikke egnet der beleggets skjøter må være vanntette.
+      </li>
+      <li>
+        <strong>Sveising av skjøter</strong>
+        Vent til dagen etter legging (minst 24 timer) med å sveise, slik at limet får satt seg først. Trådsveising smelter en spesialtråd ned i skjøten, som låser de to beleggkantene sammen til en vanntett, sammenhengende overflate.
+      </li>
+      <li>
+        <strong>Plassering av skjøter (NS 3420-T)</strong>
+        Se regelkortene under — dette er de tre faste kravene til hvor skjøter <em>ikke</em> kan plasseres.
+      </li>
+    </ol>
+
+    <div class="rule-grid">
+      <div class="card">
+        <span class="num">100 mm</span>
+        Skjøter skal ikke plasseres nærmere sluket enn 100 mm.
+      </div>
+      <div class="card">
+        <span class="num">0°</span>
+        Skjøter skal ikke plasseres direkte på utvendige hjørner.
+      </div>
+      <div class="card">
+        <span class="num">150×150 mm</span>
+        Det skal ikke skjøtes inn beleggstykker som er mindre enn dette målet.
+      </div>
+    </div>
+
+    <h3>Utenfor våtrom — generelt gulvbelegg</h3>
+    <div class="card">
+      <p>I tørre rom er kravene enklere, men grunnarbeidet avgjør fortsatt sluttresultatet:</p>
+      <ul class="plain">
+        <li>Undergulvet skal være rent, jevnt, tørt og fritt for sprekker før belegg legges.</li>
+        <li>Fuktmåling av betonggulv anbefales før legging, særlig i nybygg eller etter vannskade — for høy restfukt i betongen kan skade lim og belegg over tid.</li>
+        <li>Bruk avrettingsmasse ved behov for å få et jevnt underlag — belegg jevner ikke ut ujevnheter i undergulvet, det avslører dem.</li>
+        <li>Samme akklimatiseringsregel gjelder som i våtrom: minst 24 timer i romtemperatur før legging.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <h2 id="kilder">Kilder</h2>
+  <p>Direkte lenker til der tallene og kravene over kommer fra — slå opp disse direkte hvis noe skal dokumenteres eller godkjennes, siden regelverk og bransjenorm oppdateres over tid.</p>
+  <ul>
+    <li><a href="https://www.dibk.no/regelverk/byggteknisk-forskrift-tek17/13/vi/13-15" target="_blank" rel="noopener">DiBK — TEK17 §13-15, Våtrom og rom med vanninstallasjoner</a></li>
+    <li><a href="https://sintef.brage.unit.no/sintef-xmlui/bitstream/handle/11250/2593812/veiledningshefte_2_2018.pdf" target="_blank" rel="noopener">SINTEF — Veiledningshefte: Fall mot sluk i våtrom</a></li>
+    <li><a href="https://gulvfakta.no/guide-til-forskrifter-og-krav-til-vatrom" target="_blank" rel="noopener">Gulvfakta.no — Guide til forskrifter og krav til våtrom</a></li>
+    <li><a href="https://gulvfakta.no/montering-av-vinyl-i-vatrom" target="_blank" rel="noopener">Gulvfakta.no — Montering av vinyl i våtrom</a></li>
+    <li><a href="https://handverker.fixa.no/blogg/hvordan-sveise-gulvbelegg-trinn-for-trinn" target="_blank" rel="noopener">Fixa Blogg — Hvordan sveise gulvbelegg, trinn for trinn</a></li>
+    <li><a href="https://www.byggforsk.no/dokument/3089/baderom_med_badekar_planlegging_og_utfoerelse" target="_blank" rel="noopener">SINTEF Byggforsk — BVN 43.105, Baderom med badekar</a></li>
+    <li><a href="https://www.maxmaling.no/hva-betyr-diffusjonsapen-og-hvorfor-er-det-viktig-i-maling-og-murprodukter/" target="_blank" rel="noopener">Maxmaling.no — Hva betyr diffusjonsåpen?</a></li>
+    <li><a href="https://fargemagasinet.no/ingen-hensikt-med-diffusjonsapen-maling-innendors" target="_blank" rel="noopener">Fargemagasinet — Ingen hensikt med diffusjonsåpen maling innendørs</a></li>
+  </ul>
+  <p class="updated">Sist researchet: august 2026. Denne siden er en praktisk fagreferanse, ikke juridisk rådgivning — verifiser mot gjeldende TEK17-tekst og Byggforsk-detaljer før bruk i faktisk prosjektering eller kundeleveranse.</p>
+</footer>
+
+</body>
+</html>
