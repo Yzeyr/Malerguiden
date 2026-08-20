@@ -464,7 +464,56 @@
   <div class="panel" data-panel="kalkulator" hidden>
   <section id="kalkulator">
     <h2>🧮 Kalkulator</h2>
-    <p class="section-intro">Regnestykkene som faktisk gjøres på gulvet. Alle tall er estimater — kontroller mot produktets datablad før du bestiller.</p>
+    <p class="section-intro">Regnestykkene du faktisk gjør på jobb. Alle tall er estimater — kontroller mot produktets datablad før du bestiller.</p>
+
+    <div class="calc" id="calc-maling">
+      <h3>Malingforbruk — vegg/tak <span class="tag">Hovedverktøy</span></h3>
+      <p class="calc-sub">Areal, strøk og svinn → liter og et konkret innkjøpsforslag i vanlige spannstørrelser.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="mal-areal">Areal
+            <span class="hint">m² som skal males</span>
+          </label>
+          <input type="text" id="mal-areal" inputmode="decimal" value="60" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="mal-strok">Antall strøk
+            <span class="hint">Vanligvis 2</span>
+          </label>
+          <input type="text" id="mal-strok" inputmode="numeric" value="2" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="mal-forbruk">Forbruk
+            <span class="hint">m² per liter, 8–12 er vanlig</span>
+          </label>
+          <input type="text" id="mal-forbruk" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="mal-svinn">Svinn
+            <span class="hint">% påslag</span>
+          </label>
+          <input type="text" id="mal-svinn" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+      </div>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">Trenger ca.</span>
+          <span class="out-value" id="mal-liter">—</span>
+        </div>
+        <div class="out-row primary">
+          <span class="out-label">Anbefalt innkjøp</span>
+          <span class="out-value" id="mal-spann">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Det gir</span>
+          <span class="out-value" id="mal-dekker">—</span>
+        </div>
+        <div class="calc-warn" id="mal-warn" hidden></div>
+        <p class="out-note">Spannstørrelser regnet i 9 L, 2,7 L og 0,68 L — vanlige størrelser fra Jotun/Nordsjø. Første strøk suger normalt mer enn strøk nummer to, så reelt forbruk kan avvike noe fra et jevnt snitt.</p>
+      </div>
+    </div>
 
     <div class="calc" id="calc-forbruk">
       <h3>Forbruk avrettingsmasse <span class="tag">Standard</span></h3>
@@ -1313,6 +1362,69 @@
     setWarn('bad-warn', warns.join(' '));
   }
 
+  // Vanlige Jotun/Nordsjø-spannstørrelser, størst først — grådig algoritme:
+  // fyll med store spann, topp opp med små, akkurat slik man handler i butikk.
+  var CAN_SIZES = [
+    { l: 9, label: '9 L' },
+    { l: 2.7, label: '2,7 L' },
+    { l: 0.68, label: '0,68 L' }
+  ];
+  function spannKombinasjon(liter) {
+    var rest = liter;
+    var counts = CAN_SIZES.map(function () { return 0; });
+    CAN_SIZES.forEach(function (c, i) {
+      var n = Math.floor(rest / c.l + 1e-9);
+      counts[i] = n;
+      rest -= n * c.l;
+    });
+    // Topp opp med ett ekstra minste spann i stedet for å telle det som en
+    // egen linje — "3 × 0,68 L", ikke "2 × 0,68 L + 1 × 0,68 L".
+    if (rest > 0.005) counts[counts.length - 1] += 1;
+
+    var dekker = 0;
+    var deler = [];
+    CAN_SIZES.forEach(function (c, i) {
+      dekker += counts[i] * c.l;
+      if (counts[i] > 0) deler.push(counts[i] + ' × ' + c.label);
+    });
+    return { text: deler.length ? deler.join(' + ') : '0 L', dekker: dekker };
+  }
+  // Trimmer overflødige nuller (9 -> "9 L", 11.7 -> "11,7 L", 9.68 -> "9,68 L").
+  function fmtLiter(v) {
+    var r = Math.round(v * 100) / 100;
+    if (Math.abs(r - Math.round(r)) < 1e-9) return fmt(r, 0) + ' L';
+    if (Math.abs(r * 10 - Math.round(r * 10)) < 1e-9) return fmt(r, 1) + ' L';
+    return fmt(r, 2) + ' L';
+  }
+
+  function calcMaling() {
+    var areal = num('mal-areal');
+    var strok = num('mal-strok');
+    var forbruk = num('mal-forbruk');
+    var svinn = num('mal-svinn');
+
+    var ok = [areal, strok, forbruk].every(function (v) { return isFinite(v) && v > 0; });
+    if (!ok) {
+      ['mal-liter', 'mal-spann', 'mal-dekker'].forEach(function (i) { setText(i, '—'); });
+      setWarn('mal-warn', 'Fyll inn areal, antall strøk og forbruk.');
+      return;
+    }
+
+    var flateAreal = areal * strok;
+    var literRent = flateAreal / forbruk;
+    var liter = literRent * (1 + (isFinite(svinn) ? svinn : 0) / 100);
+    var kombo = spannKombinasjon(liter);
+
+    setText('mal-liter', fmtLiter(liter));
+    setText('mal-spann', kombo.text);
+    setText('mal-dekker', fmtLiter(kombo.dekker));
+
+    var warns = [];
+    if (forbruk < 4 || forbruk > 16) warns.push('Forbruket er utenfor det vanlige spennet på 8–12 m²/L for veggmaling — dobbeltsjekk tallet fra produktdatabladet.');
+    if (Math.round(strok) !== strok || strok < 1) warns.push('Antall strøk bør være et helt tall, minst 1.');
+    setWarn('mal-warn', warns.join(' '));
+  }
+
   function calcForbruk() {
     var areal = num('fb-areal');
     var tykk = num('fb-tykk');
@@ -1352,7 +1464,10 @@
   ['fb-areal', 'fb-tykk', 'fb-forbruk', 'fb-svinn', 'fb-sekk'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', calcForbruk);
   });
-  calcFall(); calcBad(); calcForbruk();
+  ['mal-areal', 'mal-strok', 'mal-forbruk', 'mal-svinn'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calcMaling);
+  });
+  calcFall(); calcBad(); calcForbruk(); calcMaling();
 
   /* -------------------------- Faner og søk -------------------------- */
   var buttons = document.querySelectorAll('.filter-btn');
