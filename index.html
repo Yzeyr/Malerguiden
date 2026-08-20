@@ -300,6 +300,21 @@
   .out-value { font-size: 1.15rem; font-weight: 800; color: var(--accent); }
   .out-row.primary .out-value { font-size: 1.5rem; }
   .out-note { font-size: 0.82rem; color: var(--ink-soft); margin: 0.6rem 0 0; }
+  /* Tallene huskes lokalt på telefonen mellom besøk — denne linjen sier det
+     rett ut (ingen skjult magi hvis en kollega låner telefonen), og gir en
+     vei tilbake til fabrikkverdiene. */
+  .calc-remembered {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.6rem; flex-wrap: wrap;
+    margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--line);
+    font-size: 0.78rem; color: var(--ink-soft);
+  }
+  .calc-reset {
+    appearance: none; border: none; background: none; cursor: pointer;
+    font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--accent);
+    padding: 0.5rem 0.2rem; min-height: 2.75rem; display: flex; align-items: center;
+  }
+  .calc-reset:hover { text-decoration: underline; }
   .calc-warn {
     margin-top: 0.75rem; font-size: 0.86rem;
     background: var(--warn-bg); border-left: 4px solid var(--warn-line);
@@ -1354,7 +1369,11 @@
     var avstand = num('bad-dor-avstand');
     var ratio = parseFloat(document.getElementById('bad-dor-ratio').value);
     if (!isFinite(avstand) || avstand <= 0 || !isFinite(ratio)) return;
-    document.getElementById('bad-dor').value = fmt(avstand * ratio, 0);
+    var dorEl = document.getElementById('bad-dor');
+    dorEl.value = fmt(avstand * ratio, 0);
+    // Feltet fylles ut med kode, ikke av brukeren — det trigger ikke input-
+    // eventet "husk sist brukte tall" lytter på, så lagre det her direkte.
+    try { localStorage.setItem('malerguiden:calc:bad-dor', dorEl.value); } catch (e) {}
     calcBad();
   }
 
@@ -1486,6 +1505,63 @@
     if (tykk > 50) warns.push('Lagtykkelsen er over maks 50 mm i ett sjikt — bygg opp i flere omganger med priming mellom.');
     setWarn('fb-warn', warns.join(' '));
   }
+
+  /* Husk sist brukte tall — lagrer hvert kalkulatorfelt lokalt på telefonen
+     (localStorage) og fyller dem inn igjen neste gang appen åpnes, i stedet
+     for å alltid vise generiske startverdier. Kjøres FØR feltene kobles til
+     utregningsfunksjonene, slik at første beregning bruker de gjenopprettede
+     tallene, ikke fabrikkverdiene. */
+  var CALC_STORAGE_PREFIX = 'malerguiden:calc:';
+  var calcDefaults = {};
+  var calcFields = document.querySelectorAll('.calc input[type="text"], .calc select');
+  calcFields.forEach(function (el) {
+    if (!el.id) return;
+    calcDefaults[el.id] = el.value;
+    try {
+      var saved = localStorage.getItem(CALC_STORAGE_PREFIX + el.id);
+      if (saved !== null) el.value = saved;
+    } catch (e) { /* privat modus / localStorage utilgjengelig — kjør uten hukommelse */ }
+  });
+  // Var avstand-hjelperen sist brukt, regn mm-feltet på nytt fra den
+  // gjenopprettede avstanden i stedet for å stole på mm-feltets egen,
+  // potensielt utdaterte lagrede verdi.
+  if (num('bad-dor-avstand') > 0) updateDorFromAvstand();
+  calcFields.forEach(function (el) {
+    if (!el.id) return;
+    var evt = el.tagName === 'SELECT' ? 'change' : 'input';
+    el.addEventListener(evt, function () {
+      try { localStorage.setItem(CALC_STORAGE_PREFIX + el.id, el.value); } catch (e) {}
+    });
+  });
+
+  function resetCalcToDefaults(calcEl, recalc) {
+    var els = calcEl.querySelectorAll('input[type="text"], select');
+    els.forEach(function (el) {
+      if (!el.id || !(el.id in calcDefaults)) return;
+      el.value = calcDefaults[el.id];
+      try { localStorage.removeItem(CALC_STORAGE_PREFIX + el.id); } catch (e) {}
+    });
+    recalc();
+  }
+
+  var calcRecalcByCard = { 'calc-bad': calcBad, 'calc-forbruk': calcForbruk, 'calc-maling': calcMaling };
+  document.querySelectorAll('.calc').forEach(function (calcEl) {
+    var recalc = calcRecalcByCard[calcEl.id];
+    if (!recalc) return;
+    var row = document.createElement('div');
+    row.className = 'calc-remembered';
+    var label = document.createElement('span');
+    label.textContent = 'Tallene huskes på denne telefonen til neste gang.';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calc-reset';
+    btn.textContent = '↺ Nullstill til standardverdier';
+    btn.addEventListener('click', function () { resetCalcToDefaults(calcEl, recalc); });
+    row.appendChild(label);
+    row.appendChild(btn);
+    var out = calcEl.querySelector('.calc-out');
+    (out || calcEl).appendChild(row);
+  });
 
   ['bad-areal', 'bad-sluk', 'bad-dor', 'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form'].forEach(function (id) {
     var n = document.getElementById(id);
