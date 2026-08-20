@@ -245,6 +245,20 @@
   .mistake-why { margin: 0.3rem 0 0; color: var(--ink-soft); font-size: 0.91rem; }
 
   /* ---------- Calculators ---------- */
+  /* Mini-faner inne i Kalkulator — samme knappeform som hovednavigasjonen,
+     bare mindre, så kalkulatorgrupper (avretting / maling & sparkel) ikke
+     drukner i én lang liste når flere kommer til. */
+  .mini-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0 0.3rem; }
+  .mini-tab-btn {
+    appearance: none; border: 1px solid var(--line); background: var(--card);
+    color: var(--ink-soft); font: inherit; font-weight: 600; font-size: 0.85rem;
+    padding: 0.5rem 0.9rem; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    min-height: 2.75rem;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .mini-tab-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mini-tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .calc-group[hidden] { display: none; }
   .calc {
     background: var(--card); border: 1px solid var(--line);
     border-radius: 10px; padding: 1rem 1.15rem; margin: 1rem 0 1.6rem;
@@ -478,54 +492,12 @@
     <h2>🧮 Kalkulator</h2>
     <p class="section-intro">Regnestykkene du faktisk gjør på jobb. Alle tall er estimater — kontroller mot produktets datablad før du bestiller.</p>
 
-    <div class="calc" id="calc-maling">
-      <h3>Malingforbruk — vegg/tak <span class="tag">Hovedverktøy</span></h3>
-      <p class="calc-sub">Areal, strøk og svinn → liter og et konkret innkjøpsforslag i vanlige spannstørrelser.</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="mal-areal">Areal
-            <span class="hint">m² som skal males</span>
-          </label>
-          <input type="text" id="mal-areal" inputmode="decimal" value="60" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="mal-strok">Antall strøk
-            <span class="hint">Vanligvis 2</span>
-          </label>
-          <input type="text" id="mal-strok" inputmode="numeric" value="2" autocomplete="off">
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="mal-forbruk">Forbruk
-            <span class="hint">m² per liter, 8–12 er vanlig</span>
-          </label>
-          <input type="text" id="mal-forbruk" inputmode="decimal" value="10" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="mal-svinn">Svinn
-            <span class="hint">% påslag</span>
-          </label>
-          <input type="text" id="mal-svinn" inputmode="decimal" value="10" autocomplete="off">
-        </div>
-      </div>
-      <div class="calc-out">
-        <div class="out-row primary">
-          <span class="out-label">Trenger ca.</span>
-          <span class="out-value" id="mal-liter">—</span>
-        </div>
-        <div class="out-row primary">
-          <span class="out-label">Anbefalt innkjøp</span>
-          <span class="out-value" id="mal-spann">—</span>
-        </div>
-        <div class="out-row">
-          <span class="out-label">Det gir</span>
-          <span class="out-value" id="mal-dekker">—</span>
-        </div>
-        <div class="calc-warn" id="mal-warn" hidden></div>
-        <p class="out-note">Spannstørrelser regnet i 9 L, 2,7 L og 0,68 L — vanlige størrelser fra Jotun/Nordsjø. Første strøk suger normalt mer enn strøk nummer to, så reelt forbruk kan avvike noe fra et jevnt snitt.</p>
-      </div>
+    <div class="mini-tabs" role="tablist" aria-label="Kalkulatorgruppe">
+      <button type="button" class="mini-tab-btn" data-calcgroup="avretting">🧱 Avretting</button>
+      <button type="button" class="mini-tab-btn" data-calcgroup="maling">🎨 Maling &amp; sparkel</button>
     </div>
+
+    <div class="calc-group" data-calcgroup="avretting">
 
     <div class="calc" id="calc-forbruk">
       <h3>Forbruk avrettingsmasse <span class="tag">Standard</span></h3>
@@ -661,6 +633,65 @@
         <div class="calc-warn" id="bad-warn" hidden></div>
         <p class="out-note">Modellen antar at fallet er en jevn flate fra høyeste punkt ned til sluket. Nedsenket dusjsone, varmekabler, rørgjennomføringer og ujevnt undergulv endrer forbruket — legg på ekstra ved tvil.</p>
       </div>
+    </div>
+
+    </div>
+
+    <div class="calc-group" data-calcgroup="maling" hidden>
+
+    <div class="calc" id="calc-maling">
+      <h3>Malingforbruk — vegg/tak</h3>
+      <p class="calc-sub">Areal, strøk og svinn → liter og et konkret innkjøpsforslag i vanlige spannstørrelser.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="mal-areal">Areal
+            <span class="hint">m² som skal males</span>
+          </label>
+          <input type="text" id="mal-areal" inputmode="decimal" value="60" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="mal-strok">Antall strøk
+            <span class="hint">Vanligvis 2</span>
+          </label>
+          <input type="text" id="mal-strok" inputmode="numeric" value="2" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="mal-forbruk">Forbruk
+            <span class="hint">m² per liter, 8–12 er vanlig</span>
+          </label>
+          <input type="text" id="mal-forbruk" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="mal-svinn">Svinn
+            <span class="hint">% påslag</span>
+          </label>
+          <input type="text" id="mal-svinn" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+      </div>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">Trenger ca.</span>
+          <span class="out-value" id="mal-liter">—</span>
+        </div>
+        <div class="out-row primary">
+          <span class="out-label">Anbefalt innkjøp</span>
+          <span class="out-value" id="mal-spann">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Det gir</span>
+          <span class="out-value" id="mal-dekker">—</span>
+        </div>
+        <div class="calc-warn" id="mal-warn" hidden></div>
+        <p class="out-note">Spannstørrelser regnet i 9 L, 2,7 L og 0,68 L — vanlige størrelser fra Jotun/Nordsjø. Første strøk suger normalt mer enn strøk nummer to, så reelt forbruk kan avvike noe fra et jevnt snitt.</p>
+      </div>
+    </div>
+
+    <div class="card" id="calc-sparkel-placeholder">
+      <p><strong>Sparkelforbruk</strong> — kommer. Vil helst ha et reelt forbrukstall fra deg eller et produktdatablad før jeg regner ut noe her, i stedet for å gjette.</p>
+    </div>
+
     </div>
 
   </section>
@@ -1470,6 +1501,20 @@
     document.getElementById(id).addEventListener('input', calcMaling);
   });
   calcBad(); calcForbruk(); calcMaling();
+
+  /* Mini-faner i Kalkulator — avretting er prioritet 1, vises som standard. */
+  (function () {
+    var tabs = document.querySelectorAll('.mini-tab-btn');
+    var groups = document.querySelectorAll('.calc-group');
+    function showGroup(name) {
+      groups.forEach(function (g) { g.hidden = g.dataset.calcgroup !== name; });
+      tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.calcgroup === name); });
+    }
+    tabs.forEach(function (btn) {
+      btn.addEventListener('click', function () { showGroup(btn.dataset.calcgroup); });
+    });
+    showGroup('avretting');
+  })();
 
   /* -------------------------- Faner og søk -------------------------- */
   var buttons = document.querySelectorAll('.filter-btn');
