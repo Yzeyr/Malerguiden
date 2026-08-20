@@ -254,16 +254,28 @@
   .field { margin-bottom: 0.75rem; }
   .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
   .field .hint { display: block; font-weight: 400; font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.1rem; }
-  .field input, .field select {
+  .field input, .field select, .field-helper input, .field-helper select {
     width: 100%; font: inherit; font-size: 1rem;
     padding: 0.55rem 0.7rem; min-height: 2.75rem;
     border: 1px solid var(--line); border-radius: 8px;
     background: var(--paper); color: var(--ink);
   }
-  .field input:focus, .field select:focus {
+  .field input:focus, .field select:focus,
+  .field-helper input:focus, .field-helper select:focus {
     outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  /* Liten "regn fra avstand"-snarvei inni et felt — sekundært, ikke et eget
+     kalkulator-kort, siden selve regnestykket (avstand × 10/20) er trivielt
+     og bare trenger å stå der tallet faktisk brukes. */
+  .field-helper {
+    margin-top: 0.5rem; padding: 0.55rem 0.65rem;
+    background: var(--card); border: 1px dashed var(--line); border-radius: 8px;
+  }
+  .field-helper-label { display: block; font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 0.4rem; }
+  .field-helper-row { display: flex; gap: 0.5rem; align-items: stretch; }
+  .field-helper-row input { flex: 1 1 auto; min-width: 0; }
+  .field-helper-row select { flex: 0 0 auto; width: auto; }
   .calc-out { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.85rem; }
   .out-row {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -589,6 +601,16 @@
           <span class="hint">Høydeforskjellen mellom sluk og dørterskel/høyeste punkt, i mm. Dette er selve fallet.</span>
         </label>
         <input type="text" id="bad-dor" inputmode="decimal" value="20" autocomplete="off">
+        <div class="field-helper">
+          <span class="field-helper-label">Vet du bare avstanden? Fyller inn mm-feltet over automatisk.</span>
+          <div class="field-helper-row">
+            <input type="text" id="bad-dor-avstand" inputmode="decimal" placeholder="Avstand i m" autocomplete="off" aria-label="Avstand fra sluk i meter">
+            <select id="bad-dor-ratio" aria-label="Fallkrav">
+              <option value="10">1:100 (hele gulvet)</option>
+              <option value="20">1:50 (dusjsone)</option>
+            </select>
+          </div>
+        </div>
       </div>
       <div class="field">
         <label for="bad-form">Fallform
@@ -638,28 +660,6 @@
         </div>
         <div class="calc-warn" id="bad-warn" hidden></div>
         <p class="out-note">Modellen antar at fallet er en jevn flate fra høyeste punkt ned til sluket. Nedsenket dusjsone, varmekabler, rørgjennomføringer og ujevnt undergulv endrer forbruket — legg på ekstra ved tvil.</p>
-      </div>
-    </div>
-
-    <div class="calc" id="calc-fall">
-      <h3>Fall til sluk</h3>
-      <p class="calc-sub">Hvor mye høydeforskjell trenger du over en gitt avstand?</p>
-      <div class="field">
-        <label for="fall-dist">Avstand fra sluk
-          <span class="hint">I meter. Bruk komma eller punktum.</span>
-        </label>
-        <input type="text" id="fall-dist" inputmode="decimal" value="1,5" autocomplete="off">
-      </div>
-      <div class="calc-out">
-        <div class="out-row primary">
-          <span class="out-label">1:50 — dusjsone</span>
-          <span class="out-value" id="fall-50">30 mm</span>
-        </div>
-        <div class="out-row primary">
-          <span class="out-label">1:100 — resten av gulvet</span>
-          <span class="out-value" id="fall-100">15 mm</span>
-        </div>
-        <p class="out-note">1:50 = 20 mm per meter. 1:100 = 10 mm per meter. Kravet gjelder <strong>ferdig gulv</strong> — altså inkludert beleggets tykkelse.</p>
       </div>
     </div>
 
@@ -1317,11 +1317,14 @@
     if (msg) { n.textContent = msg; n.hidden = false; } else { n.hidden = true; }
   }
 
-  function calcFall() {
-    var d = num('fall-dist');
-    if (!isFinite(d) || d <= 0) { setText('fall-50', '—'); setText('fall-100', '—'); return; }
-    setText('fall-50', fmt(d * 20, 0) + ' mm');
-    setText('fall-100', fmt(d * 10, 0) + ' mm');
+  // "Vet du bare avstanden?"-hjelperen i Masse til bad — regner mm-feltet
+  // ut fra avstand × fallkrav i stedet for å kreve mm regnet ut for hånd.
+  function updateDorFromAvstand() {
+    var avstand = num('bad-dor-avstand');
+    var ratio = parseFloat(document.getElementById('bad-dor-ratio').value);
+    if (!isFinite(avstand) || avstand <= 0 || !isFinite(ratio)) return;
+    document.getElementById('bad-dor').value = fmt(avstand * ratio, 0);
+    calcBad();
   }
 
   function calcBad() {
@@ -1453,21 +1456,20 @@
     setWarn('fb-warn', warns.join(' '));
   }
 
-  ['fall-dist'].forEach(function (id) {
-    document.getElementById(id).addEventListener('input', calcFall);
-  });
   ['bad-areal', 'bad-sluk', 'bad-dor', 'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form'].forEach(function (id) {
     var n = document.getElementById(id);
     n.addEventListener('input', calcBad);
     n.addEventListener('change', calcBad);
   });
+  document.getElementById('bad-dor-avstand').addEventListener('input', updateDorFromAvstand);
+  document.getElementById('bad-dor-ratio').addEventListener('change', updateDorFromAvstand);
   ['fb-areal', 'fb-tykk', 'fb-forbruk', 'fb-svinn', 'fb-sekk'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', calcForbruk);
   });
   ['mal-areal', 'mal-strok', 'mal-forbruk', 'mal-svinn'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', calcMaling);
   });
-  calcFall(); calcBad(); calcForbruk(); calcMaling();
+  calcBad(); calcForbruk(); calcMaling();
 
   /* -------------------------- Faner og søk -------------------------- */
   var buttons = document.querySelectorAll('.filter-btn');
