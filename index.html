@@ -267,13 +267,15 @@
 <header class="site">
   <div class="inner">
     <h1>Baderomsguide</h1>
-    <p class="lede">Praktisk oppslagsverk for fall til sluk, maling og legging av vinylbelegg — bygget rundt TEK17 §13-15, SINTEF Byggforsk og gjeldende bransjenorm. Personlig fagreferanse, ikke en erstatning for å lese gjeldende regelverk selv.</p>
+    <p class="lede">Praktisk oppslagsverk for klargjøring av gulv, fall til sluk, vinylbelegg, sparkling og maling — bygget rundt TEK17 §13-15, SINTEF Byggforsk og gjeldende bransjenorm. Personlig fagreferanse, ikke en erstatning for å lese gjeldende regelverk selv.</p>
   </div>
 </header>
 
 <nav class="toc">
   <div class="inner">
+    <button type="button" class="filter-btn" data-panel="gulvklargjoring">Klargjøring gulv</button>
     <button type="button" class="filter-btn" data-panel="bad">Bad</button>
+    <button type="button" class="filter-btn" data-panel="sparkling">Sparkling</button>
     <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-tak">Maling tak</button>
     <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-vegg">Maling vegg</button>
     <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-fasade">Maling fasade</button>
@@ -288,7 +290,52 @@
     TEK17 og Byggforsk-detaljer oppdateres med jevne mellomrom. Tallene under er de preaksepterte ytelsene som gjaldt på research-tidspunktet (august 2026) — bruk denne siden som et raskt oppslag, men slå opp §13-15 og relevante Byggforsk-blad direkte før noe som faktisk skal dokumenteres eller godkjennes.
   </div>
 
-  <div class="panel" data-panel="bad">
+  <div class="panel" data-panel="gulvklargjoring" hidden>
+
+  <section id="gulvklargjoring">
+    <h2>Klargjøring gulv</h2>
+    <p class="section-intro">Undergulvet avgjør sluttresultatet mer enn selve leggingen — belegg jevner ikke ut ujevnheter, det avslører dem. Rekkefølgen under gjelder både våtrom og tørre rom.</p>
+
+    <ol class="steps">
+      <li>
+        <strong>Rydding og rengjøring</strong>
+        Fjern gammelt gulvbelegg, limrester, spiker og løse partikler. Underlaget skal være rent, jevnt, tørt og fritt for sprekker før noe annet gjøres.
+      </li>
+      <li>
+        <strong>Sliping</strong>
+        Slip betonggulvet for å fjerne ru overflate, gamle limrester eller malingsflak, slik at avrettingsmassen får godt feste. Støvsug grundig etterpå — støv på flaten svekker vedheften.
+      </li>
+      <li>
+        <strong>Reparer skader</strong>
+        Større hull eller sprekker fylles og rettes opp med egnet fyllmasse eller betong før hele flaten avrettes — flytsparkel er ikke ment til å bygge opp store forskjeller alene.
+      </li>
+      <li>
+        <strong>Priming</strong>
+        Påfør grunning over hele flaten. Grunningen hindrer at avrettingsmassen tørker for fort og gir bedre vedheft mot underlaget.
+      </li>
+      <li>
+        <strong>Flytsparkling / avretting</strong>
+        Påfør avrettingsmasse (flytsparkel) over hele flaten. Normalt holder det med rundt <code>2 mm</code> for et jevnt, fast og likt sugende underlag — tykkere lag ved større ujevnheter, følg produktets angitte maks lagtykkelse.
+      </li>
+      <li>
+        <strong>Herding og sluttsliping</strong>
+        La massen herde fullt iht. produktets tørketid før du går videre. Slip lett ved behov for å fjerne små ujevnheter rett før belegg legges.
+      </li>
+      <li>
+        <strong>Fuktmåling</strong>
+        Anbefales på betonggulv før legging, særlig i nybygg eller etter vannskade — for høy restfukt i betongen kan skade lim og belegg over tid.
+      </li>
+    </ol>
+
+    <div class="callout">
+      <strong>I våtrom kommer fallet i tillegg</strong>
+      Avretting og fall til sluk er to forskjellige ting — flytsparkel gir et jevnt underlag, det gir ikke automatisk riktig fall. Sjekk fallkravene på <strong>Bad</strong>-fanen før du avretter, og kontroller fallet på nytt etter herding, før belegget legges.
+    </div>
+  </section>
+
+  </div>
+
+  <div class="panel" data-panel="bad" hidden>
 
   <section id="fall">
     <h2>Fall til sluk</h2>
@@ -346,7 +393,7 @@
 
   <section id="vinyl">
     <h2>Vinylbelegg / gulvbelegg</h2>
-    <p class="section-intro">Legging av vinylbelegg i våtrom er strammere regulert enn i tørre rom, fordi beleggets skjøter er en del av det vanntette systemet. Rekkefølgen under følger normal arbeidsflyt fra forberedelse til ferdig sveiset gulv.</p>
+    <p class="section-intro">Legging av vinylbelegg i våtrom er strammere regulert enn i tørre rom, fordi beleggets skjøter er en del av det vanntette systemet. Rekkefølgen under følger normal arbeidsflyt fra ferdig klargjort undergulv (se <strong>Klargjøring gulv</strong>) til ferdig sveiset gulv.</p>
 
     <ol class="steps">
       <li>
@@ -390,15 +437,46 @@
       </div>
     </div>
 
-    <h3>Utenfor våtrom — generelt gulvbelegg</h3>
-    <div class="card">
-      <p>I tørre rom er kravene enklere, men grunnarbeidet avgjør fortsatt sluttresultatet:</p>
-      <ul class="plain">
-        <li>Undergulvet skal være rent, jevnt, tørt og fritt for sprekker før belegg legges.</li>
-        <li>Fuktmåling av betonggulv anbefales før legging, særlig i nybygg eller etter vannskade — for høy restfukt i betongen kan skade lim og belegg over tid.</li>
-        <li>Bruk avrettingsmasse ved behov for å få et jevnt underlag — belegg jevner ikke ut ujevnheter i undergulvet, det avslører dem.</li>
-        <li>Samme akklimatiseringsregel gjelder som i våtrom: minst 24 timer i romtemperatur før legging.</li>
-      </ul>
+    <div class="callout">
+      <strong>Utenfor våtrom gjelder samme grunnarbeid</strong>
+      Rekkefølgen over dekker selve leggingen i våtrom. Sliping, avretting og annen klargjøring av undergulvet — som gjelder uansett rom — ligger på egen fane: <strong>Klargjøring gulv</strong>.
+    </div>
+  </section>
+
+  </div>
+
+  <div class="panel" data-panel="sparkling" hidden>
+
+  <section id="sparkling">
+    <h2>Sparkling</h2>
+    <p class="section-intro">Veggsparkling før maling — fylling av skjøter, hull og ujevnheter slik at veggen blir jevn nok til å males uten at feil skinner gjennom.</p>
+
+    <ol class="steps">
+      <li>
+        <strong>Taping</strong>
+        Alle skjøter, inkludert hjørner, tapes før sparkling. Aldri færre enn tre strøk totalt, taping medregnet.
+      </li>
+      <li>
+        <strong>Fyllstrøk</strong>
+        Påfør sparkelmasse over tapede skjøter og hjørner, skrap av overflødig masse. Gjenta med et nytt strøk dagen etter — to fyllstrøk er normalen før fintstrøket.
+      </li>
+      <li>
+        <strong>Fintstrøk</strong>
+        Siste strøk tas med en bred sparkelsparkel for penest resultat. Fukt sparkelen lett med vann før du drar det siste strøket — det gir bedre flyt i massen og mindre sliping etterpå.
+      </li>
+      <li>
+        <strong>Sliping</strong>
+        Når sparkelen er helt tørr, slipes skjøtene jevne med resten av veggen. Sandpapir eller slipenett med korning <code>120–180</code> passer til gips.
+      </li>
+      <li>
+        <strong>Grunning</strong>
+        Grunn de sparklede flatene før maling påføres. Sparkelmasse suger annerledes enn resten av veggen — uten jevn grunning gir det synlige skjolder i den ferdig malte flaten, spesielt merkbart i våtrom.
+      </li>
+    </ol>
+
+    <div class="callout">
+      <strong>Ikke mal over fuktig sparkel</strong>
+      La sparkelmassen herde fullt iht. produktets angitte tørketid før du sliper og maler. Maling for tidlig over fuktig sparkel gir sprekkdannelse som først dukker opp i etterkant, ikke med det samme.
     </div>
   </section>
 
@@ -454,6 +532,9 @@
     <li><a href="https://www.byggforsk.no/dokument/3089/baderom_med_badekar_planlegging_og_utfoerelse" target="_blank" rel="noopener">SINTEF Byggforsk — BVN 43.105, Baderom med badekar</a></li>
     <li><a href="https://www.maxmaling.no/hva-betyr-diffusjonsapen-og-hvorfor-er-det-viktig-i-maling-og-murprodukter/" target="_blank" rel="noopener">Maxmaling.no — Hva betyr diffusjonsåpen?</a></li>
     <li><a href="https://fargemagasinet.no/ingen-hensikt-med-diffusjonsapen-maling-innendors" target="_blank" rel="noopener">Fargemagasinet — Ingen hensikt med diffusjonsåpen maling innendørs</a></li>
+    <li><a href="https://www.ifi.no/slik-avretter-du-gulvet" target="_blank" rel="noopener">IFI.no — Slik kan du enkelt avrette gulvet</a></li>
+    <li><a href="https://www.altfikset.no/aktuelt/betonggulv---avretting-og-forberedelse-for-perfekt-gulvlegging-alt-fikset-as" target="_blank" rel="noopener">Alt Fikset — Betonggulv: avretting og forberedelse for perfekt gulvlegging</a></li>
+    <li><a href="https://www.byggmax.no/sparkle-gipsskjoter" target="_blank" rel="noopener">Byggmax — Sparkle gipsskjøter</a></li>
   </ul>
   <p class="updated">Sist researchet: august 2026. Denne siden er en praktisk fagreferanse, ikke juridisk rådgivning — verifiser mot gjeldende TEK17-tekst og Byggforsk-detaljer før bruk i faktisk prosjektering eller kundeleveranse.</p>
 </footer>
