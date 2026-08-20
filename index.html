@@ -31,7 +31,7 @@
     --mark-bg: #ffe08a;
     --code-bg: #eceff0;
     --max: 920px;
-    --navh: 7.2rem;
+    --bbh: calc(3.75rem + env(safe-area-inset-bottom));
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
@@ -57,58 +57,81 @@
   header.site p.tagline { margin: 0 0 0.45rem; color: #9fdfe9; font-weight: 600; font-size: 0.88rem; }
   header.site p.lede { margin: 0; color: #cdc9bd; max-width: 60ch; font-size: 0.88rem; }
 
-  /* ---------- Sticky nav ---------- */
-  nav.toc {
-    position: sticky; top: 0; z-index: 20;
-    background: rgba(247,245,240,0.97);
-    backdrop-filter: blur(6px);
-    border-bottom: 1px solid var(--line);
-  }
-  nav.toc .row { max-width: var(--max); margin: 0 auto; padding: 0.55rem 1.25rem; }
-  nav.toc .row.cats {
-    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding-top: 0;
-  }
-  .search-wrap { position: relative; display: flex; align-items: center; }
+  /* ---------- Søk (nå en egen fane/panel, ikke global overlegg) ---------- */
+  .search-wrap { position: relative; display: flex; align-items: center; margin-top: 1rem; }
   .search-wrap input {
     width: 100%; font: inherit; font-size: 1rem;
-    padding: 0.6rem 2.5rem 0.6rem 2.3rem;
+    padding: 0.7rem 2.6rem 0.7rem 2.4rem;
     border: 1px solid var(--line); border-radius: 999px;
     background: var(--card); color: var(--ink);
     -webkit-appearance: none; appearance: none;
   }
   .search-wrap input::-webkit-search-cancel-button { display: none; }
   .search-wrap input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .search-icon { position: absolute; left: 0.85rem; font-size: 0.9rem; color: var(--ink-soft); pointer-events: none; }
+  .search-icon { position: absolute; left: 0.9rem; font-size: 0.95rem; color: var(--ink-soft); pointer-events: none; }
   #search-clear[hidden] { display: none; }
   #search-clear {
-    position: absolute; right: 0.45rem;
+    position: absolute; right: 0.5rem;
     border: none; background: var(--line); color: var(--ink);
-    width: 1.75rem; height: 1.75rem; border-radius: 50%;
-    font-size: 0.85rem; line-height: 1; cursor: pointer;
+    width: 1.9rem; height: 1.9rem; border-radius: 50%;
+    font-size: 0.9rem; line-height: 1; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
   }
-  .filter-btn {
+  .search-idle[hidden] { display: none; }
+  .search-idle { margin-top: 1.3rem; color: var(--ink-soft); font-size: 0.9rem; }
+  .search-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.7rem; }
+  .chip-btn {
     appearance: none; border: 1px solid var(--line); background: var(--card);
-    color: var(--ink-soft); font: inherit; font-weight: 600; font-size: 0.85rem;
-    padding: 0.6rem 0.9rem; border-radius: 999px; cursor: pointer; white-space: nowrap;
-    min-height: 2.75rem; /* 44px — minste anbefalte touch-mål */
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    color: var(--accent); font: inherit; font-weight: 600; font-size: 0.85rem;
+    padding: 0.5rem 0.9rem; border-radius: 999px; cursor: pointer; min-height: 2.75rem;
   }
-  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .toc-link {
-    color: var(--ink-soft); text-decoration: none; font-weight: 600;
-    font-size: 0.85rem; white-space: nowrap; margin-left: auto; padding: 0.5rem 0.2rem;
+  .chip-btn:hover { background: var(--accent-soft); }
+
+  /* ---------- Fagstoff-menyen ---------- */
+  .menu-list { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 1.1rem; }
+  .menu-item {
+    display: flex; align-items: center; gap: 0.85rem;
+    appearance: none; border: 1px solid var(--line); background: var(--card);
+    border-radius: 10px; padding: 0.85rem 1rem; cursor: pointer; text-align: left;
+    font: inherit; color: var(--ink); min-height: 3.75rem;
   }
-  .toc-link:hover { color: var(--accent); }
+  .menu-item:hover { border-color: var(--accent); }
+  .menu-icon { font-size: 1.4rem; flex: none; line-height: 1; }
+  .menu-text { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+  .menu-text strong { font-size: 0.95rem; }
+  .menu-text small { font-size: 0.79rem; color: var(--ink-soft); }
+  .menu-chevron { font-size: 1.3rem; color: var(--ink-soft); flex: none; }
+
+  /* ---------- Bunnbar (primærnavigasjon) ---------- */
+  .bottombar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: flex;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+  }
+  .bottombar-btn {
+    flex: 1 1 0; min-width: 0;
+    appearance: none; border: none; background: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.15rem; padding: 0.45rem 0.2rem; min-height: 3.75rem;
+    color: var(--ink-soft); font: inherit;
+  }
+  .bb-icon { font-size: 1.35rem; line-height: 1; }
+  .bb-label {
+    font-size: 0.68rem; font-weight: 600; line-height: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .bottombar-btn.active { color: var(--accent); }
 
   main {
     max-width: var(--max); margin: 0 auto;
-    padding: 0 1.25rem 4rem;
+    padding: 1.4rem 1.25rem calc(var(--bbh) + 1.5rem);
     padding-left: max(1.25rem, env(safe-area-inset-left));
     padding-right: max(1.25rem, env(safe-area-inset-right));
   }
-  main [id] { scroll-margin-top: var(--navh); }
+  main [id] { scroll-margin-top: 1rem; scroll-margin-bottom: var(--bbh); }
   .panel[hidden], #search-results[hidden], #intro-note[hidden] { display: none; }
   section { padding-top: 2.2rem; }
   section > h2 {
@@ -337,8 +360,8 @@
 
   /* ---------- Footer ---------- */
   footer.site {
-    max-width: var(--max); margin: 2rem auto 3rem;
-    padding: 1.4rem 1.25rem 0; border-top: 1px solid var(--line);
+    max-width: var(--max); margin: 2rem auto 0;
+    padding: 1.4rem 1.25rem calc(var(--bbh) + 1.5rem); border-top: 1px solid var(--line);
     color: var(--ink-soft); font-size: 0.9rem;
   }
   footer.site h2 { font-size: 1.1rem; color: var(--ink); border: none; margin-bottom: 0.6rem; padding: 0; }
@@ -353,9 +376,10 @@
   #offline-status { font-size: 0.82rem; margin-top: 0.8rem; }
   #offline-status.ready { color: var(--ok); font-weight: 600; }
 
+  /* Ligger over bunnbaren, ikke oppå den. */
   #update-banner {
     position: fixed; left: 0; right: 0; z-index: 40;
-    bottom: max(0px, env(safe-area-inset-bottom));
+    bottom: var(--bbh);
     display: flex; align-items: center; justify-content: center;
     gap: 0.8rem; flex-wrap: wrap;
     background: var(--accent); color: #fff;
@@ -371,25 +395,18 @@
 
   /* ---------- Mobile ---------- */
   @media (max-width: 620px) {
-    :root { --navh: 6.8rem; }
-    nav.toc .row { padding: 0.5rem 1rem; }
-    nav.toc .row.cats {
-      flex-wrap: nowrap; overflow-x: auto;
-      scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    }
-    nav.toc .row.cats::-webkit-scrollbar { display: none; }
-    .toc-link { margin-left: 0.3rem; padding-right: 0.3rem; }
-    main { padding: 0 1rem 3rem; }
+    main { padding: 1.2rem 1rem calc(var(--bbh) + 1.5rem); }
     .fact-grid { grid-template-columns: 1fr; }
     .fact-value { font-size: 1.18rem; }
-    footer.site { padding: 1.4rem 1rem 0; }
+    footer.site { padding: 1.2rem 1rem calc(var(--bbh) + 1.5rem); }
+    .bb-label { font-size: 0.64rem; }
   }
   @media (max-width: 380px) {
     .field-row { grid-template-columns: 1fr; }
   }
 
   @media print {
-    nav.toc, #search-results, .fact-link, .calc { display: none !important; }
+    .bottombar, #search-results, .fact-link, .calc { display: none !important; }
     .panel[hidden] { display: block !important; }
     #intro-note[hidden] { display: block !important; }
     header.site { background: none; color: var(--ink); padding: 0 0 1rem; }
@@ -423,7 +440,6 @@
       --mark-bg: #6b5410;
       --code-bg: #232a30;
     }
-    nav.toc { background: rgba(20,24,28,0.97); }
   }
 </style>
 </head>
@@ -437,27 +453,6 @@
   </div>
 </header>
 
-<nav class="toc">
-  <div class="row">
-    <div class="search-wrap">
-      <span class="search-icon" aria-hidden="true">🔍</span>
-      <input type="search" id="search" placeholder="Søk — f.eks. «oppkant», «K3», «sveising»" autocomplete="off" spellcheck="false" aria-label="Søk i guiden">
-      <button type="button" id="search-clear" hidden aria-label="Tøm søk">✕</button>
-    </div>
-  </div>
-  <div class="row cats">
-    <button type="button" class="filter-btn" data-panel="kalkulator">🧮 Kalkulator</button>
-    <button type="button" class="filter-btn" data-panel="maltall">📐 Måltall</button>
-    <button type="button" class="filter-btn" data-panel="gulvfall">〰️ Gulv &amp; fall</button>
-    <button type="button" class="filter-btn" data-panel="vatrom">🚿 Våtrom</button>
-    <button type="button" class="filter-btn" data-panel="sparkling">🧱 Sparkling</button>
-    <button type="button" class="filter-btn" data-panel="maling">🎨 Maling</button>
-    <button type="button" class="filter-btn" data-panel="fasade">🏠 Fasade</button>
-    <button type="button" class="filter-btn" data-panel="feil">⚠️ Vanlige feil</button>
-    <a class="toc-link" href="#kilder">Kilder</a>
-  </div>
-</nav>
-
 <main>
 
   <div class="callout legal compact" id="intro-note">
@@ -467,22 +462,11 @@
     </details>
   </div>
 
-  <div id="search-results" hidden>
-    <p class="search-count"></p>
-    <div class="results-list"></div>
-  </div>
-
   <!-- ============ MÅLTALL ============ -->
   <div class="panel" data-panel="maltall" hidden>
   <section id="maltall">
     <h2>📐 Måltall</h2>
     <p class="section-intro">Alle tallene på ett sted, med hjemmel: forskrift, veiledning, norm eller produktdatablad. Trykk ☆ for å favorittmerke, 🔗 for å kopiere en lenke rett til tallet.</p>
-
-    <div id="favorites-section">
-      <h3 class="group-heading">⭐ Favoritter</h3>
-      <p id="favorites-empty" class="fav-hint">Ingen favoritter ennå — trykk ☆ på et tall for å legge det her.</p>
-      <div class="fact-grid" id="favorites-grid" hidden></div>
-    </div>
 
     <h3 class="group-heading">Fall til sluk <span class="tag">Preakseptert ytelse</span></h3>
     <div class="fact-grid" data-facts="fall" data-canonical="1"></div>
@@ -498,6 +482,16 @@
 
     <h3 class="group-heading">Maling <span class="tag">Produktvalg</span></h3>
     <div class="fact-grid" data-facts="maling,fasade" data-canonical="1"></div>
+  </section>
+  </div>
+
+  <!-- ============ FAVORITTER ============ -->
+  <div class="panel" data-panel="favoritter" hidden>
+  <section id="favoritter">
+    <h2>⭐ Favoritter</h2>
+    <p class="section-intro">Tallene du har merket, samlet ett sted — nåbar fra hvor som helst i appen, ikke bare fra Måltall.</p>
+    <p id="favorites-empty" class="fav-hint">Ingen favoritter ennå. Trykk ☆ på et tall i Måltall eller en fagfane for å legge det her.</p>
+    <div class="fact-grid" id="favorites-grid" hidden></div>
   </section>
   </div>
 
@@ -1022,7 +1016,94 @@
   </section>
   </div>
 
+  <!-- ============ FAGSTOFF (meny) ============ -->
+  <div class="panel" data-panel="fagstoff" hidden>
+  <section id="fagstoff">
+    <h2>📚 Fagstoff</h2>
+    <p class="section-intro">Fagoppslag steg for steg, samme rekkefølge som jobben faktisk gjøres i. Velg et tema.</p>
+    <div class="menu-list">
+      <button type="button" class="menu-item" data-goto="gulvfall">
+        <span class="menu-icon">〰️</span>
+        <span class="menu-text"><strong>Gulv &amp; fall</strong><small>Klargjøring av undergulv og fallbygging</small></span>
+        <span class="menu-chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="menu-item" data-goto="vatrom">
+        <span class="menu-icon">🚿</span>
+        <span class="menu-text"><strong>Våtrom</strong><small>Legging og sveising av vinylbelegg</small></span>
+        <span class="menu-chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="menu-item" data-goto="sparkling">
+        <span class="menu-icon">🧱</span>
+        <span class="menu-text"><strong>Sparkling</strong><small>K2/K3-finish, sliping, sidelys</small></span>
+        <span class="menu-chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="menu-item" data-goto="maling">
+        <span class="menu-icon">🎨</span>
+        <span class="menu-text"><strong>Maling</strong><small>Tak, vegg og selve malejobben</small></span>
+        <span class="menu-chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="menu-item" data-goto="fasade">
+        <span class="menu-icon">🏠</span>
+        <span class="menu-text"><strong>Fasade</strong><small>Utvendig maling</small></span>
+        <span class="menu-chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="menu-item" data-goto="feil">
+        <span class="menu-icon">⚠️</span>
+        <span class="menu-text"><strong>Vanlige feil</strong><small>Kjente fallgruver på tvers av alt</small></span>
+        <span class="menu-chevron" aria-hidden="true">›</span>
+      </button>
+    </div>
+  </section>
+  </div>
+
+  <!-- ============ SØK ============ -->
+  <div class="panel" data-panel="sok" hidden>
+  <section id="sok">
+    <h2>🔍 Søk</h2>
+    <p class="section-intro">Søk på tvers av hele guiden — måltall, fagoppslag og kalkulatorer.</p>
+
+    <div class="search-wrap">
+      <span class="search-icon" aria-hidden="true">🔍</span>
+      <input type="search" id="search" placeholder="Søk — f.eks. «oppkant», «K3», «sveising»" autocomplete="off" spellcheck="false" aria-label="Søk i guiden">
+      <button type="button" id="search-clear" hidden aria-label="Tøm søk">✕</button>
+    </div>
+
+    <div id="search-idle" class="search-idle">
+      <p>Skriv minst 2 tegn. Eksempler:</p>
+      <div class="search-chips">
+        <button type="button" class="chip-btn" data-q="fall">fall</button>
+        <button type="button" class="chip-btn" data-q="K3">K3</button>
+        <button type="button" class="chip-btn" data-q="sveising">sveising</button>
+        <button type="button" class="chip-btn" data-q="oppkant">oppkant</button>
+      </div>
+    </div>
+
+    <div id="search-results" hidden>
+      <p class="search-count"></p>
+      <div class="results-list"></div>
+    </div>
+  </section>
+  </div>
+
 </main>
+
+<nav class="bottombar">
+  <button type="button" class="bottombar-btn" data-panel="kalkulator">
+    <span class="bb-icon">🧮</span><span class="bb-label">Kalkulator</span>
+  </button>
+  <button type="button" class="bottombar-btn" data-panel="maltall">
+    <span class="bb-icon">📐</span><span class="bb-label">Måltall</span>
+  </button>
+  <button type="button" class="bottombar-btn" data-panel="favoritter">
+    <span class="bb-icon">⭐</span><span class="bb-label">Favoritter</span>
+  </button>
+  <button type="button" class="bottombar-btn" data-panel="fagstoff">
+    <span class="bb-icon">📚</span><span class="bb-label">Fagstoff</span>
+  </button>
+  <button type="button" class="bottombar-btn" data-panel="sok">
+    <span class="bb-icon">🔍</span><span class="bb-label">Søk</span>
+  </button>
+</nav>
 
 <footer class="site">
   <h2 id="kilder">Kilder</h2>
@@ -1593,16 +1674,21 @@
   })();
 
   /* -------------------------- Faner og søk -------------------------- */
-  var buttons = document.querySelectorAll('.filter-btn');
+  // Bunnbaren har bare 5 knapper; disse seks fagoppslagene nås via
+  // "📚 Fagstoff"-knappen, ikke direkte — men skal likevel vise Fagstoff
+  // som aktiv i bunnbaren når man står i ett av dem (deep-link eller
+  // navigert dit fra Fagstoff-menyen).
+  var FAGSTOFF_MEMBERS = ['gulvfall', 'vatrom', 'sparkling', 'maling', 'fasade', 'feil'];
+
+  var buttons = document.querySelectorAll('.bottombar-btn');
   var panels = document.querySelectorAll('.panel');
   var panelNames = Array.prototype.map.call(panels, function (p) { return p.dataset.panel; });
   var searchInput = document.getElementById('search');
   var clearBtn = document.getElementById('search-clear');
+  var searchIdle = document.getElementById('search-idle');
   var resultsBox = document.getElementById('search-results');
   var resultsList = resultsBox.querySelector('.results-list');
   var countEl = resultsBox.querySelector('.search-count');
-  var introNote = document.getElementById('intro-note');
-  var navEl = document.querySelector('nav.toc');
 
   // 1 tegn -> 1 tegn, så indeksene i den normaliserte strengen fortsatt
   // peker på riktig tegn i originalen når treffet skal markeres.
@@ -1614,8 +1700,14 @@
     return out;
   }
 
+  // Hentet fra hver fanes egen <h2>, ikke fra bunnbar-knappene — de seks
+  // fagoppslagene har ingen egen bunnbar-knapp lenger, men trenger fortsatt
+  // en lesbar chip-tekst i søkeresultater.
   var panelLabel = {};
-  buttons.forEach(function (b) { panelLabel[b.dataset.panel] = b.textContent.trim(); });
+  panels.forEach(function (p) {
+    var h2 = p.querySelector('h2');
+    panelLabel[p.dataset.panel] = h2 ? h2.textContent.trim() : p.dataset.panel;
+  });
 
   // textContent limer sammen nabotekst ("...strøk" + "3" -> "strøk3") og finner
   // opp treff over elementgrenser. Skill tekstnodene med mellomrom.
@@ -1629,7 +1721,7 @@
   var index = [];
   panels.forEach(function (panel) {
     var name = panel.dataset.panel;
-    var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc');
+    var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc, .menu-item');
     Array.prototype.forEach.call(blocks, function (node) {
       // Favoritter er en kopi av et kort som allerede indekseres fra sin
       // vanlige gruppe — ikke la det samme tallet komme opp to ganger i søk.
@@ -1642,14 +1734,21 @@
     panels.forEach(function (p) { p.hidden = p.dataset.panel !== name; });
   }
   function setActiveButton(name) {
-    buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.panel === name); });
+    var bbTarget = FAGSTOFF_MEMBERS.indexOf(name) !== -1 ? 'fagstoff' : name;
+    buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.panel === bbTarget); });
   }
   function activate(name, scroll) {
-    resultsBox.hidden = true;
-    introNote.hidden = false;
     showPanel(name);
     setActiveButton(name);
-    currentPanel = name;
+    if (name === 'sok') {
+      // Alltid en frisk søkeskjerm når fanen åpnes — ingen overraskende
+      // gamle treff, og tastaturet kommer opp med det samme.
+      searchInput.value = '';
+      clearBtn.hidden = true;
+      lastQuery = '';
+      showSearchIdle();
+      setTimeout(function () { searchInput.focus(); }, 50);
+    }
     if (scroll) {
       var target = document.querySelector('main');
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1679,16 +1778,14 @@
     });
   }
 
+  function showSearchIdle() { resultsBox.hidden = true; searchIdle.hidden = false; }
+  function showSearchResultsBox() { searchIdle.hidden = true; resultsBox.hidden = false; }
+
   function renderResults(query) {
     var q = norm(query);
     var hits = index.filter(function (item) { return item.text.indexOf(q) !== -1; });
 
-    panels.forEach(function (p) { p.hidden = true; });
-    setActiveButton(null);
-    introNote.hidden = true;
-    resultsBox.hidden = false;
     resultsList.textContent = '';
-
     var safe = query.replace(/[&<>]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
     });
@@ -1702,13 +1799,7 @@
       var wrap = el('div', 'result');
       var chip = el('button', 'result-chip', panelLabel[item.panel] || item.panel);
       chip.type = 'button';
-      chip.addEventListener('click', function () {
-        searchInput.value = '';
-        clearBtn.hidden = true;
-        lastQuery = '';
-        searchActive = false;
-        activate(item.panel, true);
-      });
+      chip.addEventListener('click', function () { activate(item.panel, true); });
       wrap.appendChild(chip);
 
       var clone;
@@ -1738,8 +1829,6 @@
   }
 
   var lastQuery = '';
-  var searchActive = false;
-  var currentPanel = 'kalkulator';
 
   function onSearch() {
     var v = searchInput.value.trim();
@@ -1747,24 +1836,24 @@
     if (v === lastQuery) return;
     lastQuery = v;
     if (v.length < 2) {
-      resultsBox.hidden = true;
-      activate(currentPanel, false);
-      searchActive = false;
+      showSearchIdle();
     } else {
       renderResults(v);
-      // Scroll forbi header én gang når søket blir aktivt — ikke på hvert
-      // tastetrykk, det ville rykket siden mens man skriver.
-      if (!searchActive) {
-        searchActive = true;
-        window.scrollTo({ top: navEl.offsetTop, behavior: 'smooth' });
-      }
+      showSearchResultsBox();
     }
   }
 
   buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () { activate(btn.dataset.panel, true); });
+  });
+  document.querySelectorAll('.menu-item[data-goto]').forEach(function (btn) {
+    btn.addEventListener('click', function () { activate(btn.dataset.goto, true); });
+  });
+  document.querySelectorAll('.chip-btn[data-q]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      if (searchInput.value) { searchInput.value = ''; clearBtn.hidden = true; lastQuery = ''; searchActive = false; }
-      activate(btn.dataset.panel, true);
+      searchInput.value = btn.dataset.q;
+      onSearch();
+      searchInput.focus();
     });
   });
   searchInput.addEventListener('input', onSearch);
