@@ -2,8 +2,16 @@
 <html lang="no">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Malerguiden</title>
+<meta name="description" content="Faglig oppslagsverk for malere og gulvleggere: fall til sluk, vinylbelegg, sparkling, maling og kalkulatorer. Fungerer uten nett.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#12333b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Malerguiden">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
 <style>
   :root {
     --ink: #1c2530;
@@ -11,18 +19,19 @@
     --paper: #f7f5f0;
     --card: #ffffff;
     --line: #dedad0;
-    --accent: #1b5e6b;
-    --accent-soft: #e4eef0;
+    --accent: #14555f;
+    --accent-soft: #e2edef;
     --warn-bg: #fdf3e3;
-    --warn-line: #d9a441;
-    --bad: #b3261e;
-    --mark-bg: #ffe9a8;
-    --code-bg: #eef1ea;
+    --warn-line: #b57e14;
+    --bad: #a51f18;
+    --ok: #1d6b3f;
+    --mark-bg: #ffe08a;
+    --code-bg: #eceff0;
     --max: 920px;
     --navh: 7.2rem;
   }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -32,216 +41,118 @@
     overflow-wrap: break-word;
   }
   a { color: var(--accent); }
+
   header.site {
-    background: var(--ink);
+    background: #12333b;
     color: #f2f0ea;
-    padding: 1.8rem 1.25rem 1.5rem;
+    padding: 1.6rem 1.25rem 1.3rem;
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
   }
   header.site .inner { max-width: var(--max); margin: 0 auto; }
-  header.site h1 {
-    margin: 0 0 0.15rem;
-    font-size: clamp(1.65rem, 5vw, 2.3rem);
-    letter-spacing: -0.01em;
-  }
-  header.site p.tagline {
-    margin: 0 0 0.5rem;
-    color: #8fd6c9;
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-  header.site p.lede {
-    margin: 0;
-    color: #c9c4b8;
-    max-width: 60ch;
-    font-size: 0.9rem;
-  }
+  header.site h1 { margin: 0 0 0.15rem; font-size: clamp(1.6rem, 5vw, 2.2rem); letter-spacing: -0.01em; }
+  header.site p.tagline { margin: 0 0 0.45rem; color: #9fdfe9; font-weight: 600; font-size: 0.88rem; }
+  header.site p.lede { margin: 0; color: #cdc9bd; max-width: 60ch; font-size: 0.88rem; }
 
-  /* ---------- Sticky nav: search row + category row ---------- */
+  /* ---------- Sticky nav ---------- */
   nav.toc {
-    position: sticky;
-    top: 0;
-    z-index: 20;
+    position: sticky; top: 0; z-index: 20;
     background: rgba(247,245,240,0.97);
     backdrop-filter: blur(6px);
     border-bottom: 1px solid var(--line);
   }
-  nav.toc .row {
-    max-width: var(--max);
-    margin: 0 auto;
-    padding: 0.55rem 1.25rem;
-  }
+  nav.toc .row { max-width: var(--max); margin: 0 auto; padding: 0.55rem 1.25rem; }
   nav.toc .row.cats {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    padding-top: 0;
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding-top: 0;
   }
   .search-wrap { position: relative; display: flex; align-items: center; }
   .search-wrap input {
-    width: 100%;
-    font: inherit;
-    font-size: 0.95rem;
-    padding: 0.55rem 2.3rem 0.55rem 2.2rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--card);
-    color: var(--ink);
-    -webkit-appearance: none;
-    appearance: none;
+    width: 100%; font: inherit; font-size: 1rem;
+    padding: 0.6rem 2.5rem 0.6rem 2.3rem;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--card); color: var(--ink);
+    -webkit-appearance: none; appearance: none;
   }
   .search-wrap input::-webkit-search-cancel-button { display: none; }
-  .search-wrap input:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  .search-icon {
-    position: absolute;
-    left: 0.8rem;
-    font-size: 0.9rem;
-    color: var(--ink-soft);
-    pointer-events: none;
-  }
-  /* An explicit display value beats the [hidden] attribute, so restate it. */
+  .search-wrap input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .search-icon { position: absolute; left: 0.85rem; font-size: 0.9rem; color: var(--ink-soft); pointer-events: none; }
   #search-clear[hidden] { display: none; }
   #search-clear {
-    position: absolute;
-    right: 0.5rem;
-    border: none;
-    background: var(--line);
-    color: var(--ink);
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 50%;
-    font-size: 0.8rem;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute; right: 0.45rem;
+    border: none; background: var(--line); color: var(--ink);
+    width: 1.75rem; height: 1.75rem; border-radius: 50%;
+    font-size: 0.85rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
   .filter-btn {
-    appearance: none;
-    border: 1px solid var(--line);
-    background: var(--card);
-    color: var(--ink-soft);
-    font: inherit;
-    font-weight: 600;
-    font-size: 0.85rem;
-    padding: 0.42rem 0.8rem;
-    border-radius: 999px;
-    cursor: pointer;
-    white-space: nowrap;
+    appearance: none; border: 1px solid var(--line); background: var(--card);
+    color: var(--ink-soft); font: inherit; font-weight: 600; font-size: 0.85rem;
+    padding: 0.6rem 0.9rem; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    min-height: 2.75rem; /* 44px — minste anbefalte touch-mål */
     transition: background 0.15s, color 0.15s, border-color 0.15s;
   }
   .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .filter-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .toc-link {
-    color: var(--ink-soft);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.85rem;
-    white-space: nowrap;
-    margin-left: auto;
+    color: var(--ink-soft); text-decoration: none; font-weight: 600;
+    font-size: 0.85rem; white-space: nowrap; margin-left: auto; padding: 0.5rem 0.2rem;
   }
   .toc-link:hover { color: var(--accent); }
 
-  main { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem 4rem; }
+  main {
+    max-width: var(--max); margin: 0 auto;
+    padding: 0 1.25rem 4rem;
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+  }
   main [id] { scroll-margin-top: var(--navh); }
-  .panel[hidden], #search-results[hidden] { display: none; }
+  .panel[hidden], #search-results[hidden], #intro-note[hidden] { display: none; }
   section { padding-top: 2.2rem; }
   section > h2 {
     font-size: clamp(1.3rem, 4.5vw, 1.45rem);
-    margin: 0 0 0.3rem;
-    padding-bottom: 0.6rem;
+    margin: 0 0 0.3rem; padding-bottom: 0.6rem;
     border-bottom: 2px solid var(--accent);
   }
-  section > p.section-intro, p.section-intro {
-    color: var(--ink-soft);
-    margin-top: 0.8rem;
-    max-width: 68ch;
-  }
-  h3 {
-    font-size: 1.05rem;
-    margin: 1.9rem 0 0.5rem;
-    color: var(--ink);
-  }
-  h3.group-heading {
-    margin: 2.1rem 0 0.5rem;
-    padding-bottom: 0.3rem;
-    border-bottom: 1px solid var(--line);
-  }
+  p.section-intro { color: var(--ink-soft); margin-top: 0.8rem; max-width: 68ch; }
+  h3 { font-size: 1.05rem; margin: 1.9rem 0 0.5rem; }
+  h3.group-heading { margin: 2.1rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); }
   h3 .tag {
-    display: inline-block;
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    background: var(--accent-soft);
-    color: var(--accent);
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    vertical-align: middle;
-    margin-left: 0.4rem;
+    display: inline-block; font-size: 0.66rem; font-weight: 700;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    background: var(--accent-soft); color: var(--accent);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    vertical-align: middle; margin-left: 0.4rem;
   }
   .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 1rem 1.15rem;
-    margin: 0.9rem 0;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem 1.15rem; margin: 0.9rem 0;
   }
   .card > p:first-child { margin-top: 0; }
   .card > p:last-child { margin-bottom: 0; }
   code {
     font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
-    background: var(--code-bg);
-    padding: 0.1rem 0.35rem;
-    border-radius: 4px;
-    font-size: 0.9em;
+    background: var(--code-bg); padding: 0.1rem 0.35rem;
+    border-radius: 4px; font-size: 0.9em;
   }
   .callout {
-    background: var(--warn-bg);
-    border-left: 4px solid var(--warn-line);
-    border-radius: 6px;
-    padding: 0.85rem 1.05rem;
-    margin: 1.1rem 0;
-    font-size: 0.93rem;
+    background: var(--warn-bg); border-left: 4px solid var(--warn-line);
+    border-radius: 6px; padding: 0.85rem 1.05rem; margin: 1.1rem 0; font-size: 0.93rem;
   }
-  /* Only the leading label is a block — inline <strong> mid-sentence stays inline. */
   .callout > strong:first-child { display: block; margin-bottom: 0.25rem; }
   .callout.legal { border-left-color: var(--accent); background: var(--accent-soft); }
-  #intro-note[hidden] { display: none; }
 
   ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 1rem 0; }
   ol.steps > li {
-    counter-increment: step;
-    position: relative;
+    counter-increment: step; position: relative;
     padding: 0.15rem 0 1.05rem 2.5rem;
-    border-left: 2px solid var(--line);
-    margin-left: 0.9rem;
+    border-left: 2px solid var(--line); margin-left: 0.9rem;
   }
   ol.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
   ol.steps > li::before {
-    content: counter(step);
-    position: absolute;
-    left: -0.95rem;
-    top: -0.05rem;
-    width: 1.8rem;
-    height: 1.8rem;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.85rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    content: counter(step); position: absolute; left: -0.95rem; top: -0.05rem;
+    width: 1.8rem; height: 1.8rem; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 0.85rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
   }
   ol.steps > li strong:first-child { display: block; margin-bottom: 0.15rem; }
   ul.plain { padding-left: 1.15rem; margin: 0.5rem 0 0; }
@@ -249,102 +160,131 @@
 
   /* ---------- Fact cards ---------- */
   .fact-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
-    gap: 0.6rem;
-    margin: 0.9rem 0 1.4rem;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 0.6rem; margin: 0.9rem 0 1.4rem;
   }
   .fact-card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 0.8rem 0.95rem;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 0.8rem 0.95rem; position: relative;
   }
-  .fact-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
+  .fact-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
   .fact-label { font-weight: 600; font-size: 0.88rem; }
-  .fact-value {
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: var(--accent);
-    line-height: 1.2;
-  }
+  .fact-value { font-size: 1.25rem; font-weight: 800; color: var(--accent); line-height: 1.2; }
   .fact-note { margin: 0.28rem 0 0; font-size: 0.79rem; color: var(--ink-soft); }
-  .fact-card details { margin-top: 0.45rem; }
-  .fact-card summary {
-    cursor: pointer;
-    font-size: 0.77rem;
-    font-weight: 700;
-    color: var(--accent);
+  .fact-why { margin: 0.45rem 0 0; font-size: 0.84rem; }
+  /* Kilde-toggle og lenkeknapp deler bunnraden, så knappen får plass til et
+     ekte touch-mål uten å legge seg oppå tallet i hjørnet. */
+  .fact-foot {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 0.5rem; margin-top: 0.4rem;
   }
-  .fact-card details p { margin: 0.4rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
-  .fact-card details p + p { margin-top: 0.35rem; }
+  .fact-src { flex: 1; min-width: 0; }
+  .fact-src summary {
+    cursor: pointer; font-size: 0.75rem; font-weight: 700; color: var(--accent);
+    list-style: none; display: inline-block; padding: 0.7rem 0.4rem 0.7rem 0;
+    margin: -0.55rem 0; /* stor trykkflate uten å presse kortet fra hverandre */
+  }
+  .fact-src summary::-webkit-details-marker { display: none; }
+  .fact-src summary::before { content: "▸ "; }
+  .fact-src[open] summary::before { content: "▾ "; }
+  .fact-src p { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+  .fact-link {
+    flex: none; border: none; background: none; color: var(--ink-soft);
+    cursor: pointer; font-size: 0.9rem; line-height: 1;
+    width: 2.75rem; height: 2.75rem; margin: -0.6rem -0.5rem -0.6rem 0;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fact-link:hover { background: var(--accent-soft); color: var(--accent); }
+  .fact-card:target, .fact-card.flash {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
 
   /* ---------- Mistakes ---------- */
   .mistake {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-left: 4px solid var(--bad);
-    border-radius: 8px;
-    padding: 0.8rem 1rem;
-    margin: 0.65rem 0;
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--bad); border-radius: 8px;
+    padding: 0.8rem 1rem; margin: 0.65rem 0;
   }
   .mistake-bad { font-weight: 700; }
   .mistake-why { margin: 0.3rem 0 0; color: var(--ink-soft); font-size: 0.91rem; }
 
-  /* ---------- Search results ---------- */
-  .search-count {
-    color: var(--ink-soft);
-    font-size: 0.9rem;
-    margin: 1.6rem 0 0.8rem;
+  /* ---------- Calculators ---------- */
+  .calc {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem 1.15rem; margin: 1rem 0 1.6rem;
   }
+  .calc h3 { margin: 0 0 0.2rem; font-size: 1.05rem; }
+  .calc .calc-sub { margin: 0 0 0.9rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .field { margin-bottom: 0.75rem; }
+  .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .field .hint { display: block; font-weight: 400; font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.1rem; }
+  .field input, .field select {
+    width: 100%; font: inherit; font-size: 1rem;
+    padding: 0.55rem 0.7rem; min-height: 2.75rem;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink);
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .calc-out { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.85rem; }
+  .out-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 0.6rem; padding: 0.35rem 0; flex-wrap: wrap;
+  }
+  .out-row + .out-row { border-top: 1px dashed var(--line); }
+  .out-label { font-size: 0.87rem; color: var(--ink-soft); }
+  .out-value { font-size: 1.15rem; font-weight: 800; color: var(--accent); }
+  .out-row.primary .out-value { font-size: 1.5rem; }
+  .out-note { font-size: 0.82rem; color: var(--ink-soft); margin: 0.6rem 0 0; }
+  .calc-warn {
+    margin-top: 0.75rem; font-size: 0.86rem;
+    background: var(--warn-bg); border-left: 4px solid var(--warn-line);
+    border-radius: 6px; padding: 0.6rem 0.8rem;
+  }
+  .calc-warn[hidden] { display: none; }
+
+  /* ---------- Search results ---------- */
+  .search-count { color: var(--ink-soft); font-size: 0.9rem; margin: 1.6rem 0 0.8rem; }
   .result { margin-bottom: 0.9rem; }
   .result-chip {
-    display: inline-block;
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    background: var(--accent-soft);
-    color: var(--accent);
-    border: none;
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    margin-bottom: 0.3rem;
-    cursor: pointer;
+    display: inline-block; font: inherit; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.03em; background: var(--accent-soft); color: var(--accent);
+    border: none; padding: 0.3rem 0.7rem; border-radius: 999px;
+    margin-bottom: 0.3rem; cursor: pointer;
   }
   .result-chip:hover { background: var(--accent); color: #fff; }
   .result > .card, .result > .fact-card, .result > .mistake, .result > .callout { margin-top: 0; }
   mark { background: var(--mark-bg); color: inherit; padding: 0 0.1em; border-radius: 2px; }
-  .no-hits { color: var(--ink-soft); }
 
+  /* ---------- Footer ---------- */
   footer.site {
-    max-width: var(--max);
-    margin: 2rem auto 3rem;
-    padding: 1.4rem 1.25rem 0;
-    border-top: 1px solid var(--line);
-    color: var(--ink-soft);
-    font-size: 0.9rem;
+    max-width: var(--max); margin: 2rem auto 3rem;
+    padding: 1.4rem 1.25rem 0; border-top: 1px solid var(--line);
+    color: var(--ink-soft); font-size: 0.9rem;
   }
   footer.site h2 { font-size: 1.1rem; color: var(--ink); border: none; margin-bottom: 0.6rem; padding: 0; }
-  footer.site ul { padding-left: 1.1rem; }
+  footer.site h3 {
+    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--accent); margin: 1.2rem 0 0.4rem;
+  }
+  footer.site ul { padding-left: 1.1rem; margin: 0; }
   footer.site li { margin-bottom: 0.35rem; }
+  .src-kind { color: var(--ink-soft); font-size: 0.84em; }
   .updated { font-size: 0.82rem; margin-top: 1.6rem; }
+  #offline-status { font-size: 0.82rem; margin-top: 0.8rem; }
+  #offline-status.ready { color: var(--ok); font-weight: 600; }
 
   /* ---------- Mobile ---------- */
   @media (max-width: 620px) {
-    :root { --navh: 6.6rem; }
+    :root { --navh: 6.8rem; }
     nav.toc .row { padding: 0.5rem 1rem; }
     nav.toc .row.cats {
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
+      flex-wrap: nowrap; overflow-x: auto;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch;
     }
     nav.toc .row.cats::-webkit-scrollbar { display: none; }
     .toc-link { margin-left: 0.3rem; padding-right: 0.3rem; }
@@ -353,33 +293,42 @@
     .fact-value { font-size: 1.18rem; }
     footer.site { padding: 1.4rem 1rem 0; }
   }
+  @media (max-width: 380px) {
+    .field-row { grid-template-columns: 1fr; }
+  }
 
   @media print {
-    nav.toc, #search-results { display: none !important; }
+    nav.toc, #search-results, .fact-link, .calc { display: none !important; }
     .panel[hidden] { display: block !important; }
+    #intro-note[hidden] { display: block !important; }
     header.site { background: none; color: var(--ink); padding: 0 0 1rem; }
     header.site p.lede, header.site p.tagline { color: var(--ink-soft); }
     .callout, .card, .fact-card, .mistake { break-inside: avoid; }
-    .fact-card details { display: block; }
+    .fact-src { display: block; }
+    .fact-src[open] summary::before, .fact-src summary::before { content: ""; }
     a { color: var(--ink); text-decoration: underline; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
       --ink: #e8e6df;
-      --ink-soft: #a9a595;
+      --ink-soft: #adaa9e;
       --paper: #14181c;
       --card: #1c2126;
-      --line: #2c333a;
-      --accent: #5fb8c9;
-      --accent-soft: #1d3238;
+      --line: #2f363d;
+      --accent: #6fc6d6;
+      --accent-soft: #1b3238;
       --warn-bg: #2c2416;
       --warn-line: #d9a441;
       --bad: #e57373;
-      --mark-bg: #5c4a12;
+      --ok: #6bbf8a;
+      --mark-bg: #6b5410;
       --code-bg: #232a30;
     }
-    header.site { background: #0d1013; }
     nav.toc { background: rgba(20,24,28,0.97); }
   }
 </style>
@@ -398,12 +347,13 @@
   <div class="row">
     <div class="search-wrap">
       <span class="search-icon" aria-hidden="true">🔍</span>
-      <input type="search" id="search" placeholder="Søk — f.eks. «fall», «K3», «sveising»" autocomplete="off" spellcheck="false" aria-label="Søk i guiden">
+      <input type="search" id="search" placeholder="Søk — f.eks. «oppkant», «K3», «sveising»" autocomplete="off" spellcheck="false" aria-label="Søk i guiden">
       <button type="button" id="search-clear" hidden aria-label="Tøm søk">✕</button>
     </div>
   </div>
   <div class="row cats">
     <button type="button" class="filter-btn" data-panel="maltall">📐 Måltall</button>
+    <button type="button" class="filter-btn" data-panel="kalkulator">🧮 Kalkulator</button>
     <button type="button" class="filter-btn" data-panel="gulvfall">〰️ Gulv &amp; fall</button>
     <button type="button" class="filter-btn" data-panel="vatrom">🚿 Våtrom</button>
     <button type="button" class="filter-btn" data-panel="sparkling">🧱 Sparkling</button>
@@ -416,9 +366,9 @@
 
 <main>
 
-  <div class="callout legal" id="intro-note" style="margin-top:1.6rem;">
+  <div class="callout legal" id="intro-note">
     <strong>Slik skal tallene på denne siden leses</strong>
-    TEK17 stiller <strong>funksjonskrav</strong> — forskriftsteksten sier hva som skal oppnås, ikke nødvendigvis med hvilke tall. De konkrete tallene her (1:50, 1:100, 25 mm osv.) er i hovedsak <strong>preaksepterte ytelser</strong> fra veiledningen til TEK17: følger du dem, regnes funksjonskravet som oppfylt uten videre dokumentasjon. Du <em>kan</em> velge andre løsninger, men da må funksjonskravet verifiseres ved analyse/prosjektering (TEK17 §2-1) — det er et prosjekteringsansvar, ikke noe man avgjør på stedet. Tall hentet fra NS 3420 er kontraktsbestemte krav i beskrevet arbeid, ikke forskrift. Slå alltid opp gjeldende tekst før noe skal dokumenteres eller godkjennes.
+    TEK17 stiller <strong>funksjonskrav</strong> — forskriftsteksten sier hva som skal oppnås, ikke nødvendigvis med hvilke tall. De konkrete tallene her (1:50, 1:100, 25 mm osv.) er i hovedsak <strong>preaksepterte ytelser</strong> fra veiledningen til TEK17: følger du dem, regnes funksjonskravet som oppfylt uten videre dokumentasjon. Du <em>kan</em> velge andre løsninger, men da må funksjonskravet verifiseres ved analyse/prosjektering (TEK17 §2-1) — et prosjekteringsansvar, ikke noe man avgjør på stedet. Tall fra NS 3420 er kontraktsbestemte krav i beskrevet arbeid, ikke forskrift. Hvert kort viser sin egen hjemmel under «Kilde».
   </div>
 
   <div id="search-results" hidden>
@@ -430,145 +380,177 @@
   <div class="panel" data-panel="maltall" hidden>
   <section id="maltall">
     <h2>📐 Måltall</h2>
-    <p class="section-intro">Alle tallene på ett sted. Trykk «Forklaring / krav / kilde» for hva tallet faktisk er hjemlet i — forskrift, veiledning, norm eller produktdatablad.</p>
+    <p class="section-intro">Alle tallene på ett sted, med hjemmel: forskrift, veiledning, norm eller produktdatablad. Trykk 🔗 på et kort for å kopiere en lenke rett til akkurat det tallet.</p>
 
     <h3 class="group-heading">Fall til sluk <span class="tag">Preakseptert ytelse</span></h3>
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Dusj rett over sluk</span><span class="fact-value">1:50</span></div>
-        <p class="fact-note">Min. 0,8 m ut fra sluket</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Preakseptert ytelse i veiledningen til TEK17 §13-15, ikke tall i selve forskriftsteksten. Gjelder når dusjen er plassert rett over sluket.</p><p><strong>Status:</strong> Veiledning — oppfyller funksjonskravet uten videre dokumentasjon.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Dusj ikke over sluk</span><span class="fact-value">1:50</span></div>
-        <p class="fact-note">Fra nedslagsfelt til sluk</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Samme preaksepterte ytelse, men fallet regnes fra der vannet faktisk treffer gulvet og fram til sluket.</p><p><strong>Status:</strong> Veiledning til TEK17 §13-15.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Nedsenket dusjsone</span><span class="fact-value">1:100</span></div>
-        <p class="fact-note">Sonen min. 10 mm lavere</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Alternativ preakseptert løsning: senk dusjsonen minst 10 mm i forhold til resten av gulvet, så er 1:100 tilstrekkelig i nedslagsfeltet.</p><p><strong>Status:</strong> Veiledning til TEK17 §13-15.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Resten av gulvet</span><span class="fact-value">1:100</span></div>
-        <p class="fact-note">Alternativ: hele gulvet</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Tredje preaksepterte løsning: la hele gulvet, ikke bare dusjsonen, ha minst 1:100 fall til sluket.</p><p><strong>Status:</strong> Veiledning til TEK17 §13-15.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Motfall</span><span class="fact-value">0 mm</span></div>
-        <p class="fact-note">Ikke tillatt noe sted</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Følger direkte av funksjonskravet om at lekkasjevann skal ledes til sluk — gulvet skal ikke ha motfall noe sted vann kan oppstå.</p><p><strong>Status:</strong> Funksjonskrav, TEK17 §13-15.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Oppkant ytterkant</span><span class="fact-value">25 mm</span></div>
-        <p class="fact-note">Over ferdig gulv</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Tettesjiktets oppkant ved alle ytterkanter, unntatt døråpninger.</p><p><strong>Status:</strong> Preakseptert ytelse, veiledning til TEK17 §13-15.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Oppkant døråpning</span><span class="fact-value">15 mm</span></div>
-        <p class="fact-note">Unntaket fra kravet over</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Redusert minstekrav til oppkant der terskelen er en døråpning.</p><p><strong>Status:</strong> Preakseptert ytelse, veiledning til TEK17 §13-15.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="fall" data-canonical="1"></div>
 
     <h3 class="group-heading">Vinylbelegg <span class="tag">Norm + produktkrav</span></h3>
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Beleggtykkelse våtrom</span><span class="fact-value">1,5 mm</span></div>
-        <p class="fact-note">Veiledende — og må være sveisbart</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>1,5 mm er et veiledende minstemål for sveisbart våtromsbelegg i bransjeveiledning, ikke et forskriftskrav i seg selv.</p><p><strong>Det bindende:</strong> at belegget er dokumentert og godkjent av produsenten for våtrom, og legges etter produsentens anvisning. Sjekk produktdatablad — det går foran tommelfingerregelen.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Skjøt til sluk</span><span class="fact-value">100 mm</span></div>
-        <p class="fact-note">Minste avstand</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Skjøter skal ikke plasseres nærmere sluket enn dette.</p><p><strong>Status:</strong> NS 3420-T — kontraktsbestemt i beskrevet arbeid. Systemleverandørens anvisning kan være strengere.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Skjøt i ytterhjørne</span><span class="fact-value">Ikke tillatt</span></div>
-        <p class="fact-note">NS 3420-T</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Skjøter skal ikke plasseres direkte på utvendige hjørner.</p><p><strong>Status:</strong> NS 3420-T — kontraktsbestemt i beskrevet arbeid.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Minste beleggstykke</span><span class="fact-value">150×150 mm</span></div>
-        <p class="fact-note">Ved innskjøting</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Det skal ikke skjøtes inn beleggstykker mindre enn dette målet.</p><p><strong>Status:</strong> NS 3420-T — kontraktsbestemt i beskrevet arbeid.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Akklimatisering</span><span class="fact-value">≥ 24 t</span></div>
-        <p class="fact-note">Romtemperatur, før legging</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Lenger ved store temperatur- eller fuktforskjeller mellom lager og monteringsrom.</p><p><strong>Status:</strong> Bransjepraksis/produsentanvisning — ikke forskrift. Følg beleggprodusentens tall.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Vent før sveising</span><span class="fact-value">≈ 24 t</span></div>
-        <p class="fact-note">Avhenger av lim og forhold</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Tommelfingerregelen er å sveise dagen etter legging, så limet får satt seg.</p><p><strong>Det bindende:</strong> limets datablad. Faktisk ventetid varierer med limtype, underlagets sug, temperatur og luftfuktighet — 24 t er ikke en universell regel.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="vinyl" data-canonical="1"></div>
 
     <h3 class="group-heading">Klargjøring gulv <span class="tag">Produktdatablad</span></h3>
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Flytsparkel lagtykkelse</span><span class="fact-value">4–50 mm</span></div>
-        <p class="fact-note">Eksempel: weberfloor 120 Reno</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Produktspesifikt spenn for én bestemt renoveringssparkel — andre produkter har andre grenser.</p><p><strong>Status:</strong> Produktdatablad. Alltid sjekk det aktuelle produktets egne tall.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Herdetid, 30 mm</span><span class="fact-value">~1 døgn</span></div>
-        <p class="fact-note">Veiledende, tørt underlag</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Tid til belegningsklart øker med lagtykkelsen. Forutsetter tørt underlag og normale forhold.</p><p><strong>Status:</strong> Produktdatablad — bindende tall står der.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Herdetid, 40 mm</span><span class="fact-value">~2 døgn</span></div>
-        <p class="fact-note">Veiledende, tørt underlag</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Tid til belegningsklart øker med lagtykkelsen.</p><p><strong>Status:</strong> Produktdatablad — bindende tall står der.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Herdetid, 50 mm</span><span class="fact-value">~3 døgn</span></div>
-        <p class="fact-note">Veiledende, tørt underlag</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Tid til belegningsklart øker med lagtykkelsen.</p><p><strong>Status:</strong> Produktdatablad — bindende tall står der.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="gulv" data-canonical="1"></div>
 
     <h3 class="group-heading">Sparkling <span class="tag">NS 3420 + praksis</span></h3>
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Minste antall strøk</span><span class="fact-value">3</span></div>
-        <p class="fact-note">Taping medregnet</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Taping, fyllstrøk og fintstrøk. Vanlig bransjepraksis for gipsskjøter.</p><p><strong>Status:</strong> Praksis/produsentanvisning, ikke forskrift.</p></details>
+    <div class="fact-grid" data-facts="sparkling" data-canonical="1"></div>
+
+    <h3 class="group-heading">Maling <span class="tag">Produktvalg</span></h3>
+    <div class="fact-grid" data-facts="maling,fasade" data-canonical="1"></div>
+  </section>
+  </div>
+
+  <!-- ============ KALKULATOR ============ -->
+  <div class="panel" data-panel="kalkulator" hidden>
+  <section id="kalkulator">
+    <h2>🧮 Kalkulator</h2>
+    <p class="section-intro">Regnestykkene som faktisk gjøres på gulvet. Alle tall er estimater — kontroller mot produktets datablad før du bestiller.</p>
+
+    <div class="calc" id="calc-fall">
+      <h3>Fall til sluk</h3>
+      <p class="calc-sub">Hvor mye høydeforskjell trenger du over en gitt avstand?</p>
+      <div class="field">
+        <label for="fall-dist">Avstand fra sluk
+          <span class="hint">I meter. Bruk komma eller punktum.</span>
+        </label>
+        <input type="text" id="fall-dist" inputmode="decimal" value="1,5" autocomplete="off">
       </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">K2-finish</span><span class="fact-value">1 strøk</span></div>
-        <p class="fact-note">Helsparklet, standard</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Estetisk klasse etter NS 3420-T. Dekker normalt godt for matt/halvblank maling i vanlig rombelysning.</p><p><strong>Status:</strong> NS 3420-T — hvilken klasse som gjelder avtales i kontrakt/beskrivelse.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">K3-finish</span><span class="fact-value">2 strøk</span></div>
-        <p class="fact-note">Sterkt sidelys / blank maling</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Ekstra finstrøk over hele flaten, ikke bare skjøtene.</p><p><strong>Status:</strong> NS 3420-T. Klassen avgjør om en bulk er en reklamasjon eller «innenfor avtalen» — avklar den før oppstart.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Sliping, grovt</span><span class="fact-value">P80–P120</span></div>
-        <p class="fact-note">Fjerner overflødig masse</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Slipenett (type Mirka Abranet) går sjeldnere tett enn vanlig slipepapir og gir mindre støv med avsug.</p><p><strong>Status:</strong> Praksis/produsentanbefaling.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Sliping, fint</span><span class="fact-value">P180–P240</span></div>
-        <p class="fact-note">Siste finslip</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Kjøres etter grovslipingen, rett før grunning.</p><p><strong>Status:</strong> Praksis/produsentanbefaling.</p></details>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">1:50 — dusjsone</span>
+          <span class="out-value" id="fall-50">30 mm</span>
+        </div>
+        <div class="out-row primary">
+          <span class="out-label">1:100 — resten av gulvet</span>
+          <span class="out-value" id="fall-100">15 mm</span>
+        </div>
+        <p class="out-note">1:50 = 20 mm per meter. 1:100 = 10 mm per meter. Kravet gjelder <strong>ferdig gulv</strong> — altså inkludert beleggets tykkelse.</p>
       </div>
     </div>
 
-    <h3 class="group-heading">Maling <span class="tag">Produktvalg</span></h3>
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Fasade, mur/puss</span><span class="fact-value">Diffusjonsåpen</span></div>
-        <p class="fact-note">Hovedregel utvendig</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Lar fukt i underlaget tørke ut gjennom malingen i stedet for å bygge seg opp bak et tett lag.</p><p><strong>Status:</strong> Produktveiledning, ikke forskrift. Underlagets tilstand og eksisterende malingssystem styrer det endelige valget.</p></details>
+    <div class="calc" id="calc-bad">
+      <h3>Masse til bad med fall</h3>
+      <p class="calc-sub">Estimerer hvor mye avrettingsmasse som går med når fallet bygges inn.</p>
+      <div class="field">
+        <label for="bad-areal">Areal
+          <span class="hint">Gulvareal i m².</span>
+        </label>
+        <input type="text" id="bad-areal" inputmode="decimal" value="6" autocomplete="off">
       </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Bad, tak og vegg</span><span class="fact-value">Våtromsmaling</span></div>
-        <p class="fact-note">Utenfor tettesjiktet</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Maling er aldri tettesjikt. Den velges for fuktbestandighet og avvaskbarhet på flater <em>utenfor</em> det dokumenterte tettesjiktet.</p><p><strong>Status:</strong> Produktvalg. Tettesjikt i våtsone er et eget krav, se Våtrom-fanen.</p></details>
+      <div class="field">
+        <label for="bad-sluk">Høyde fra gulv til sluk
+          <span class="hint">Sluktoppens høyde over eksisterende undergulv, i mm. Dette er tykkelsen ved sluket — lavpunktet.</span>
+        </label>
+        <input type="text" id="bad-sluk" inputmode="decimal" value="10" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="bad-dor">Høyde til dør fra sluk
+          <span class="hint">Høydeforskjellen mellom sluk og dørterskel/høyeste punkt, i mm. Dette er selve fallet.</span>
+        </label>
+        <input type="text" id="bad-dor" inputmode="decimal" value="20" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="bad-form">Fallform
+          <span class="hint">Avgjør hvordan snittykkelsen regnes ut.</span>
+        </label>
+        <select id="bad-form">
+          <option value="0.6667" selected>Fall fra alle kanter mot punktsluk (snitt = ⅔ av fallet)</option>
+          <option value="0.5">Ensidig fall, én retning (snitt = ½ av fallet)</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="bad-forbruk">Forbruk
+            <span class="hint">kg/mm/m²</span>
+          </label>
+          <input type="text" id="bad-forbruk" inputmode="decimal" value="1,75" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="bad-svinn">Svinn
+            <span class="hint">% påslag</span>
+          </label>
+          <input type="text" id="bad-svinn" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label for="bad-sekk">Sekkestørrelse
+          <span class="hint">kg per sekk. weberfloor 120 Reno leveres i 20 kg.</span>
+        </label>
+        <input type="text" id="bad-sekk" inputmode="decimal" value="20" autocomplete="off">
+      </div>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">Trenger ca.</span>
+          <span class="out-value" id="bad-sekker">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Masse inkl. svinn</span>
+          <span class="out-value" id="bad-kg">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Snitt lagtykkelse</span>
+          <span class="out-value" id="bad-snitt">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Tykkelse ved sluk / høyeste punkt</span>
+          <span class="out-value" id="bad-spenn">—</span>
+        </div>
+        <div class="calc-warn" id="bad-warn" hidden></div>
+        <p class="out-note">Modellen antar at fallet er en jevn flate fra høyeste punkt ned til sluket. Nedsenket dusjsone, varmekabler, rørgjennomføringer og ujevnt undergulv endrer forbruket — legg på ekstra ved tvil.</p>
+      </div>
+    </div>
+
+    <div class="calc" id="calc-forbruk">
+      <h3>Forbruk avrettingsmasse — flat flate</h3>
+      <p class="calc-sub">Uten fall: jevn lagtykkelse over hele arealet.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="fb-areal">Areal
+            <span class="hint">m²</span>
+          </label>
+          <input type="text" id="fb-areal" inputmode="decimal" value="20" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="fb-tykk">Lagtykkelse
+            <span class="hint">mm</span>
+          </label>
+          <input type="text" id="fb-tykk" inputmode="decimal" value="5" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="fb-forbruk">Forbruk
+            <span class="hint">kg/mm/m²</span>
+          </label>
+          <input type="text" id="fb-forbruk" inputmode="decimal" value="1,75" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="fb-svinn">Svinn
+            <span class="hint">% påslag</span>
+          </label>
+          <input type="text" id="fb-svinn" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fb-sekk">Sekkestørrelse
+          <span class="hint">kg per sekk</span>
+        </label>
+        <input type="text" id="fb-sekk" inputmode="decimal" value="20" autocomplete="off">
+      </div>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">Trenger ca.</span>
+          <span class="out-value" id="fb-sekker">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Masse inkl. svinn</span>
+          <span class="out-value" id="fb-kg">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Vann til blanding</span>
+          <span class="out-value" id="fb-vann">—</span>
+        </div>
+        <div class="calc-warn" id="fb-warn" hidden></div>
+        <p class="out-note">Vannmengden regnes med 3,6 liter per 20 kg sekk (weberfloor 120 Reno). Andre produkter har annet blandeforhold — sjekk sekken.</p>
       </div>
     </div>
   </section>
@@ -581,38 +563,7 @@
     <p class="section-intro">Klargjøring av undergulvet og fall til sluk hører sammen — i våtrom formes fallet som del av avrettingen, ikke som et løsrevet steg etterpå.</p>
 
     <h3 class="group-heading">Fall til sluk — de preaksepterte løsningene</h3>
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Dusj rett over sluk</span><span class="fact-value">1:50</span></div>
-        <p class="fact-note">Min. 0,8 m ut fra sluket</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Preakseptert ytelse i veiledningen til TEK17 §13-15 — ikke et tall i forskriftsteksten selv.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Dusj ikke over sluk</span><span class="fact-value">1:50</span></div>
-        <p class="fact-note">Fra nedslagsfelt til sluk</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Samme ytelse, men fallet regnes fra der vannet faktisk treffer gulvet.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Nedsenket dusjsone</span><span class="fact-value">1:100</span></div>
-        <p class="fact-note">Sonen min. 10 mm lavere</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Senk dusjsonen minst 10 mm i forhold til resten av gulvet, så er 1:100 tilstrekkelig i nedslagsfeltet.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Resten av gulvet</span><span class="fact-value">1:100</span></div>
-        <p class="fact-note">Alternativ: hele gulvet</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>La hele gulvet, ikke bare dusjsonen, ha minst 1:100 fall til sluket.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Motfall</span><span class="fact-value">0 mm</span></div>
-        <p class="fact-note">Ikke tillatt noe sted</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Følger av selve funksjonskravet: lekkasjevann skal ledes til sluk fra alle steder det kan oppstå.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Oppkant tettesjikt</span><span class="fact-value">25 / 15 mm</span></div>
-        <p class="fact-note">Ytterkant / døråpning</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Minst 25 mm over ferdig gulv ved alle ytterkanter, redusert til 15 mm ved døråpninger.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="fall"></div>
 
     <div class="callout legal">
       <strong>Funksjonskrav vs. preakseptert ytelse</strong>
@@ -642,7 +593,7 @@
       </li>
       <li>
         <strong>Sett ut høyder først</strong>
-        Sluket er det faste lavpunktet. Mål opp og marker ønsket høyde langs vegger og ved dørterskel før du blander masse — med laser, nivellerpinner eller høydemerker. Regn ut nødvendig høydeforskjell (1:50 = 20 mm per meter, 1:100 = 10 mm per meter) og kontroller at det går opp mot terskelhøyde og oppkant. Uten utsatte høyder er fallforming gjetting.
+        Sluket er det faste lavpunktet. Mål opp og marker ønsket høyde langs vegger og ved dørterskel før du blander masse — med laser, nivellerpinner eller høydemerker. Regn ut nødvendig høydeforskjell (1:50 = 20 mm per meter, 1:100 = 10 mm per meter — se <strong>Kalkulator</strong>) og kontroller at det går opp mot terskelhøyde og oppkant. Uten utsatte høyder er fallforming gjetting.
       </li>
       <li>
         <strong>Priming</strong>
@@ -673,6 +624,9 @@
         Sjekk med vater eller laser når massen er herdet, før belegget legges. Kontroller også for lokalt motfall rundt sluket og langs vegger — det er der feilene sitter. Etterjusteringer er langt lettere nå enn etter at gulvet er dekket.
       </li>
     </ol>
+
+    <h3 class="group-heading">Produkttall — avrettingsmasse</h3>
+    <div class="fact-grid" data-facts="gulv"></div>
   </section>
   </div>
 
@@ -687,28 +641,7 @@
       I et våtrom med beleggløsning utgjør belegget, skjøtesveisene og oppbrettene på vegg det dokumenterte tettesjiktet. Det betyr at belegg, lim, sveisetråd og eventuell slukmansjett skal være et system som er dokumentert for våtrom og monteres etter produsentens anvisning. Våtsonen på vegg skal også ha tettesjikt — maling er aldri tettesjikt. Tallene under er nyttige tommelfingerregler, men systemleverandørens anvisning går foran dem.
     </div>
 
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Beleggtykkelse</span><span class="fact-value">1,5 mm</span></div>
-        <p class="fact-note">Veiledende minstemål, sveisbart</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Bransjeveiledning for sveisbart våtromsbelegg. Det bindende er at produktet er dokumentert for våtrom.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Akklimatisering</span><span class="fact-value">≥ 24 t</span></div>
-        <p class="fact-note">Romtemperatur</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Lenger ved store temperatur-/fuktforskjeller mellom lager og monteringsrom.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Skjøt til sluk</span><span class="fact-value">100 mm</span></div>
-        <p class="fact-note">Minste avstand, NS 3420-T</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Systemleverandørens anvisning kan kreve mer.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Minste beleggstykke</span><span class="fact-value">150×150 mm</span></div>
-        <p class="fact-note">Ved innskjøting, NS 3420-T</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Mindre lapper skal ikke skjøtes inn.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="vinyl"></div>
 
     <ol class="steps">
       <li>
@@ -749,28 +682,7 @@
     <h2>🧱 Sparkling</h2>
     <p class="section-intro">Veggsparkling før maling — fylling av skjøter, hull og ujevnheter slik at veggen blir jevn nok til å males uten at feil skinner gjennom.</p>
 
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">K2-finish</span><span class="fact-value">1 strøk</span></div>
-        <p class="fact-note">Helsparklet, standard</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T estetisk klasse. Dekker normalt godt for matt/halvblank maling under vanlig rombelysning.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">K3-finish</span><span class="fact-value">2 strøk</span></div>
-        <p class="fact-note">Sterkt sidelys / blank maling</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Ekstra finstrøk over hele flaten, ikke bare skjøtene. Klassen avgjør hva som er reklamasjon og hva som er innenfor avtalen.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Sliping, grovt</span><span class="fact-value">P80–P120</span></div>
-        <p class="fact-note">Fjerner overflødig masse</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Slipenett (type Mirka Abranet) gir mindre støv med avsug og går sjeldnere tett enn vanlig slipepapir.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Sliping, fint</span><span class="fact-value">P180–P240</span></div>
-        <p class="fact-note">Siste finslip</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Kjøres etter grovslipingen, rett før grunning.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="sparkling"></div>
 
     <ol class="steps">
       <li>
@@ -816,18 +728,7 @@
     <h2>🎨 Maling</h2>
     <p class="section-intro">Innendørs — tak og vegg. For fasade, se egen fane. Riktig malingtype handler om fuktbestandighet og slitasje, ikke bare farge og glans.</p>
 
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Maling som fuktsperre</span><span class="fact-value">Aldri</span></div>
-        <p class="fact-note">Tettesjikt er noe annet</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Våtromsmaling er en slitesterk, fuktbestandig overflate — ikke et tettesjikt. Våtsonen skal ha dokumentert tettesjikt uansett malingtype.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Bad, tak og vegg</span><span class="fact-value">Våtromsmaling</span></div>
-        <p class="fact-note">Utenfor tettesjiktet</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Typisk akrylbasert, ofte med sopphindrende tilsetning, testet for høy luftfuktighet og avvasking.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="maling"></div>
 
     <h3>Hva "diffusjonsåpen" betyr — og hvor det er relevant</h3>
     <p>Et diffusjonsåpent produkt lar vanndamp passere gjennom laget uten å slippe inn vann i flytende form. Fukt i underlaget kan dermed tørke ut gjennom malingen i stedet for å bli fanget bak et tett sjikt. Det er en <strong>egenskap for underlag som kan bli fuktig og må kunne tørke ut</strong> — først og fremst mur og puss utvendig.</p>
@@ -887,18 +788,7 @@
     <h2>🏠 Fasade</h2>
     <p class="section-intro">Utvendig maling — her er fukttransport en reell problemstilling: underlaget blir vått og må kunne tørke ut igjen.</p>
 
-    <div class="fact-grid">
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Mur og puss</span><span class="fact-value">Diffusjonsåpen</span></div>
-        <p class="fact-note">Hovedregel</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Silikatmaling og silikonharpiksmaling er typiske diffusjonsåpne kategorier for mineralske underlag.</p></details>
-      </div>
-      <div class="fact-card">
-        <div class="fact-head"><span class="fact-label">Utvendig treverk</span><span class="fact-value">Annen logikk</span></div>
-        <p class="fact-note">Alkyd eller akryl</p>
-        <details><summary>Forklaring / krav / kilde</summary><p>Treverk styres av eget fuktopptak, konstruksjonens lufting og eksisterende malingssystem — ikke av diffusjonsevne alene.</p></details>
-      </div>
-    </div>
+    <div class="fact-grid" data-facts="fasade"></div>
 
     <div class="card">
       <p>På mur, puss, betong og lignende mineralske fasader er diffusjonsåpen maling hovedregelen — <strong>silikatmaling</strong> og <strong>silikonharpiksmaling</strong> er typiske kategorier. Er malingen for tett, kan fukt bygge seg opp bak sjiktet og med tiden presse av både maling og puss.</p>
@@ -966,6 +856,10 @@
       <div class="mistake-bad">❌ Avklar sparklingsklasse etter at jobben er gjort</div>
       <div class="mistake-why">→ K2 og K3 er ulik jobb og ulik pris. Klassen avgjør om en synlig bulk er reklamasjon eller innenfor avtalen — avklar den skriftlig før oppstart.</div>
     </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Bestill masse etter areal × tykkelse ved sluket</div>
+      <div class="mistake-why">→ Et gulv med fall er tykkere overalt ellers. Regn på snittykkelsen — se <strong>Kalkulator</strong>.</div>
+    </div>
   </section>
   </div>
 
@@ -973,32 +867,354 @@
 
 <footer class="site">
   <h2 id="kilder">Kilder</h2>
-  <p>Direkte lenker til der tallene og kravene over kommer fra. Slå opp disse selv hvis noe skal dokumenteres eller godkjennes — regelverk, norm og produktdatablad oppdateres over tid.</p>
+  <p>Gruppert etter hva slags kilde det er. Regelverk og standard er det bindende; resten er fagveiledning og produktdata som utdyper hvordan det gjøres i praksis.</p>
+
+  <h3>Regelverk og standard</h3>
   <ul>
-    <li><a href="https://www.dibk.no/regelverk/byggteknisk-forskrift-tek17/13/vi/13-15" target="_blank" rel="noopener">DiBK — TEK17 §13-15, Våtrom og rom med vanninstallasjoner</a></li>
-    <li><a href="https://www.dibk.no/regelverk/tek/1/2/2-1" target="_blank" rel="noopener">DiBK — TEK17 §2-1, Verifikasjon av funksjonskrav</a></li>
-    <li><a href="https://www.dibk.no/regelverk/alt-om-tek/slik-leser-du-tek17" target="_blank" rel="noopener">DiBK — Slik leser du TEK17 (funksjonskrav vs. preakseptert ytelse)</a></li>
-    <li><a href="https://sintef.brage.unit.no/sintef-xmlui/bitstream/handle/11250/2593812/veiledningshefte_2_2018.pdf" target="_blank" rel="noopener">SINTEF — Veiledningshefte: Fall mot sluk i våtrom</a></li>
-    <li><a href="https://www.byggforsk.no/dokument/3089/baderom_med_badekar_planlegging_og_utfoerelse" target="_blank" rel="noopener">SINTEF Byggforsk — BVN 43.105, Baderom med badekar</a></li>
-    <li><a href="https://standard.no/fagomrader/ns-3420-/" target="_blank" rel="noopener">Standard Norge — NS 3420, beskrivelsestekster for bygg og anlegg</a></li>
-    <li><a href="https://gulvfakta.no/guide-til-forskrifter-og-krav-til-vatrom" target="_blank" rel="noopener">Gulvfakta.no — Guide til forskrifter og krav til våtrom</a></li>
-    <li><a href="https://gulvfakta.no/montering-av-vinyl-i-vatrom" target="_blank" rel="noopener">Gulvfakta.no — Montering av vinyl i våtrom</a></li>
-    <li><a href="https://handverker.fixa.no/blogg/hvordan-sveise-gulvbelegg-trinn-for-trinn" target="_blank" rel="noopener">Fixa Blogg — Hvordan sveise gulvbelegg, trinn for trinn</a></li>
-    <li><a href="https://www.weber-norge.no/produkter/weberfloor-120-reno" target="_blank" rel="noopener">Weber — weberfloor 120 Reno (lagtykkelse og herdetid)</a></li>
-    <li><a href="https://www.ifi.no/slik-avretter-du-gulvet" target="_blank" rel="noopener">IFI.no — Slik kan du enkelt avrette gulvet</a></li>
-    <li><a href="https://www.altfikset.no/aktuelt/betonggulv---avretting-og-forberedelse-for-perfekt-gulvlegging-alt-fikset-as" target="_blank" rel="noopener">Alt Fikset — Betonggulv: avretting og forberedelse</a></li>
-    <li><a href="https://www.byggmax.no/sparkle-gipsskjoter" target="_blank" rel="noopener">Byggmax — Sparkle gipsskjøter</a></li>
-    <li><a href="https://flip.no/artikler/sparkling-av-vegg-og-tak" target="_blank" rel="noopener">Flip — Sparkling av vegg og tak (K2/K3-klasser, NS 3420-T)</a></li>
-    <li><a href="https://www.mirka.com/en-us/products/top-brands/abranet---the-dust-free-net-abrasive/" target="_blank" rel="noopener">Mirka — Abranet, støvfritt slipenett</a></li>
-    <li><a href="https://www.ifi.no/slip-hjorner-i-turbofart" target="_blank" rel="noopener">IFI.no — Slip hjørner i turbofart</a></li>
-    <li><a href="https://www.maxmaling.no/hva-betyr-diffusjonsapen-og-hvorfor-er-det-viktig-i-maling-og-murprodukter/" target="_blank" rel="noopener">Maxmaling.no — Hva betyr diffusjonsåpen?</a></li>
-    <li><a href="https://fargemagasinet.no/ingen-hensikt-med-diffusjonsapen-maling-innendors" target="_blank" rel="noopener">Fargemagasinet — Diffusjonsåpen maling innendørs</a></li>
+    <li><a href="https://www.dibk.no/regelverk/byggteknisk-forskrift-tek17/13/vi/13-15" target="_blank" rel="noopener">DiBK — TEK17 §13-15, Våtrom og rom med vanninstallasjoner</a> <span class="src-kind">— forskrift med veiledning</span></li>
+    <li><a href="https://www.dibk.no/regelverk/tek/1/2/2-1" target="_blank" rel="noopener">DiBK — TEK17 §2-1, Verifikasjon av funksjonskrav</a> <span class="src-kind">— forskrift</span></li>
+    <li><a href="https://www.dibk.no/regelverk/alt-om-tek/slik-leser-du-tek17" target="_blank" rel="noopener">DiBK — Slik leser du TEK17</a> <span class="src-kind">— funksjonskrav vs. preakseptert ytelse</span></li>
+    <li><a href="https://standard.no/fagomrader/ns-3420-/" target="_blank" rel="noopener">Standard Norge — NS 3420</a> <span class="src-kind">— beskrivelsestekster, kontraktsstandard</span></li>
   </ul>
+
+  <h3>Bransjenorm og fagveiledning</h3>
+  <ul>
+    <li><a href="https://sintef.brage.unit.no/sintef-xmlui/bitstream/handle/11250/2593812/veiledningshefte_2_2018.pdf" target="_blank" rel="noopener">SINTEF — Fall mot sluk i våtrom</a> <span class="src-kind">— veiledningshefte</span></li>
+    <li><a href="https://www.byggforsk.no/dokument/3089/baderom_med_badekar_planlegging_og_utfoerelse" target="_blank" rel="noopener">SINTEF Byggforsk — BVN 43.105</a> <span class="src-kind">— Byggebransjens våtromsnorm</span></li>
+    <li><a href="https://gulvfakta.no/guide-til-forskrifter-og-krav-til-vatrom" target="_blank" rel="noopener">Gulvfakta — Forskrifter og krav til våtrom</a> <span class="src-kind">— bransjeorgan for gulvbransjen</span></li>
+    <li><a href="https://gulvfakta.no/montering-av-vinyl-i-vatrom" target="_blank" rel="noopener">Gulvfakta — Montering av vinyl i våtrom</a> <span class="src-kind">— bransjeorgan for gulvbransjen</span></li>
+  </ul>
+
+  <h3>Produktdata og praktiske guider</h3>
+  <ul>
+    <li><a href="https://www.weber-norge.no/produkter/weberfloor-120-reno" target="_blank" rel="noopener">Weber — weberfloor 120 Reno</a> <span class="src-kind">— produsent, datablad</span></li>
+    <li><a href="https://www.mirka.com/en-us/products/top-brands/abranet---the-dust-free-net-abrasive/" target="_blank" rel="noopener">Mirka — Abranet slipenett</a> <span class="src-kind">— produsent</span></li>
+    <li><a href="https://flip.no/artikler/sparkling-av-vegg-og-tak" target="_blank" rel="noopener">Flip — Sparkling av vegg og tak</a> <span class="src-kind">— fagartikkel, K2/K3</span></li>
+    <li><a href="https://www.ifi.no/slik-avretter-du-gulvet" target="_blank" rel="noopener">IFI — Slik avretter du gulvet</a> <span class="src-kind">— praktisk guide</span></li>
+    <li><a href="https://www.ifi.no/slip-hjorner-i-turbofart" target="_blank" rel="noopener">IFI — Slip hjørner i turbofart</a> <span class="src-kind">— praktisk guide</span></li>
+    <li><a href="https://handverker.fixa.no/blogg/hvordan-sveise-gulvbelegg-trinn-for-trinn" target="_blank" rel="noopener">Fixa — Hvordan sveise gulvbelegg</a> <span class="src-kind">— praktisk guide</span></li>
+    <li><a href="https://www.byggmax.no/sparkle-gipsskjoter" target="_blank" rel="noopener">Byggmax — Sparkle gipsskjøter</a> <span class="src-kind">— forhandlerguide</span></li>
+    <li><a href="https://www.altfikset.no/aktuelt/betonggulv---avretting-og-forberedelse-for-perfekt-gulvlegging-alt-fikset-as" target="_blank" rel="noopener">Alt Fikset — Betonggulv, avretting og forberedelse</a> <span class="src-kind">— praktisk guide</span></li>
+    <li><a href="https://www.maxmaling.no/hva-betyr-diffusjonsapen-og-hvorfor-er-det-viktig-i-maling-og-murprodukter/" target="_blank" rel="noopener">Maxmaling — Hva betyr diffusjonsåpen?</a> <span class="src-kind">— forhandlerguide</span></li>
+    <li><a href="https://fargemagasinet.no/ingen-hensikt-med-diffusjonsapen-maling-innendors" target="_blank" rel="noopener">Fargemagasinet — Diffusjonsåpen maling innendørs</a> <span class="src-kind">— bransjemedium</span></li>
+  </ul>
+
   <p class="updated">Sist researchet: august 2026. Praktisk fagreferanse, ikke juridisk rådgivning eller prosjektering. Der tallene er merket «preakseptert ytelse» stammer de fra veiledningen til TEK17, ikke forskriftsteksten — verifiser mot gjeldende tekst, NS-standard og produktdatablad før bruk som grunnlag for dokumentasjon eller utførelse.</p>
+  <p id="offline-status"></p>
 </footer>
 
 <script>
 (function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   * FAKTA — én kilde, gjenbrukt i både Måltall og fagfanene.
+   * Endrer TEK17 seg, rettes tallet her og slår gjennom overalt.
+   * ------------------------------------------------------------------ */
+  var FACTS = {
+    fall: [
+      { id: 'fall-dusj-over-sluk', label: 'Dusj rett over sluk', value: '1:50',
+        note: 'Min. 0,8 m ut fra sluket',
+        why: 'Gjelder når dusjen står rett over sluket. Fallet måles på ferdig gulv.',
+        src: 'Preakseptert ytelse — veiledningen til TEK17 §13-15. Ikke et tall i forskriftsteksten.' },
+      { id: 'fall-dusj-ikke-over-sluk', label: 'Dusj ikke over sluk', value: '1:50',
+        note: 'Fra nedslagsfelt til sluk',
+        why: 'Samme krav, men fallet regnes fra der vannet faktisk treffer gulvet og fram til sluket.',
+        src: 'Preakseptert ytelse — veiledningen til TEK17 §13-15.' },
+      { id: 'fall-nedsenket-dusjsone', label: 'Nedsenket dusjsone', value: '1:100',
+        note: 'Sonen min. 10 mm lavere',
+        why: 'Senkes dusjsonen minst 10 mm under resten av gulvet, holder 1:100 i nedslagsfeltet.',
+        src: 'Preakseptert ytelse — veiledningen til TEK17 §13-15.' },
+      { id: 'fall-resten-av-gulvet', label: 'Resten av gulvet', value: '1:100',
+        note: 'Alternativ: hele gulvet',
+        why: 'Tredje løsning: la hele gulvet, ikke bare dusjsonen, ha minst 1:100 fall til sluket.',
+        src: 'Preakseptert ytelse — veiledningen til TEK17 §13-15.' },
+      { id: 'fall-motfall', label: 'Motfall', value: '0 mm',
+        note: 'Ikke tillatt noe sted',
+        why: 'Gulvet skal aldri lede vann bort fra sluket, uansett hvor lite arealet er.',
+        src: 'Følger av selve funksjonskravet i TEK17 §13-15: lekkasjevann skal ledes til sluk.' },
+      { id: 'fall-oppkant-ytterkant', label: 'Oppkant ytterkant', value: '25 mm',
+        note: 'Over ferdig gulv',
+        why: 'Tettesjiktets oppkant ved alle ytterkanter, unntatt døråpninger.',
+        src: 'Preakseptert ytelse — veiledningen til TEK17 §13-15.' },
+      { id: 'fall-oppkant-dor', label: 'Oppkant døråpning', value: '15 mm',
+        note: 'Unntaket fra kravet over',
+        why: 'Redusert minstekrav der terskelen er en døråpning.',
+        src: 'Preakseptert ytelse — veiledningen til TEK17 §13-15.' }
+    ],
+    vinyl: [
+      { id: 'vinyl-tykkelse', label: 'Beleggtykkelse våtrom', value: '1,5 mm',
+        note: 'Veiledende minstemål, sveisbart',
+        why: 'Tommelfingerregel for sveisbart våtromsbelegg. Det bindende er at produktet er dokumentert og godkjent for våtrom.',
+        src: 'Bransjeveiledning (Gulvfakta) — ikke forskrift. Produktdatablad går foran.' },
+      { id: 'vinyl-skjot-sluk', label: 'Skjøt til sluk', value: '100 mm',
+        note: 'Minste avstand',
+        why: 'Skjøter skal ikke plasseres nærmere sluket enn dette. Systemleverandøren kan kreve mer.',
+        src: 'NS 3420-T — kontraktsbestemt i beskrevet arbeid.' },
+      { id: 'vinyl-skjot-hjorne', label: 'Skjøt i ytterhjørne', value: 'Ikke tillatt',
+        note: 'Utvendige hjørner',
+        why: 'Skjøter skal ikke legges direkte på et utvendig hjørne.',
+        src: 'NS 3420-T — kontraktsbestemt i beskrevet arbeid.' },
+      { id: 'vinyl-minste-stykke', label: 'Minste beleggstykke', value: '150×150 mm',
+        note: 'Ved innskjøting',
+        why: 'Mindre lapper skal ikke skjøtes inn.',
+        src: 'NS 3420-T — kontraktsbestemt i beskrevet arbeid.' },
+      { id: 'vinyl-akklimatisering', label: 'Akklimatisering', value: '≥ 24 t',
+        note: 'Romtemperatur, før legging',
+        why: 'Lenger ved store temperatur- eller fuktforskjeller mellom lager og monteringsrom.',
+        src: 'Bransjepraksis og produsentanvisning — ikke forskrift.' },
+      { id: 'vinyl-vent-sveising', label: 'Vent før sveising', value: '≈ 24 t',
+        note: 'Avhenger av lim og forhold',
+        why: 'Tommelfingerregelen er å sveise dagen etter, så limet får satt seg. Faktisk tid varierer med limtype, sug, temperatur og luftfuktighet.',
+        src: 'Limprodusentens datablad er det bindende — 24 t er ingen universell regel.' }
+    ],
+    gulv: [
+      { id: 'gulv-lagtykkelse', label: 'Lagtykkelse', value: '4–50 mm',
+        note: 'weberfloor 120 Reno',
+        why: 'Produktspesifikt spenn for én bestemt renoveringssparkel. Andre produkter har andre grenser.',
+        src: 'Produktdatablad, weberfloor 120 Reno.' },
+      { id: 'gulv-forbruk', label: 'Forbruk', value: '1,75 kg',
+        note: 'Per mm per m²',
+        why: 'Brukes til å regne ut massebehov: areal × snitt lagtykkelse × 1,75. Se Kalkulator-fanen.',
+        src: 'Produktdatablad, weberfloor 120 Reno. Sekk 20 kg, blandes med 3,6 l vann.' },
+      { id: 'gulv-herdetid-30', label: 'Herdetid, 30 mm', value: '~1 døgn',
+        note: 'Til belegningsklart',
+        why: 'Forutsetter tørt underlag og normale forhold.',
+        src: 'Produktdatablad, weberfloor 120 Reno.' },
+      { id: 'gulv-herdetid-40', label: 'Herdetid, 40 mm', value: '~2 døgn',
+        note: 'Til belegningsklart',
+        why: 'Tid til belegningsklart øker med lagtykkelsen.',
+        src: 'Produktdatablad, weberfloor 120 Reno.' },
+      { id: 'gulv-herdetid-50', label: 'Herdetid, 50 mm', value: '~3 døgn',
+        note: 'Til belegningsklart',
+        why: 'Ved tykkere lag: bygg opp i flere omganger med priming mellom.',
+        src: 'Produktdatablad, weberfloor 120 Reno.' }
+    ],
+    sparkling: [
+      { id: 'sparkling-antall-strok', label: 'Minste antall strøk', value: '3',
+        note: 'Taping medregnet',
+        why: 'Taping, fyllstrøk og fintstrøk. Aldri færre enn tre på gipsskjøter.',
+        src: 'Bransjepraksis og produsentanvisning — ikke forskrift.' },
+      { id: 'sparkling-k2', label: 'K2-finish', value: '1 strøk',
+        note: 'Helsparklet, vanlig standard',
+        why: 'Dekker normalt godt for matt/halvblank maling i vanlig rombelysning.',
+        src: 'Estetisk klasse etter NS 3420-T. Hvilken klasse som gjelder avtales i kontrakt.' },
+      { id: 'sparkling-k3', label: 'K3-finish', value: '2 strøk',
+        note: 'Sterkt sidelys / blank maling',
+        why: 'Ekstra finstrøk over hele flaten, ikke bare skjøtene. Klassen avgjør om en synlig bulk er reklamasjon eller innenfor avtalen.',
+        src: 'Estetisk klasse etter NS 3420-T.' },
+      { id: 'sparkling-slip-grov', label: 'Sliping, grovt', value: 'P80–P120',
+        note: 'Fjerner overflødig masse',
+        why: 'Slipenett (type Mirka Abranet) gir mindre støv med avsug og går sjeldnere tett enn slipepapir.',
+        src: 'Praksis og produsentanbefaling.' },
+      { id: 'sparkling-slip-fin', label: 'Sliping, fint', value: 'P180–P240',
+        note: 'Siste finslip',
+        why: 'Kjøres etter grovslipingen, rett før grunning.',
+        src: 'Praksis og produsentanbefaling.' }
+    ],
+    maling: [
+      { id: 'maling-ikke-tettesjikt', label: 'Maling som fuktsperre', value: 'Aldri',
+        note: 'Tettesjikt er noe annet',
+        why: 'Våtromsmaling er en fuktbestandig, slitesterk overflate — ikke et tettesjikt. Våtsonen skal ha dokumentert tettesjikt uansett malingtype.',
+        src: 'Følger av TEK17 §13-15 om tettesjikt i våtrom.' },
+      { id: 'maling-bad', label: 'Bad, tak og vegg', value: 'Våtromsmaling',
+        note: 'På flater utenfor tettesjiktet',
+        why: 'Typisk akrylbasert, ofte med sopphindrende tilsetning, testet for høy luftfuktighet og avvasking.',
+        src: 'Produktvalg — ikke forskriftsregulert.' }
+    ],
+    fasade: [
+      { id: 'fasade-mur', label: 'Mur og puss', value: 'Diffusjonsåpen',
+        note: 'Hovedregel utvendig',
+        why: 'Lar fukt i underlaget tørke ut gjennom malingen. Silikat- og silikonharpiksmaling er typiske kategorier.',
+        src: 'Produktveiledning. Underlagets tilstand og eksisterende system styrer endelig valg.' },
+      { id: 'fasade-treverk', label: 'Utvendig treverk', value: 'Annen logikk',
+        note: 'Alkyd eller akryl',
+        why: 'Styres av treverkets eget fuktopptak, lufting bak kledningen og eksisterende malingssystem — ikke av diffusjonsevne alene.',
+        src: 'Produktveiledning.' }
+    ]
+  };
+
+  /* ------------------------- Rendering av fakta ------------------------- */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function buildFactCard(fact, canonical) {
+    var card = el('div', 'fact-card');
+    if (canonical) card.id = 'f-' + fact.id;
+
+    var head = el('div', 'fact-head');
+    head.appendChild(el('span', 'fact-label', fact.label));
+    head.appendChild(el('span', 'fact-value', fact.value));
+    card.appendChild(head);
+
+    if (fact.note) card.appendChild(el('p', 'fact-note', fact.note));
+    if (fact.why) card.appendChild(el('p', 'fact-why', fact.why));
+
+    var foot = el('div', 'fact-foot');
+    if (fact.src) {
+      var det = el('details', 'fact-src');
+      det.appendChild(el('summary', null, 'Kilde'));
+      det.appendChild(el('p', null, fact.src));
+      foot.appendChild(det);
+    } else {
+      foot.appendChild(el('span'));
+    }
+
+    if (canonical) {
+      var link = el('button', 'fact-link', '🔗');
+      link.type = 'button';
+      link.title = 'Kopier lenke til dette tallet';
+      link.setAttribute('aria-label', 'Kopier lenke til ' + fact.label);
+      link.addEventListener('click', function () { copyFactLink(fact.id, link); });
+      foot.appendChild(link);
+    }
+    card.appendChild(foot);
+    return card;
+  }
+
+  function copyFactLink(id, btn) {
+    var url = location.origin + location.pathname + '#f-' + id;
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = '✓';
+      setTimeout(function () { btn.textContent = old; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url, done); });
+    } else {
+      fallbackCopy(url, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { /* ingen clipboard */ }
+    document.body.removeChild(ta);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-facts]'), function (host) {
+    var canonical = host.hasAttribute('data-canonical');
+    host.getAttribute('data-facts').split(',').forEach(function (group) {
+      (FACTS[group.trim()] || []).forEach(function (fact) {
+        host.appendChild(buildFactCard(fact, canonical));
+      });
+    });
+  });
+
+  /* ----------------------------- Kalkulator ----------------------------- */
+  // Norske brukere skriver komma. Godta begge.
+  function num(id) {
+    var raw = (document.getElementById(id).value || '').replace(/\s/g, '').replace(',', '.');
+    var v = parseFloat(raw);
+    return isFinite(v) ? v : NaN;
+  }
+  function fmt(v, dec) {
+    if (!isFinite(v)) return '—';
+    return v.toLocaleString('nb-NO', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+  function setText(id, s) { document.getElementById(id).textContent = s; }
+  function setWarn(id, msg) {
+    var n = document.getElementById(id);
+    if (msg) { n.textContent = msg; n.hidden = false; } else { n.hidden = true; }
+  }
+
+  function calcFall() {
+    var d = num('fall-dist');
+    if (!isFinite(d) || d <= 0) { setText('fall-50', '—'); setText('fall-100', '—'); return; }
+    setText('fall-50', fmt(d * 20, 0) + ' mm');
+    setText('fall-100', fmt(d * 10, 0) + ' mm');
+  }
+
+  function calcBad() {
+    var areal = num('bad-areal');
+    var hSluk = num('bad-sluk');
+    var hFall = num('bad-dor');
+    var faktor = parseFloat(document.getElementById('bad-form').value);
+    var forbruk = num('bad-forbruk');
+    var svinn = num('bad-svinn');
+    var sekk = num('bad-sekk');
+
+    var ok = [areal, hSluk, hFall, forbruk, sekk].every(function (v) { return isFinite(v) && v >= 0; })
+      && areal > 0 && forbruk > 0 && sekk > 0;
+    if (!ok) {
+      ['bad-sekker', 'bad-kg', 'bad-snitt', 'bad-spenn'].forEach(function (i) { setText(i, '—'); });
+      setWarn('bad-warn', 'Fyll inn areal, høyder, forbruk og sekkestørrelse.');
+      return;
+    }
+
+    // Snittykkelse: bunnhøyden ved sluket + gjennomsnittet av selve fallet.
+    // Faller gulvet fra alle kanter mot et punktsluk er snittet 2/3 av
+    // fallhøyden (pyramide/kjegle), ikke halvparten — se valget i skjemaet.
+    var snitt = hSluk + hFall * faktor;
+    var maks = hSluk + hFall;
+    var kgRent = areal * snitt * forbruk;
+    var kg = kgRent * (1 + (isFinite(svinn) ? svinn : 0) / 100);
+    var sekker = Math.ceil(kg / sekk);
+
+    setText('bad-snitt', fmt(snitt, 1) + ' mm');
+    setText('bad-spenn', fmt(hSluk, 0) + ' → ' + fmt(maks, 0) + ' mm');
+    setText('bad-kg', fmt(kg, 0) + ' kg');
+    setText('bad-sekker', sekker + (sekker === 1 ? ' sekk' : ' sekker'));
+
+    var warns = [];
+    if (hSluk > 0 && hSluk < 4) warns.push('Tykkelsen ved sluket (' + fmt(hSluk, 0) + ' mm) er under minste lagtykkelse på 4 mm for weberfloor 120 Reno.');
+    if (maks > 50) warns.push('Høyeste punkt blir ' + fmt(maks, 0) + ' mm — over maks 50 mm i ett sjikt. Bygg opp i flere omganger med priming mellom.');
+    if (hFall === 0) warns.push('Fallhøyden er 0 mm — da regnes flaten som plan, uten fall til sluk.');
+    setWarn('bad-warn', warns.join(' '));
+  }
+
+  function calcForbruk() {
+    var areal = num('fb-areal');
+    var tykk = num('fb-tykk');
+    var forbruk = num('fb-forbruk');
+    var svinn = num('fb-svinn');
+    var sekk = num('fb-sekk');
+
+    var ok = [areal, tykk, forbruk, sekk].every(function (v) { return isFinite(v) && v > 0; });
+    if (!ok) {
+      ['fb-sekker', 'fb-kg', 'fb-vann'].forEach(function (i) { setText(i, '—'); });
+      setWarn('fb-warn', 'Fyll inn areal, lagtykkelse, forbruk og sekkestørrelse.');
+      return;
+    }
+
+    var kg = areal * tykk * forbruk * (1 + (isFinite(svinn) ? svinn : 0) / 100);
+    var sekker = Math.ceil(kg / sekk);
+    var vann = sekker * (3.6 / 20) * sekk;
+
+    setText('fb-kg', fmt(kg, 0) + ' kg');
+    setText('fb-sekker', sekker + (sekker === 1 ? ' sekk' : ' sekker'));
+    setText('fb-vann', fmt(vann, 1) + ' liter');
+
+    var warns = [];
+    if (tykk < 4) warns.push('Lagtykkelsen er under minste lagtykkelse på 4 mm for weberfloor 120 Reno.');
+    if (tykk > 50) warns.push('Lagtykkelsen er over maks 50 mm i ett sjikt — bygg opp i flere omganger med priming mellom.');
+    setWarn('fb-warn', warns.join(' '));
+  }
+
+  ['fall-dist'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calcFall);
+  });
+  ['bad-areal', 'bad-sluk', 'bad-dor', 'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form'].forEach(function (id) {
+    var n = document.getElementById(id);
+    n.addEventListener('input', calcBad);
+    n.addEventListener('change', calcBad);
+  });
+  ['fb-areal', 'fb-tykk', 'fb-forbruk', 'fb-svinn', 'fb-sekk'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calcForbruk);
+  });
+  calcFall(); calcBad(); calcForbruk();
+
+  /* -------------------------- Faner og søk -------------------------- */
   var buttons = document.querySelectorAll('.filter-btn');
   var panels = document.querySelectorAll('.panel');
   var panelNames = Array.prototype.map.call(panels, function (p) { return p.dataset.panel; });
@@ -1008,10 +1224,10 @@
   var resultsList = resultsBox.querySelector('.results-list');
   var countEl = resultsBox.querySelector('.search-count');
   var introNote = document.getElementById('intro-note');
+  var navEl = document.querySelector('nav.toc');
 
-  // Norwegian-friendly normalisation. Every mapping is 1 char -> 1 char so that
-  // indices in the normalised string still line up with the original text,
-  // which is what lets the highlighter mark the right characters.
+  // 1 tegn -> 1 tegn, så indeksene i den normaliserte strengen fortsatt
+  // peker på riktig tegn i originalen når treffet skal markeres.
   var CHARMAP = { 'å':'a', 'ä':'a', 'æ':'a', 'ø':'o', 'ö':'o', 'é':'e', 'è':'e', 'ü':'u', 'ç':'c' };
   function norm(s) {
     s = s.toLowerCase();
@@ -1023,22 +1239,21 @@
   var panelLabel = {};
   buttons.forEach(function (b) { panelLabel[b.dataset.panel] = b.textContent.trim(); });
 
-  // textContent glues adjacent elements together ("...strøk" + "3" -> "strøk3"),
-  // which invents matches that span a boundary. Join text nodes with a space.
-  function searchText(el) {
-    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  // textContent limer sammen nabotekst ("...strøk" + "3" -> "strøk3") og finner
+  // opp treff over elementgrenser. Skill tekstnodene med mellomrom.
+  function searchText(node) {
+    var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
     var parts = [];
     while (walker.nextNode()) { parts.push(walker.currentNode.nodeValue); }
     return parts.join(' ');
   }
 
-  // Build the search index once: every self-contained block becomes one hit.
   var index = [];
   panels.forEach(function (panel) {
     var name = panel.dataset.panel;
-    var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout');
-    Array.prototype.forEach.call(blocks, function (el) {
-      index.push({ el: el, panel: name, text: norm(searchText(el)) });
+    var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc');
+    Array.prototype.forEach.call(blocks, function (node) {
+      index.push({ el: node, panel: name, text: norm(searchText(node)) });
     });
   });
 
@@ -1053,20 +1268,13 @@
     introNote.hidden = false;
     showPanel(name);
     setActiveButton(name);
+    currentPanel = name;
     if (scroll) {
       var target = document.querySelector('main');
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
-  buttons.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      if (searchInput.value) { searchInput.value = ''; clearBtn.hidden = true; }
-      activate(btn.dataset.panel, true);
-    });
-  });
-
-  // Wrap matches in <mark>, touching text nodes only so markup stays intact.
   function highlight(node, query) {
     var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
     var textNodes = [];
@@ -1079,9 +1287,9 @@
       var pos = 0;
       while (idx !== -1) {
         if (idx > pos) frag.appendChild(document.createTextNode(tn.nodeValue.slice(pos, idx)));
-        var mark = document.createElement('mark');
-        mark.textContent = tn.nodeValue.slice(idx, idx + query.length);
-        frag.appendChild(mark);
+        var mk = document.createElement('mark');
+        mk.textContent = tn.nodeValue.slice(idx, idx + query.length);
+        frag.appendChild(mk);
         pos = idx + query.length;
         idx = hay.indexOf(query, pos);
       }
@@ -1096,45 +1304,46 @@
 
     panels.forEach(function (p) { p.hidden = true; });
     setActiveButton(null);
-    // Hide the standing disclaimer while searching so hits start at the top of
-    // the screen — the whole point is an answer without scrolling.
     introNote.hidden = true;
     resultsBox.hidden = false;
     resultsList.textContent = '';
 
+    var safe = query.replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
     if (!hits.length) {
-      countEl.innerHTML = 'Ingen treff på «<strong>' + query.replace(/</g, '&lt;') + '</strong>». Prøv et kortere søkeord.';
+      countEl.innerHTML = 'Ingen treff på «<strong>' + safe + '</strong>». Prøv et kortere søkeord.';
       return;
     }
-    countEl.innerHTML = hits.length + (hits.length === 1 ? ' treff' : ' treff') + ' på «<strong>' + query.replace(/</g, '&lt;') + '</strong>»';
+    countEl.innerHTML = hits.length + ' treff på «<strong>' + safe + '</strong>»';
 
     hits.forEach(function (item) {
-      var wrap = document.createElement('div');
-      wrap.className = 'result';
-
-      var chip = document.createElement('button');
+      var wrap = el('div', 'result');
+      var chip = el('button', 'result-chip', panelLabel[item.panel] || item.panel);
       chip.type = 'button';
-      chip.className = 'result-chip';
-      chip.textContent = panelLabel[item.panel] || item.panel;
       chip.addEventListener('click', function () {
         searchInput.value = '';
         clearBtn.hidden = true;
+        lastQuery = '';
+        searchActive = false;
         activate(item.panel, true);
       });
       wrap.appendChild(chip);
 
       var clone;
       if (item.el.tagName === 'LI') {
-        // Step items lose their counter outside <ol class="steps">, so render
-        // them as plain cards instead of cloning a stray numbered item.
-        clone = document.createElement('div');
-        clone.className = 'card';
+        // Nummereringen forsvinner utenfor <ol class="steps">, så vis
+        // stegene som vanlige kort i stedet.
+        clone = el('div', 'card');
         clone.innerHTML = item.el.innerHTML;
       } else {
         clone = item.el.cloneNode(true);
+        clone.removeAttribute('id');
+        var l = clone.querySelector('.fact-link');
+        if (l) l.remove();
       }
       highlight(clone, q);
-      // A hit buried in a collapsed <details> would otherwise look unmarked.
+      // Et treff inne i en lukket <details> ville sett umarkert ut.
       Array.prototype.forEach.call(clone.querySelectorAll('details'), function (d) {
         if (d.querySelector('mark')) d.open = true;
       });
@@ -1145,7 +1354,7 @@
 
   var lastQuery = '';
   var searchActive = false;
-  var navEl = document.querySelector('nav.toc');
+  var currentPanel = 'maltall';
 
   function onSearch() {
     var v = searchInput.value.trim();
@@ -1158,9 +1367,8 @@
       searchActive = false;
     } else {
       renderResults(v);
-      // Scroll past the page header once, when a search first becomes active,
-      // so hits land right under the sticky bar. Doing it on every keystroke
-      // would yank the page around while typing.
+      // Scroll forbi header én gang når søket blir aktivt — ikke på hvert
+      // tastetrykk, det ville rykket siden mens man skriver.
       if (!searchActive) {
         searchActive = true;
         window.scrollTo({ top: navEl.offsetTop, behavior: 'smooth' });
@@ -1168,6 +1376,12 @@
     }
   }
 
+  buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (searchInput.value) { searchInput.value = ''; clearBtn.hidden = true; lastQuery = ''; searchActive = false; }
+      activate(btn.dataset.panel, true);
+    });
+  });
   searchInput.addEventListener('input', onSearch);
   searchInput.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { searchInput.value = ''; onSearch(); searchInput.blur(); }
@@ -1178,15 +1392,41 @@
     searchInput.focus();
   });
 
-  var currentPanel = 'maltall';
-  var hashName = location.hash.replace('#', '');
-  if (panelNames.indexOf(hashName) !== -1) currentPanel = hashName;
-  activate(currentPanel, false);
+  /* --------------------------- Deep-linking --------------------------- */
+  // #<fane> åpner en fane, #f-<id> går rett til ett faktakort i Måltall.
+  function routeFromHash(smooth) {
+    var h = location.hash.replace('#', '');
+    if (!h) { activate('maltall', false); return; }
+    if (panelNames.indexOf(h) !== -1) { activate(h, false); return; }
+    if (h.indexOf('f-') === 0) {
+      activate('maltall', false);
+      var card = document.getElementById(h);
+      if (card) {
+        card.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+        card.classList.add('flash');
+        setTimeout(function () { card.classList.remove('flash'); }, 2500);
+      }
+      return;
+    }
+    activate('maltall', false);
+  }
+  window.addEventListener('hashchange', function () { routeFromHash(true); });
+  routeFromHash(false);
 
-  // Keep the restore-target in sync when a category is chosen.
-  buttons.forEach(function (btn) {
-    btn.addEventListener('click', function () { currentPanel = btn.dataset.panel; });
-  });
+  /* ------------------------------ Offline ------------------------------ */
+  var status = document.getElementById('offline-status');
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function () {
+        status.textContent = '✓ Lagret for offline bruk — siden fungerer uten dekning.';
+        status.className = 'ready';
+      }, function () {
+        status.textContent = 'Offline-lagring er ikke tilgjengelig i denne nettleseren.';
+      });
+    });
+  } else {
+    status.textContent = 'Offline-lagring støttes ikke i denne nettleseren.';
+  }
 })();
 </script>
 
