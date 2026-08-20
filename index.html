@@ -25,6 +25,9 @@
     --warn-line: #b57e14;
     --bad: #a51f18;
     --ok: #1d6b3f;
+    --tip: #6d4aa8;
+    --tip-bg: #efe9f8;
+    --fav: #b8860b;
     --mark-bg: #ffe08a;
     --code-bg: #eceff0;
     --max: 920px;
@@ -140,6 +143,16 @@
   }
   .callout > strong:first-child { display: block; margin-bottom: 0.25rem; }
   .callout.legal { border-left-color: var(--accent); background: var(--accent-soft); }
+  /* Skiller egen fagpraksis/erfaring tydelig fra sourcet regelverk — samme
+     boksform, men egen farge og et lite merke foran overskriften. */
+  .callout.tip { border-left-color: var(--tip); background: var(--tip-bg); }
+  .callout-badge {
+    display: table; /* eget innhold, men fortsatt bare så bred som teksten */
+    font-size: 0.66rem; font-weight: 800;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--tip); border: 1px solid var(--tip);
+    padding: 0.1rem 0.45rem; border-radius: 4px; margin-bottom: 0.45rem;
+  }
   /* Cold-open verktøy: den juridiske nyanseringen er viktig når du lurer,
      men skal ikke stå og fylle skjermen hver gang appen åpnes. Ett-linjes
      sammendrag, full tekst bak trykk. */
@@ -178,7 +191,17 @@
   }
   .fact-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
   .fact-label { font-weight: 600; font-size: 0.88rem; }
+  .fact-right { display: flex; align-items: center; gap: 0.1rem; }
   .fact-value { font-size: 1.25rem; font-weight: 800; color: var(--accent); line-height: 1.2; }
+  .fact-fav {
+    border: none; background: none; cursor: pointer;
+    color: var(--ink-soft); font-size: 1.05rem; line-height: 1;
+    width: 2.75rem; height: 2.75rem; margin: -0.6rem -0.5rem -0.6rem 0.1rem;
+    border-radius: 8px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fact-fav:hover { background: var(--accent-soft); }
+  .fact-fav.active { color: var(--fav); }
   .fact-note { margin: 0.28rem 0 0; font-size: 0.79rem; color: var(--ink-soft); }
   .fact-why { margin: 0.45rem 0 0; font-size: 0.84rem; }
   /* Kilde-toggle og lenkeknapp deler bunnraden, så knappen får plass til et
@@ -197,6 +220,8 @@
   .fact-src summary::before { content: "▸ "; }
   .fact-src[open] summary::before { content: "▾ "; }
   .fact-src p { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+  #favorites-empty { color: var(--ink-soft); font-size: 0.88rem; margin: 0.6rem 0 1.6rem; }
+  #favorites-empty[hidden], #favorites-grid[hidden] { display: none; }
   .fact-link {
     flex: none; border: none; background: none; color: var(--ink-soft);
     cursor: pointer; font-size: 0.9rem; line-height: 1;
@@ -351,6 +376,9 @@
       --warn-line: #d9a441;
       --bad: #e57373;
       --ok: #6bbf8a;
+      --tip: #b39ddb;
+      --tip-bg: #2a2338;
+      --fav: #e0b64d;
       --mark-bg: #6b5410;
       --code-bg: #232a30;
     }
@@ -407,7 +435,13 @@
   <div class="panel" data-panel="maltall" hidden>
   <section id="maltall">
     <h2>📐 Måltall</h2>
-    <p class="section-intro">Alle tallene på ett sted, med hjemmel: forskrift, veiledning, norm eller produktdatablad. Trykk 🔗 på et kort for å kopiere en lenke rett til akkurat det tallet.</p>
+    <p class="section-intro">Alle tallene på ett sted, med hjemmel: forskrift, veiledning, norm eller produktdatablad. Trykk ☆ for å favorittmerke, 🔗 for å kopiere en lenke rett til tallet.</p>
+
+    <div id="favorites-section">
+      <h3 class="group-heading">⭐ Favoritter</h3>
+      <p id="favorites-empty" class="fav-hint">Ingen favoritter ennå — trykk ☆ på et tall for å legge det her.</p>
+      <div class="fact-grid" id="favorites-grid" hidden></div>
+    </div>
 
     <h3 class="group-heading">Fall til sluk <span class="tag">Preakseptert ytelse</span></h3>
     <div class="fact-grid" data-facts="fall" data-canonical="1"></div>
@@ -597,7 +631,8 @@
       Forskriften krever at vann ledes til sluk og at gulvet har fall — den fastsetter ikke 1:50 og 1:100 direkte. Tallene over er preaksepterte ytelser fra veiledningen: den trygge veien, og den man normalt skal følge. Avvik er mulig, men må verifiseres ved analyse etter TEK17 §2-1 og hører hjemme hos den prosjekterende, ikke på byggeplassen.
     </div>
 
-    <div class="callout">
+    <div class="callout tip">
+      <span class="callout-badge">🔧 Praksis, ikke krav</span>
       <strong>Fall er et minstekrav, ikke et måltall å ramme nøyaktig</strong>
       For bratt fall nær sluket gir gjerne dårligere gangkomfort og økt snublefare uten at det tilfører noe — de fleste sikter seg inn nær minstekravet i praksis, ikke godt over det. Husk at kravet gjelder <em>ferdig gulv</em>, altså inkludert beleggets tykkelse.
     </div>
@@ -802,7 +837,8 @@
       </li>
     </ol>
 
-    <div class="callout">
+    <div class="callout tip">
+      <span class="callout-badge">🔧 Praksis, ikke krav</span>
       <strong>Mal alltid inn mot en våt kant</strong>
       Ikke la en kantet flate tørke før du ruller opp mot den — det gir en synlig overlappingslinje i ferdig strøk. Kant én vegg av gangen og rull den ferdig med det samme, i stedet for å kante hele rommet og rulle etterpå.
     </div>
@@ -822,7 +858,8 @@
       <p>Utvendig treverk (kledning, panel) følger en annen logikk: her er det treverkets eget fuktopptak, konstruksjonens lufting bak kledningen og korrekt forbehandling (grunning, eventuelt beis) som styrer valget, mer enn diffusjonsevnen alene.</p>
     </div>
 
-    <div class="callout">
+    <div class="callout tip">
+      <span class="callout-badge">🔧 Praksis, ikke krav</span>
       <strong>Sjekk hva som allerede står på veggen</strong>
       En diffusjonsåpen maling gjør lite nytte oppå et gammelt, tett plastmalingssjikt — fukten stoppes uansett av laget under. Ved omfattende ommaling av mur/puss er det underlaget og det eksisterende systemet som avgjør, ikke bare den nye malingens datablad. Er du i tvil om oppbygningen, er dette et tilfelle for en fuktvurdering før produktvalg.
     </div>
@@ -1065,6 +1102,71 @@
     ]
   };
 
+  var FACT_BY_ID = {};
+  Object.keys(FACTS).forEach(function (group) {
+    FACTS[group].forEach(function (fact) { FACT_BY_ID[fact.id] = fact; });
+  });
+
+  /* ------------------------------ Favoritter ----------------------------- */
+  // Rent lokalt (localStorage) — ingen innlogging, ingen server. Faller
+  // stille tilbake til "ingen favoritter" i privat modus der lagring feiler.
+  var FAV_KEY = 'malerguiden-favoritter';
+  function loadFavorites() {
+    try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  function saveFavorites(ids) {
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(ids)); } catch (e) { /* privat modus */ }
+  }
+  function isFavorite(id) { return loadFavorites().indexOf(id) !== -1; }
+  function toggleFavorite(id) {
+    var ids = loadFavorites();
+    var i = ids.indexOf(id);
+    if (i === -1) { ids.push(id); } else { ids.splice(i, 1); }
+    saveFavorites(ids);
+  }
+
+  function updateFavButton(btn, id) {
+    var active = isFavorite(id);
+    btn.textContent = active ? '★' : '☆';
+    btn.classList.toggle('active', active);
+    var label = FACT_BY_ID[id] ? FACT_BY_ID[id].label : id;
+    btn.title = active ? 'Fjern fra favoritter' : 'Legg til i favoritter';
+    btn.setAttribute('aria-label', (active ? 'Fjern fra favoritter: ' : 'Legg til i favoritter: ') + label);
+  }
+
+  function wireFavButton(btn, id) {
+    btn.dataset.for = id;
+    updateFavButton(btn, id);
+    btn.addEventListener('click', function () {
+      toggleFavorite(id);
+      // Flere kort for samme tall kan stå på siden samtidig (Måltall +
+      // fagfanen, eventuelt et søketreff) — hold dem alle i synk.
+      Array.prototype.forEach.call(
+        document.querySelectorAll('.fact-fav[data-for="' + id + '"]'),
+        function (b) { updateFavButton(b, id); }
+      );
+      renderFavorites();
+    });
+  }
+
+  function renderFavorites() {
+    var grid = document.getElementById('favorites-grid');
+    var empty = document.getElementById('favorites-empty');
+    if (!grid) return; // finnes bare på Måltall-fanen
+    var ids = loadFavorites();
+    grid.textContent = '';
+    var any = false;
+    ids.forEach(function (id) {
+      var fact = FACT_BY_ID[id];
+      if (!fact) return; // pekte på et tall som ikke finnes lenger
+      grid.appendChild(buildFactCard(fact, false));
+      any = true;
+    });
+    grid.hidden = !any;
+    empty.hidden = any;
+  }
+
   /* ------------------------- Rendering av fakta ------------------------- */
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -1079,7 +1181,13 @@
 
     var head = el('div', 'fact-head');
     head.appendChild(el('span', 'fact-label', fact.label));
-    head.appendChild(el('span', 'fact-value', fact.value));
+    var right = el('span', 'fact-right');
+    right.appendChild(el('span', 'fact-value', fact.value));
+    var fav = el('button', 'fact-fav');
+    fav.type = 'button';
+    wireFavButton(fav, fact.id);
+    right.appendChild(fav);
+    head.appendChild(right);
     card.appendChild(head);
 
     if (fact.note) card.appendChild(el('p', 'fact-note', fact.note));
@@ -1141,6 +1249,7 @@
       });
     });
   });
+  renderFavorites();
 
   /* ----------------------------- Kalkulator ----------------------------- */
   // Norske brukere skriver komma. Godta begge.
@@ -1284,6 +1393,9 @@
     var name = panel.dataset.panel;
     var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc');
     Array.prototype.forEach.call(blocks, function (node) {
+      // Favoritter er en kopi av et kort som allerede indekseres fra sin
+      // vanlige gruppe — ikke la det samme tallet komme opp to ganger i søk.
+      if (node.closest('#favorites-grid')) return;
       index.push({ el: node, panel: name, text: norm(searchText(node)) });
     });
   });
@@ -1372,6 +1484,10 @@
         clone.removeAttribute('id');
         var l = clone.querySelector('.fact-link');
         if (l) l.remove();
+        // cloneNode kopierer ikke lyttere — koble stjerneknappen til på nytt
+        // så favorittmerking virker direkte fra søketreff også.
+        var favBtn = clone.querySelector('.fact-fav');
+        if (favBtn) wireFavButton(favBtn, favBtn.dataset.for);
       }
       highlight(clone, q);
       // Et treff inne i en lukket <details> ville sett umarkert ut.
