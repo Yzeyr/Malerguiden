@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Baderomsguide — Fall, maling og vinylbelegg</title>
+<title>Malerguiden</title>
 <style>
   :root {
     --ink: #1c2530;
@@ -15,8 +15,10 @@
     --accent-soft: #e4eef0;
     --warn-bg: #fdf3e3;
     --warn-line: #d9a441;
+    --bad: #b3261e;
+    --bad-bg: #fbe9e7;
     --code-bg: #eef1ea;
-    --max: 880px;
+    --max: 920px;
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -31,19 +33,25 @@
   header.site {
     background: var(--ink);
     color: #f2f0ea;
-    padding: 2.4rem 1.25rem 2rem;
+    padding: 2rem 1.25rem 1.6rem;
   }
   header.site .inner { max-width: var(--max); margin: 0 auto; }
   header.site h1 {
-    margin: 0 0 0.4rem;
-    font-size: clamp(1.6rem, 4vw, 2.1rem);
+    margin: 0 0 0.15rem;
+    font-size: clamp(1.7rem, 4vw, 2.3rem);
     letter-spacing: -0.01em;
+  }
+  header.site p.tagline {
+    margin: 0 0 0.5rem;
+    color: #8fd6c9;
+    font-weight: 600;
+    font-size: 0.92rem;
   }
   header.site p.lede {
     margin: 0;
     color: #c9c4b8;
     max-width: 60ch;
-    font-size: 0.98rem;
+    font-size: 0.92rem;
   }
   nav.toc {
     position: sticky;
@@ -57,12 +65,12 @@
     max-width: var(--max);
     margin: 0 auto;
     display: flex;
-    gap: 1.25rem;
+    align-items: center;
+    gap: 0.6rem;
     flex-wrap: wrap;
-    padding: 0.7rem 1.25rem;
+    padding: 0.65rem 1.25rem;
     font-size: 0.88rem;
   }
-  nav.toc .inner { align-items: center; }
   .filter-btn {
     appearance: none;
     border: 1px solid var(--line);
@@ -71,7 +79,7 @@
     font: inherit;
     font-weight: 600;
     font-size: 0.85rem;
-    padding: 0.45rem 0.9rem;
+    padding: 0.45rem 0.85rem;
     border-radius: 999px;
     cursor: pointer;
     white-space: nowrap;
@@ -95,9 +103,9 @@
   main [id] { scroll-margin-top: 5.5rem; }
   .panel[hidden] { display: none; }
   main { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem 4rem; }
-  section { padding-top: 2.6rem; }
+  section { padding-top: 2.4rem; }
   section > h2 {
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     margin: 0 0 0.3rem;
     padding-bottom: 0.6rem;
     border-bottom: 2px solid var(--accent);
@@ -108,9 +116,14 @@
     max-width: 68ch;
   }
   h3 {
-    font-size: 1.12rem;
-    margin: 2rem 0 0.6rem;
+    font-size: 1.08rem;
+    margin: 2rem 0 0.5rem;
     color: var(--ink);
+  }
+  h3.group-heading {
+    margin: 2.2rem 0 0.5rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--line);
   }
   h3 .tag {
     display: inline-block;
@@ -132,32 +145,7 @@
     padding: 1.1rem 1.3rem;
     margin: 0.9rem 0;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0.9rem 0;
-    font-size: 0.92rem;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  caption { caption-side: top; text-align: left; font-weight: 600; margin-bottom: 0.4rem; }
-  th, td {
-    text-align: left;
-    padding: 0.65rem 0.8rem;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-  }
-  thead th {
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  code, .figure {
+  code {
     font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
     background: var(--code-bg);
     padding: 0.1rem 0.4rem;
@@ -219,6 +207,73 @@
     color: var(--accent);
     display: block;
   }
+
+  /* Fact cards — the "cold open" answer format */
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 0.65rem;
+    margin: 0.9rem 0 1.5rem;
+  }
+  .fact-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+  }
+  .fact-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .fact-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .fact-value {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .fact-note {
+    margin: 0.3rem 0 0;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+  }
+  .fact-card details { margin-top: 0.5rem; }
+  .fact-card summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .fact-card details p {
+    margin: 0.45rem 0 0;
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+  }
+
+  /* Common-mistake cards */
+  .mistake {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--bad);
+    border-radius: 8px;
+    padding: 0.85rem 1.05rem;
+    margin: 0.7rem 0;
+  }
+  .mistake-bad {
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .mistake-why {
+    margin: 0.3rem 0 0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+  }
+
   footer.site {
     max-width: var(--max);
     margin: 2rem auto 3rem;
@@ -233,15 +288,14 @@
   .updated { font-size: 0.82rem; color: var(--ink-soft); margin-top: 1.6rem; }
 
   @media (max-width: 560px) {
-    nav.toc .inner { gap: 0.9rem; font-size: 0.82rem; }
-    table { font-size: 0.85rem; }
+    nav.toc .inner { gap: 0.5rem; font-size: 0.82rem; }
   }
 
   @media print {
     nav.toc { display: none; }
     header.site { background: none; color: var(--ink); padding: 0 0 1rem; }
-    header.site p.lede { color: var(--ink-soft); }
-    .callout, .card, table { break-inside: avoid; }
+    header.site p.lede, header.site p.tagline { color: var(--ink-soft); }
+    .callout, .card, .fact-card, .mistake { break-inside: avoid; }
     a { color: var(--ink); text-decoration: underline; }
   }
 
@@ -256,6 +310,8 @@
       --accent-soft: #1d3238;
       --warn-bg: #2c2416;
       --warn-line: #d9a441;
+      --bad: #e57373;
+      --bad-bg: #2c1a18;
       --code-bg: #232a30;
     }
     header.site { background: #0d1013; }
@@ -266,19 +322,21 @@
 
 <header class="site">
   <div class="inner">
-    <h1>Baderomsguide</h1>
-    <p class="lede">Praktisk oppslagsverk for klargjøring av gulv, fall til sluk, vinylbelegg, sparkling og maling — bygget rundt TEK17 §13-15, SINTEF Byggforsk og gjeldende bransjenorm. Personlig fagreferanse, ikke en erstatning for å lese gjeldende regelverk selv.</p>
+    <h1>Malerguiden</h1>
+    <p class="tagline">Faglig oppslagsverk for malere og gulvleggere</p>
+    <p class="lede">Bygget rundt TEK17 §13-15, SINTEF Byggforsk og gjeldende bransjenorm. Personlig fagreferanse, ikke en erstatning for å lese gjeldende regelverk selv.</p>
   </div>
 </header>
 
 <nav class="toc">
   <div class="inner">
-    <button type="button" class="filter-btn" data-panel="gulvklargjoring">Klargjøring gulv</button>
-    <button type="button" class="filter-btn" data-panel="bad">Bad</button>
-    <button type="button" class="filter-btn" data-panel="sparkling">Sparkling</button>
-    <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-tak">Maling tak</button>
-    <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-vegg">Maling vegg</button>
-    <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-fasade">Maling fasade</button>
+    <button type="button" class="filter-btn" data-panel="maltall">📐 Måltall</button>
+    <button type="button" class="filter-btn" data-panel="gulvfall">〰️ Gulv &amp; fall</button>
+    <button type="button" class="filter-btn" data-panel="vatrom">🚿 Våtrom</button>
+    <button type="button" class="filter-btn" data-panel="sparkling">🧱 Sparkling</button>
+    <button type="button" class="filter-btn" data-panel="maling">🎨 Maling</button>
+    <button type="button" class="filter-btn" data-panel="fasade">🏠 Fasade</button>
+    <button type="button" class="filter-btn" data-panel="feil">⚠️ Vanlige feil</button>
     <a class="toc-link" href="#kilder">Kilder</a>
   </div>
 </nav>
@@ -290,11 +348,201 @@
     TEK17 og Byggforsk-detaljer oppdateres med jevne mellomrom. Tallene under er de preaksepterte ytelsene som gjaldt på research-tidspunktet (august 2026) — bruk denne siden som et raskt oppslag, men slå opp §13-15 og relevante Byggforsk-blad direkte før noe som faktisk skal dokumenteres eller godkjennes.
   </div>
 
-  <div class="panel" data-panel="gulvklargjoring" hidden>
+  <!-- ============ MÅLTALL ============ -->
+  <div class="panel" data-panel="maltall" hidden>
+  <section id="maltall">
+    <h2>📐 Måltall</h2>
+    <p class="section-intro">Alle tallene på ett sted. Trykk «Forklaring / krav / kilde» for detaljer — resten av siden går i dybden på hvordan du faktisk gjør jobben.</p>
 
-  <section id="gulvklargjoring">
-    <h2>Klargjøring gulv</h2>
-    <p class="section-intro">Undergulvet avgjør sluttresultatet mer enn selve leggingen — belegg jevner ikke ut ujevnheter, det avslører dem. Rekkefølgen under gjelder både våtrom og tørre rom.</p>
+    <h3 class="group-heading">Fall til sluk</h3>
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Dusj rett over sluk</span><span class="fact-value">1:50</span></div>
+        <p class="fact-note">Min. 0,8 m ut fra sluket</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>En av tre preaksepterte løsninger i TEK17 §13-15. Gjelder når dusjen er plassert rett over sluket.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Dusj ikke over sluk</span><span class="fact-value">1:50</span></div>
+        <p class="fact-note">Fra nedslagsfelt til sluk</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Samme krav gjelder når dusjsonen ligger et annet sted enn rett over sluket — fallet regnes fra der vannet treffer gulvet.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Nedsenket dusjsone</span><span class="fact-value">1:100</span></div>
+        <p class="fact-note">Min. 10 mm lavere enn resten</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Alternativ løsning: senk dusjsonen minst 10 mm i forhold til resten av gulvet, så holder 1:100 i nedslagsfeltet.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Resten av gulvet</span><span class="fact-value">1:100</span></div>
+        <p class="fact-note">Alternativ: hele gulvet, ikke bare dusjsonen</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Tredje preaksepterte løsning: la hele gulvet, ikke bare dusjsonen, ha minst 1:100 fall til sluket.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Motfall</span><span class="fact-value">0 mm</span></div>
+        <p class="fact-note">Ikke tillatt noe sted</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Gulvet skal aldri lede vann bort fra sluket, uansett hvor lite areal det gjelder.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Oppkant ytterkant</span><span class="fact-value">25 mm</span></div>
+        <p class="fact-note">Minimum over ferdig gulv</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Tettesjiktets oppkant ved alle ytterkanter, unntatt døråpninger.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Oppkant døråpning</span><span class="fact-value">15 mm</span></div>
+        <p class="fact-note">Unntaket fra kravet over</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Redusert minstekrav til oppkant der terskelen er en døråpning.</p></details>
+      </div>
+    </div>
+
+    <h3 class="group-heading">Vinylbelegg</h3>
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Beleggtykkelse våtrom</span><span class="fact-value">1,5 mm</span></div>
+        <p class="fact-note">Minimum, og må være sveisbart</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Ikke alle vinylbelegg er godkjent for våtrom — sjekk produktdatablad før innkjøp.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Skjøt til sluk</span><span class="fact-value">100 mm</span></div>
+        <p class="fact-note">Minste tillatte avstand</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T: skjøter skal ikke plasseres nærmere sluket enn dette.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Skjøt i ytterhjørne</span><span class="fact-value">Ikke tillatt</span></div>
+        <p class="fact-note">NS 3420-T</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Skjøter skal ikke plasseres direkte på utvendige hjørner.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Minste beleggstykke</span><span class="fact-value">150×150 mm</span></div>
+        <p class="fact-note">Ved innskjøting</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Det skal ikke skjøtes inn beleggstykker mindre enn dette målet.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Akklimatisering</span><span class="fact-value">24 t</span></div>
+        <p class="fact-note">Minimum, romtemperatur</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Lenger ved store temperatur-/fuktforskjeller mellom lager og monteringsrom.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Vent før sveising</span><span class="fact-value">24 t</span></div>
+        <p class="fact-note">Etter legging, før sveis</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Limet må få satt seg før skjøtene sveises.</p></details>
+      </div>
+    </div>
+
+    <h3 class="group-heading">Klargjøring gulv</h3>
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Flytsparkel lagtykkelse</span><span class="fact-value">4–50 mm</span></div>
+        <p class="fact-note">Typisk for renoveringssparkel</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Bygg opp i flere omganger med priming mellom hvert lag ved tykke lag eller stort fall.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Herdetid, 30 mm</span><span class="fact-value">~1 døgn</span></div>
+        <p class="fact-note">Veiledende — sjekk datablad</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Herdetiden øker med lagtykkelsen. Produktets eget datablad har de bindende tallene.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Herdetid, 40 mm</span><span class="fact-value">~2 døgn</span></div>
+        <p class="fact-note">Veiledende — sjekk datablad</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Herdetiden øker med lagtykkelsen. Produktets eget datablad har de bindende tallene.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Herdetid, 50 mm</span><span class="fact-value">~3 døgn</span></div>
+        <p class="fact-note">Veiledende — sjekk datablad</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Herdetiden øker med lagtykkelsen. Produktets eget datablad har de bindende tallene.</p></details>
+      </div>
+    </div>
+
+    <h3 class="group-heading">Sparkling</h3>
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Minste antall strøk</span><span class="fact-value">3</span></div>
+        <p class="fact-note">Taping medregnet</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Aldri færre enn tre strøk totalt: taping, fyllstrøk og fintstrøk.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">K2-finish</span><span class="fact-value">1 strøk</span></div>
+        <p class="fact-note">Standard, helsparklet</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T. Dekker godt for matt/halvblank maling i vanlig rombelysning.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">K3-finish</span><span class="fact-value">2 strøk</span></div>
+        <p class="fact-note">Sterkt sidelys / blank maling</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T. Ekstra finstrøk over hele flaten, ikke bare skjøtene.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Sliping, grovt</span><span class="fact-value">P80–P120</span></div>
+        <p class="fact-note">Fjerner overflødig masse</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Slipenett (type Mirka Abranet) går sjeldnere tett enn vanlig slipepapir.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Sliping, fint</span><span class="fact-value">P180–P240</span></div>
+        <p class="fact-note">Siste finslip</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Kjøres etter grovslipingen, rett før grunning.</p></details>
+      </div>
+    </div>
+
+    <h3 class="group-heading">Maling</h3>
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Fasade</span><span class="fact-value">Diffusjonsåpen</span></div>
+        <p class="fact-note">Anbefalt utvendig</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Lar fukt i underlaget tørke ut gjennom malingen i stedet for å bygge seg opp bak et tett lag.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Bad innendørs</span><span class="fact-value">Ikke poenget</span></div>
+        <p class="fact-note">Diffusjonsåpenhet, altså</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Det er det sveisede gulvbelegget som er fuktsperren innendørs, ikke malingen. Velg våtromsmaling for holdbarhet i stedet.</p></details>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <!-- ============ GULV & FALL ============ -->
+  <div class="panel" data-panel="gulvfall" hidden>
+  <section id="gulvfall">
+    <h2>〰️ Gulv &amp; fall</h2>
+    <p class="section-intro">Klargjøring av undergulvet og fall til sluk hører sammen — i våtrom bygges fallet inn i selve avrettingen, ikke som et eget steg etterpå.</p>
+
+    <h3 class="group-heading">Fall til sluk — de tre preaksepterte løsningene</h3>
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Dusj rett over sluk</span><span class="fact-value">1:50</span></div>
+        <p class="fact-note">Min. 0,8 m ut fra sluket</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>TEK17 §13-15. Følger du de preaksepterte løsningene, regnes kravet som oppfylt uten videre dokumentasjon.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Dusj ikke over sluk</span><span class="fact-value">1:50</span></div>
+        <p class="fact-note">Fra nedslagsfelt til sluk</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Samme krav, men fallet regnes fra der vannet faktisk treffer gulvet.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Nedsenket dusjsone</span><span class="fact-value">1:100</span></div>
+        <p class="fact-note">Min. 10 mm lavere enn resten</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Senk dusjsonen minst 10 mm i forhold til resten av gulvet, så holder 1:100 i nedslagsfeltet.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Resten av gulvet</span><span class="fact-value">1:100</span></div>
+        <p class="fact-note">Alternativ: hele gulvet</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>La hele gulvet, ikke bare dusjsonen, ha minst 1:100 fall til sluket.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Motfall</span><span class="fact-value">0 mm</span></div>
+        <p class="fact-note">Ikke tillatt noe sted</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Gulvet skal aldri lede vann bort fra sluket, uansett hvor lite areal.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Oppkant tettesjikt</span><span class="fact-value">25 / 15 mm</span></div>
+        <p class="fact-note">Ytterkant / døråpning</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Minst 25 mm over ferdig gulv ved alle ytterkanter, redusert til 15 mm ved døråpninger.</p></details>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Fall er et minstekrav, ikke et måltall å ramme nøyaktig</strong>
+      For bratt fall nær sluket gir gjerne dårligere gangkomfort og økt snublefare uten at det tilfører noe — de fleste fagfolk sikter seg inn nær minstekravet i praksis, ikke over det.
+    </div>
+
+    <h3 class="group-heading">Klargjøring — rekkefølgen</h3>
+    <p class="section-intro" style="margin-top:0;">Undergulvet avgjør sluttresultatet mer enn selve leggingen. Rekkefølgen under gjelder både våtrom og tørre rom.</p>
 
     <ol class="steps">
       <li>
@@ -315,21 +563,11 @@
       </li>
       <li>
         <strong>Flytsparkling / avretting — her bygges fallet</strong>
-        I våtrom bygges fall til sluk normalt inn i selve avrettingen, ikke som et eget steg etterpå. Bruk en fiberarmert, selvutjevnende renoveringssparkel (type <code>weberfloor 120 Reno</code> eller tilsvarende, sjikttykkelse ca. <code>4–50 mm</code>): hell massen ut ved gulvets høyeste punkt, la den flyte ned mot sluket, og dra med rakel for å forme fallet mens massen fortsatt er bearbeidbar — trekk overskytende masse tilbake mot høyeste punkt til den slutter å flyte.
-        <div class="rule-grid" style="margin-top:0.8rem;">
-          <div class="card">
-            <span class="num">1:50</span>
-            Innenfor 0,8 m fra sluket (dusjsonen) — bygges inn i sparkelen her.
-          </div>
-          <div class="card">
-            <span class="num">1:100</span>
-            Minstekrav på resten av gulvet — se <strong>Bad</strong>-fanen for alle tre preaksepterte løsningene i detalj.
-          </div>
-        </div>
+        I våtrom bygges fall til sluk normalt inn i selve avrettingen, ikke som et eget steg etterpå. Bruk en fiberarmert, selvutjevnende renoveringssparkel (type <code>weberfloor 120 Reno</code> eller tilsvarende, sjikttykkelse ca. <code>4–50 mm</code>): hell massen ut ved gulvets høyeste punkt, la den flyte ned mot sluket, og dra med rakel for å forme fallet mens massen fortsatt er bearbeidbar — trekk overskytende masse tilbake mot høyeste punkt til den slutter å flyte. Fallkravene over bygges inn her.
       </li>
       <li>
         <strong>Ved tykke lag eller stort fall</strong>
-        Bygg opp i flere omganger med priming mellom hvert lag fremfor ett tykt strøk. Herdetiden øker med tykkelsen — typisk for en renoveringssparkel av denne typen: rundt 1 døgn opp til 30 mm, 2 døgn opp til 40 mm og 3 døgn opp til 50 mm. Sjekk alltid produktets eget datablad, det er der de bindende tallene står.
+        Bygg opp i flere omganger med priming mellom hvert lag fremfor ett tykt strøk. Herdetiden øker med tykkelsen — rundt 1 døgn opp til 30 mm, 2 døgn opp til 40 mm og 3 døgn opp til 50 mm for en typisk renoveringssparkel. Sjekk alltid produktets eget datablad, det er der de bindende tallene står.
       </li>
       <li>
         <strong>Herding og sluttsliping</strong>
@@ -343,71 +581,39 @@
 
     <div class="callout">
       <strong>Kontroller fallet etter herding, ikke bare mens du bygger det</strong>
-      Sjekk fallet med vater/laser når sparkelen er ferdig herdet, før belegget legges — mindre etterjusteringer er lettere å ta nå enn etter at gulvet er dekket. Full oversikt over de preaksepterte fallkravene ligger på <strong>Bad</strong>-fanen.
+      Sjekk fallet med vater/laser når sparkelen er ferdig herdet, før belegget legges — mindre etterjusteringer er lettere å ta nå enn etter at gulvet er dekket.
     </div>
   </section>
-
   </div>
 
-  <div class="panel" data-panel="bad" hidden>
+  <!-- ============ VÅTROM ============ -->
+  <div class="panel" data-panel="vatrom" hidden>
+  <section id="vatrom">
+    <h2>🚿 Våtrom</h2>
+    <p class="section-intro">Legging av vinylbelegg i våtrom, fra ferdig klargjort undergulv (se <strong>Gulv &amp; fall</strong>) til ferdig sveiset gulv. Strammere regulert enn i tørre rom, fordi beleggets skjøter er en del av det vanntette systemet.</p>
 
-  <section id="fall">
-    <h2>Fall til sluk</h2>
-    <p class="section-intro">TEK17 §13-15 krever at gulv i våtrom skal ha fall til sluk, uten motfall noe sted lekkasjevann kan oppstå. Kravene under er de tre preaksepterte løsningene — følger du dem, regnes kravet som oppfylt uten videre dokumentasjon.</p>
-
-    <table>
-      <caption>Minimumskrav til fall — TEK17 §13-15</caption>
-      <thead>
-        <tr><th>Situasjon</th><th>Krav til fall</th><th>Sone</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Dusj rett over sluk</td>
-          <td><code>1:50</code></td>
-          <td>Minst 0,8 m ut fra sluket</td>
-        </tr>
-        <tr>
-          <td>Dusj <em>ikke</em> rett over sluk</td>
-          <td><code>1:50</code></td>
-          <td>Fra dusjens nedslagsfelt og til sluket</td>
-        </tr>
-        <tr>
-          <td>Nedsenket dusjsone (min. 10 mm lavere enn resten av gulvet)</td>
-          <td><code>1:100</code></td>
-          <td>I dusjens nedslagsfelt</td>
-        </tr>
-        <tr>
-          <td>Resten av gulvet (alternativ løsning)</td>
-          <td><code>1:100</code></td>
-          <td>Hele gulvet, ikke bare dusjsonen</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="rule-grid">
-      <div class="card">
-        <span class="num">0 mm</span>
-        Motfall er ikke tillatt noe sted vann kan lekke — gulvet skal aldri lede vann bort fra sluket.
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Beleggtykkelse</span><span class="fact-value">1,5 mm</span></div>
+        <p class="fact-note">Minimum, må være sveisbart</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Ikke alle vinylbelegg er godkjent for våtromsbruk — sjekk produktdatablad før innkjøp.</p></details>
       </div>
-      <div class="card">
-        <span class="num">25 mm</span>
-        Tettesjiktets oppkant skal være minst 25 mm over ferdig gulv ved alle ytterkanter.
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Akklimatisering</span><span class="fact-value">24 t</span></div>
+        <p class="fact-note">Minimum, romtemperatur</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Lenger ved store temperatur-/fuktforskjeller mellom lager og monteringsrom.</p></details>
       </div>
-      <div class="card">
-        <span class="num">15 mm</span>
-        Unntaket er døråpninger, der oppkanten kan reduseres til minst 15 mm.
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Skjøt til sluk</span><span class="fact-value">100 mm</span></div>
+        <p class="fact-note">Minste tillatte avstand</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T: skjøter skal ikke plasseres nærmere sluket enn dette.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Minste beleggstykke</span><span class="fact-value">150×150 mm</span></div>
+        <p class="fact-note">Ved innskjøting</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Det skal ikke skjøtes inn beleggstykker mindre enn dette målet.</p></details>
       </div>
     </div>
-
-    <div class="callout">
-      <strong>Fall er et minstekrav, ikke et måltall å ramme nøyaktig</strong>
-      Kravene i tabellen er minimum. For bratt fall nær sluket gir gjerne dårligere gangkomfort og økt snublefare uten at det tilfører noe — de fleste fagfolk sikter seg inn nær minstekravet i praksis, ikke over det. Sjekk fallet med vater/laser før belegget legges, ikke bare etter.
-    </div>
-  </section>
-
-  <section id="vinyl">
-    <h2>Vinylbelegg / gulvbelegg</h2>
-    <p class="section-intro">Legging av vinylbelegg i våtrom er strammere regulert enn i tørre rom, fordi beleggets skjøter er en del av det vanntette systemet. Rekkefølgen under følger normal arbeidsflyt fra ferdig klargjort undergulv (se <strong>Klargjøring gulv</strong>) til ferdig sveiset gulv.</p>
 
     <ol class="steps">
       <li>
@@ -416,11 +622,11 @@
       </li>
       <li>
         <strong>Krav til belegget i våtrom</strong>
-        Belegg som skal brukes i våtrom må være minst <code>1,5 mm</code> tykt og sveisbart — ikke alle vinylbelegg er godkjent for våtromsbruk, sjekk produktdatablad før innkjøp.
+        Belegg som skal brukes i våtrom må være minst <code>1,5 mm</code> tykt og sveisbart.
       </li>
       <li>
         <strong>Kontroller fallet</strong>
-        Fall mot sluk skal kontrolleres ved montering — se <a href="#fall">Fall til sluk</a> over. Dette gjøres før liming, ikke som en etterkontroll.
+        Fall mot sluk skal kontrolleres ved montering — se <strong>Gulv &amp; fall</strong>. Dette gjøres før liming, ikke som en etterkontroll.
       </li>
       <li>
         <strong>Liming</strong>
@@ -432,38 +638,40 @@
       </li>
       <li>
         <strong>Plassering av skjøter (NS 3420-T)</strong>
-        Se regelkortene under — dette er de tre faste kravene til hvor skjøter <em>ikke</em> kan plasseres.
+        Skjøter skal ikke plasseres nærmere sluket enn 100 mm, ikke direkte på utvendige hjørner, og ikke som beleggstykker mindre enn 150×150 mm.
       </li>
     </ol>
-
-    <div class="rule-grid">
-      <div class="card">
-        <span class="num">100 mm</span>
-        Skjøter skal ikke plasseres nærmere sluket enn 100 mm.
-      </div>
-      <div class="card">
-        <span class="num">0°</span>
-        Skjøter skal ikke plasseres direkte på utvendige hjørner.
-      </div>
-      <div class="card">
-        <span class="num">150×150 mm</span>
-        Det skal ikke skjøtes inn beleggstykker som er mindre enn dette målet.
-      </div>
-    </div>
-
-    <div class="callout">
-      <strong>Utenfor våtrom gjelder samme grunnarbeid</strong>
-      Rekkefølgen over dekker selve leggingen i våtrom. Sliping, avretting og annen klargjøring av undergulvet — som gjelder uansett rom — ligger på egen fane: <strong>Klargjøring gulv</strong>.
-    </div>
   </section>
-
   </div>
 
+  <!-- ============ SPARKLING ============ -->
   <div class="panel" data-panel="sparkling" hidden>
-
   <section id="sparkling">
-    <h2>Sparkling</h2>
+    <h2>🧱 Sparkling</h2>
     <p class="section-intro">Veggsparkling før maling — fylling av skjøter, hull og ujevnheter slik at veggen blir jevn nok til å males uten at feil skinner gjennom.</p>
+
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">K2-finish</span><span class="fact-value">1 strøk</span></div>
+        <p class="fact-note">Standard, helsparklet</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T. Dekker godt for matt/halvblank maling under vanlig rombelysning.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">K3-finish</span><span class="fact-value">2 strøk</span></div>
+        <p class="fact-note">Sterkt sidelys / blank maling</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>NS 3420-T. Ekstra finstrøk over hele flaten, ikke bare skjøtene.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Sliping, grovt</span><span class="fact-value">P80–P120</span></div>
+        <p class="fact-note">Fjerner overflødig masse</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Slipenett (type Mirka Abranet) gir støvfri sliping og går sjeldnere tett enn vanlig slipepapir.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Sliping, fint</span><span class="fact-value">P180–P240</span></div>
+        <p class="fact-note">Siste finslip</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Kjøres etter grovslipingen, rett før grunning.</p></details>
+      </div>
+    </div>
 
     <ol class="steps">
       <li>
@@ -501,33 +709,39 @@
       La sparkelmassen herde fullt iht. produktets angitte tørketid før du sliper og maler. Maling for tidlig over fuktig sparkel gir sprekkdannelse som først dukker opp i etterkant, ikke med det samme.
     </div>
   </section>
-
   </div>
 
+  <!-- ============ MALING ============ -->
   <div class="panel" data-panel="maling" hidden>
-
   <section id="maling">
-    <h2>Maling</h2>
-    <p class="section-intro">Riktig malingtype handler om fukttransport, ikke bare farge og glans. Hovedskillet står mellom diffusjonsåpne produkter (slipper vanndamp gjennom) og tettere produkter — og hva som er riktig valg er stikk motsatt inne og ute.</p>
+    <h2>🎨 Maling</h2>
+    <p class="section-intro">Innendørs — tak og vegg. For fasade, se egen fane. Riktig malingtype handler om fukttransport, ikke bare farge og glans.</p>
+
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Diffusjonsåpen inne</span><span class="fact-value">Ikke poenget</span></div>
+        <p class="fact-note">Motsatt av fasade</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Det er det sveisede gulvbelegget som er fuktsperren innendørs, ikke malingen på tak/vegg.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Riktig kategori</span><span class="fact-value">Våtromsmaling</span></div>
+        <p class="fact-note">Tak og vegg i bad</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Typisk akrylbasert med sopphindrende tilsetning, testet for fukt og avvasking.</p></details>
+      </div>
+    </div>
 
     <h3>Hva "diffusjonsåpen" faktisk betyr</h3>
     <p>Et diffusjonsåpent produkt lar vanndamp passere gjennom laget uten å slippe inn vann i flytende form — det "puster". Fukt i underlaget kan dermed tørke ut gjennom malingen i stedet for å bli fanget bak et tett lag, som over tid løsner både maling og puss/sparkel.</p>
 
-    <h3 id="maling-fasade">Utvendig fasade <span class="tag">Diffusjonsåpen anbefalt</span></h3>
-    <div class="card">
-      <p>På mur, puss, betong og lignende fuktutsatte fasader er diffusjonsåpen maling det klare rådet — <strong>silikatmaling</strong> og <strong>silikonharpiksmaling</strong> er typiske kategorier. Er malingen ikke diffusjonsåpen, kan fukt bygge seg opp bak laget og med tiden presse av både maling og puss.</p>
-      <p>Utvendig treverk (kledning, panel) males oftere med <strong>alkydmaling</strong>, som er tettere av natur — her er det treverkets egen fuktbalanse og korrekt forbehandling (grunning, eventuelt beis) som styrer valget mer enn diffusjonsevnen alene.</p>
-    </div>
-
     <h3>Innendørs bad/våtrom <span class="tag">Diffusjonsåpen er ikke poenget her</span></h3>
     <p>Innendørs i våtrom er situasjonen snudd på hodet: det er det <strong>sveisede gulvbelegget</strong> — med oppbrett på vegg i dusjsonen — som er selve fuktsperren, ikke malingen på tak og veggene rundt. Malingprodusenter er samstemte om at diffusjonsåpenhet ikke har noen praktisk hensikt innendørs — kravet hentes ofte inn av vane fra fasadeverden der det faktisk betyr noe. Begge kategoriene under er derfor samme type produkt, <strong>våtromsmaling</strong>, men med litt ulikt fokus.</p>
 
-    <h3 id="maling-tak">Tak <span class="tag">Fuktbestandig, ikke blank</span></h3>
+    <h3>Tak <span class="tag">Fuktbestandig, ikke blank</span></h3>
     <div class="card">
       <p>Taket får ikke direkte sprut, men samler kondens fra dusjdampen som stiger og legger seg der luften er kaldest. Bruk våtromsmaling — typisk akrylbasert med sopphindrende tilsetning — fremfor vanlig takmaling, og hold deg til matt/halvblank: en blankere overflate synliggjør kondensdrypp og ujevnheter tydeligere.</p>
     </div>
 
-    <h3 id="maling-vegg">Vegg <span class="tag">Slitesterk og lett å vaske</span></h3>
+    <h3>Vegg <span class="tag">Slitesterk og lett å vaske</span></h3>
     <div class="card">
       <p>Veggene utenfor der belegget selv dekker (gulv og eventuelt oppbrett i dusjsonen) tåler jevnlig kontakt med sprut og hender. Samme kategori, våtromsmaling, men her teller skrubbfasthet og avvaskbarhet mest — den skal tåle jevnlig rengjøring uten at glansen eller fargen svekkes.</p>
     </div>
@@ -537,7 +751,82 @@
       Ute: fukten skal ut gjennom veggen → velg diffusjonsåpent. Inne i bad: fukten skal aldri inn i veggen i utgangspunktet (det er det sveisede gulvbelegget sin jobb) → velg våtromsmaling for holdbarhet og soppmotstand, ikke for diffusjonsevne.
     </div>
   </section>
+  </div>
 
+  <!-- ============ FASADE ============ -->
+  <div class="panel" data-panel="fasade" hidden>
+  <section id="fasade">
+    <h2>🏠 Fasade</h2>
+    <p class="section-intro">Utvendig maling — motsatt logikk av innendørs bad: her skal fukten faktisk kunne slippe ut gjennom malingen.</p>
+
+    <div class="fact-grid">
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Anbefalt type</span><span class="fact-value">Diffusjonsåpen</span></div>
+        <p class="fact-note">Mur, puss, betong</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Silikatmaling og silikonharpiksmaling er typiske diffusjonsåpne kategorier.</p></details>
+      </div>
+      <div class="fact-card">
+        <div class="fact-head"><span class="fact-label">Utvendig treverk</span><span class="fact-value">Alkydmaling</span></div>
+        <p class="fact-note">Tettere av natur</p>
+        <details><summary>Forklaring / krav / kilde</summary><p>Treverkets egen fuktbalanse og korrekt forbehandling styrer valget mer enn diffusjonsevnen alene.</p></details>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>På mur, puss, betong og lignende fuktutsatte fasader er diffusjonsåpen maling det klare rådet — <strong>silikatmaling</strong> og <strong>silikonharpiksmaling</strong> er typiske kategorier. Er malingen ikke diffusjonsåpen, kan fukt bygge seg opp bak laget og med tiden presse av både maling og puss.</p>
+      <p>Utvendig treverk (kledning, panel) males oftere med <strong>alkydmaling</strong>, som er tettere av natur — her er det treverkets egen fuktbalanse og korrekt forbehandling (grunning, eventuelt beis) som styrer valget mer enn diffusjonsevnen alene.</p>
+    </div>
+
+    <div class="callout">
+      <strong>Hva "diffusjonsåpen" faktisk betyr</strong>
+      Et diffusjonsåpent produkt lar vanndamp passere gjennom laget uten å slippe inn vann i flytende form — det "puster". Fukt i underlaget kan dermed tørke ut gjennom malingen i stedet for å bli fanget bak et tett lag, som over tid løsner både maling og puss.
+    </div>
+  </section>
+  </div>
+
+  <!-- ============ VANLIGE FEIL ============ -->
+  <div class="panel" data-panel="feil" hidden>
+  <section id="feil">
+    <h2>⚠️ Vanlige feil</h2>
+    <p class="section-intro">Kjente fallgruver — lett å unngå, dyrt å rette opp i etterkant.</p>
+
+    <div class="mistake">
+      <div class="mistake-bad">❌ Mal direkte på fersk sparkel</div>
+      <div class="mistake-why">→ Risiko for sprekker og skjolder. La sparkelen herde fullt iht. produktets tørketid først. Se <strong>Sparkling</strong>.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Plasser skjøt nærmere enn 100 mm fra sluket</div>
+      <div class="mistake-why">→ Ikke iht. NS 3420-T. Planlegg beleggretning og skjøteplassering før du limer. Se <strong>Våtrom</strong>.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Bruk vanlig takmaling eller innemaling på bad</div>
+      <div class="mistake-why">→ Holder ikke mål mot fukt og avvasking over tid. Velg egnet våtromsmaling. Se <strong>Maling</strong>.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Sveis skjøtene samme dag som legging</div>
+      <div class="mistake-why">→ Limet har ikke satt seg ennå. Vent minst 24 timer etter legging før sveising.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Legg belegg rett fra kald bil eller lager</div>
+      <div class="mistake-why">→ Belegget jobber seg ut av form i etterkant. Akklimatiser minst 24 timer i romtemperatur først.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Avrett flatt og tenk at fallet kommer «etterpå»</div>
+      <div class="mistake-why">→ I våtrom bygges fallet inn i selve avrettingen, ikke som et eget steg. Se <strong>Gulv &amp; fall</strong>.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Hopp over grunning på sparklede flater</div>
+      <div class="mistake-why">→ Sparkel suger annerledes enn resten av veggen — gir synlige skjolder i den ferdig malte flaten.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Velg diffusjonsåpen maling inne på bad "for sikkerhets skyld"</div>
+      <div class="mistake-why">→ Løser ingenting innendørs — det er belegget som er fuktsperren. Diffusjonsåpent betyr noe på fasaden, ikke her.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Sikt mye brattere enn minstekravet til fall "for sikkerhets skyld"</div>
+      <div class="mistake-why">→ Gir dårligere gangkomfort og økt snublefare uten at det tilfører noe. Sikt nær minstekravet, ikke langt over.</div>
+    </div>
+  </section>
   </div>
 
 </main>
@@ -568,45 +857,33 @@
 (function () {
   var buttons = document.querySelectorAll('.filter-btn');
   var panels = document.querySelectorAll('.panel');
+  var panelNames = Array.prototype.map.call(panels, function (p) { return p.dataset.panel; });
 
   function showPanel(name) {
-    panels.forEach(function (p) {
-      p.hidden = p.dataset.panel !== name;
-    });
+    panels.forEach(function (p) { p.hidden = p.dataset.panel !== name; });
   }
 
-  function setActiveButton(panel, anchor) {
-    buttons.forEach(function (b) {
-      var match = b.dataset.panel === panel && (anchor ? b.dataset.anchor === anchor : !b.dataset.anchor);
-      b.classList.toggle('active', match);
-    });
+  function setActiveButton(name) {
+    buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.panel === name); });
   }
 
-  function scrollToAnchor(anchor) {
-    var target = anchor ? document.querySelector(anchor) : document.querySelector('main');
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function activate(name, scroll) {
+    showPanel(name);
+    setActiveButton(name);
+    if (scroll) {
+      var target = document.querySelector('main');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   buttons.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var panel = btn.dataset.panel;
-      var anchor = btn.dataset.anchor || null;
-      showPanel(panel);
-      setActiveButton(panel, anchor);
-      scrollToAnchor(anchor || (panel === 'bad' ? '#fall' : null));
-    });
+    btn.addEventListener('click', function () { activate(btn.dataset.panel, true); });
   });
 
-  var mangeAnkre = ['#maling-tak', '#maling-vegg', '#maling-fasade'];
-  var initPanel = 'bad';
-  var initAnchor = null;
-  if (mangeAnkre.indexOf(location.hash) !== -1) {
-    initPanel = 'maling';
-    initAnchor = location.hash;
-  }
-  showPanel(initPanel);
-  setActiveButton(initPanel, initAnchor);
-  if (initAnchor) scrollToAnchor(initAnchor);
+  var initPanel = 'maltall';
+  var hashName = location.hash.replace('#', '');
+  if (panelNames.indexOf(hashName) !== -1) initPanel = hashName;
+  activate(initPanel, false);
 })();
 </script>
 
