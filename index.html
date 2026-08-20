@@ -140,6 +140,15 @@
   }
   .callout > strong:first-child { display: block; margin-bottom: 0.25rem; }
   .callout.legal { border-left-color: var(--accent); background: var(--accent-soft); }
+  /* Cold-open verktøy: den juridiske nyanseringen er viktig når du lurer,
+     men skal ikke stå og fylle skjermen hver gang appen åpnes. Ett-linjes
+     sammendrag, full tekst bak trykk. */
+  .callout.compact { padding: 0.65rem 0.9rem 0.65rem 1.05rem; }
+  .callout.compact summary {
+    cursor: pointer; font-weight: 700; font-size: 0.88rem;
+    padding: 0.15rem 0; min-height: 2.2rem; display: flex; align-items: center;
+  }
+  .callout.compact details p { margin: 0.5rem 0 0; font-weight: 400; font-size: 0.93rem; }
 
   ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 1rem 0; }
   ol.steps > li {
@@ -278,6 +287,22 @@
   #offline-status { font-size: 0.82rem; margin-top: 0.8rem; }
   #offline-status.ready { color: var(--ok); font-weight: 600; }
 
+  #update-banner {
+    position: fixed; left: 0; right: 0; z-index: 40;
+    bottom: max(0px, env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.8rem; flex-wrap: wrap;
+    background: var(--accent); color: #fff;
+    padding: 0.75rem 1rem; font-size: 0.9rem; font-weight: 600;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.18);
+  }
+  #update-banner button {
+    font: inherit; font-weight: 700; cursor: pointer;
+    background: #fff; color: var(--accent);
+    border: none; border-radius: 999px;
+    padding: 0.5rem 1.1rem; min-height: 2.75rem;
+  }
+
   /* ---------- Mobile ---------- */
   @media (max-width: 620px) {
     :root { --navh: 6.8rem; }
@@ -352,8 +377,8 @@
     </div>
   </div>
   <div class="row cats">
-    <button type="button" class="filter-btn" data-panel="maltall">📐 Måltall</button>
     <button type="button" class="filter-btn" data-panel="kalkulator">🧮 Kalkulator</button>
+    <button type="button" class="filter-btn" data-panel="maltall">📐 Måltall</button>
     <button type="button" class="filter-btn" data-panel="gulvfall">〰️ Gulv &amp; fall</button>
     <button type="button" class="filter-btn" data-panel="vatrom">🚿 Våtrom</button>
     <button type="button" class="filter-btn" data-panel="sparkling">🧱 Sparkling</button>
@@ -366,9 +391,11 @@
 
 <main>
 
-  <div class="callout legal" id="intro-note">
-    <strong>Slik skal tallene på denne siden leses</strong>
-    TEK17 stiller <strong>funksjonskrav</strong> — forskriftsteksten sier hva som skal oppnås, ikke nødvendigvis med hvilke tall. De konkrete tallene her (1:50, 1:100, 25 mm osv.) er i hovedsak <strong>preaksepterte ytelser</strong> fra veiledningen til TEK17: følger du dem, regnes funksjonskravet som oppfylt uten videre dokumentasjon. Du <em>kan</em> velge andre løsninger, men da må funksjonskravet verifiseres ved analyse/prosjektering (TEK17 §2-1) — et prosjekteringsansvar, ikke noe man avgjør på stedet. Tall fra NS 3420 er kontraktsbestemte krav i beskrevet arbeid, ikke forskrift. Hvert kort viser sin egen hjemmel under «Kilde».
+  <div class="callout legal compact" id="intro-note">
+    <details>
+      <summary>Tallene er i hovedsak veiledning og bransjenorm, ikke forskriftstekst</summary>
+      <p>TEK17 stiller <strong>funksjonskrav</strong> — forskriftsteksten sier hva som skal oppnås, ikke nødvendigvis med hvilke tall. De konkrete tallene her (1:50, 1:100, 25 mm osv.) er i hovedsak <strong>preaksepterte ytelser</strong> fra veiledningen: følger du dem, regnes funksjonskravet som oppfylt uten videre dokumentasjon. Andre løsninger er lov, men må da verifiseres ved analyse (TEK17 §2-1) — et prosjekteringsansvar. Tall fra NS 3420 er kontraktsbestemte, ikke forskrift. Hvert kort viser egen hjemmel under «Kilde».</p>
+    </details>
   </div>
 
   <div id="search-results" hidden>
@@ -405,28 +432,60 @@
     <h2>🧮 Kalkulator</h2>
     <p class="section-intro">Regnestykkene som faktisk gjøres på gulvet. Alle tall er estimater — kontroller mot produktets datablad før du bestiller.</p>
 
-    <div class="calc" id="calc-fall">
-      <h3>Fall til sluk</h3>
-      <p class="calc-sub">Hvor mye høydeforskjell trenger du over en gitt avstand?</p>
+    <div class="calc" id="calc-forbruk">
+      <h3>Forbruk avrettingsmasse <span class="tag">Standard</span></h3>
+      <p class="calc-sub">Flatt gulv, jevn lagtykkelse over hele arealet. Skal du bygge fall, bruk kalkulatoren under.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="fb-areal">Areal
+            <span class="hint">m²</span>
+          </label>
+          <input type="text" id="fb-areal" inputmode="decimal" value="20" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="fb-tykk">Lagtykkelse
+            <span class="hint">mm</span>
+          </label>
+          <input type="text" id="fb-tykk" inputmode="decimal" value="5" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="fb-forbruk">Forbruk
+            <span class="hint">kg/mm/m²</span>
+          </label>
+          <input type="text" id="fb-forbruk" inputmode="decimal" value="1,75" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="fb-svinn">Svinn
+            <span class="hint">% påslag</span>
+          </label>
+          <input type="text" id="fb-svinn" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+      </div>
       <div class="field">
-        <label for="fall-dist">Avstand fra sluk
-          <span class="hint">I meter. Bruk komma eller punktum.</span>
+        <label for="fb-sekk">Sekkestørrelse
+          <span class="hint">kg per sekk</span>
         </label>
-        <input type="text" id="fall-dist" inputmode="decimal" value="1,5" autocomplete="off">
+        <input type="text" id="fb-sekk" inputmode="decimal" value="20" autocomplete="off">
       </div>
       <div class="calc-out">
         <div class="out-row primary">
-          <span class="out-label">1:50 — dusjsone</span>
-          <span class="out-value" id="fall-50">30 mm</span>
+          <span class="out-label">Trenger ca.</span>
+          <span class="out-value" id="fb-sekker">—</span>
         </div>
-        <div class="out-row primary">
-          <span class="out-label">1:100 — resten av gulvet</span>
-          <span class="out-value" id="fall-100">15 mm</span>
+        <div class="out-row">
+          <span class="out-label">Masse inkl. svinn</span>
+          <span class="out-value" id="fb-kg">—</span>
         </div>
-        <p class="out-note">1:50 = 20 mm per meter. 1:100 = 10 mm per meter. Kravet gjelder <strong>ferdig gulv</strong> — altså inkludert beleggets tykkelse.</p>
+        <div class="out-row">
+          <span class="out-label">Vann til blanding</span>
+          <span class="out-value" id="fb-vann">—</span>
+        </div>
+        <div class="calc-warn" id="fb-warn" hidden></div>
+        <p class="out-note">Vannmengden regnes med 3,6 liter per 20 kg sekk (weberfloor 120 Reno). Andre produkter har annet blandeforhold — sjekk sekken.</p>
       </div>
     </div>
-
     <div class="calc" id="calc-bad">
       <h3>Masse til bad med fall</h3>
       <p class="calc-sub">Estimerer hvor mye avrettingsmasse som går med når fallet bygges inn.</p>
@@ -499,60 +558,28 @@
       </div>
     </div>
 
-    <div class="calc" id="calc-forbruk">
-      <h3>Forbruk avrettingsmasse — flat flate</h3>
-      <p class="calc-sub">Uten fall: jevn lagtykkelse over hele arealet.</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="fb-areal">Areal
-            <span class="hint">m²</span>
-          </label>
-          <input type="text" id="fb-areal" inputmode="decimal" value="20" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="fb-tykk">Lagtykkelse
-            <span class="hint">mm</span>
-          </label>
-          <input type="text" id="fb-tykk" inputmode="decimal" value="5" autocomplete="off">
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="fb-forbruk">Forbruk
-            <span class="hint">kg/mm/m²</span>
-          </label>
-          <input type="text" id="fb-forbruk" inputmode="decimal" value="1,75" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="fb-svinn">Svinn
-            <span class="hint">% påslag</span>
-          </label>
-          <input type="text" id="fb-svinn" inputmode="decimal" value="10" autocomplete="off">
-        </div>
-      </div>
+    <div class="calc" id="calc-fall">
+      <h3>Fall til sluk</h3>
+      <p class="calc-sub">Hvor mye høydeforskjell trenger du over en gitt avstand?</p>
       <div class="field">
-        <label for="fb-sekk">Sekkestørrelse
-          <span class="hint">kg per sekk</span>
+        <label for="fall-dist">Avstand fra sluk
+          <span class="hint">I meter. Bruk komma eller punktum.</span>
         </label>
-        <input type="text" id="fb-sekk" inputmode="decimal" value="20" autocomplete="off">
+        <input type="text" id="fall-dist" inputmode="decimal" value="1,5" autocomplete="off">
       </div>
       <div class="calc-out">
         <div class="out-row primary">
-          <span class="out-label">Trenger ca.</span>
-          <span class="out-value" id="fb-sekker">—</span>
+          <span class="out-label">1:50 — dusjsone</span>
+          <span class="out-value" id="fall-50">30 mm</span>
         </div>
-        <div class="out-row">
-          <span class="out-label">Masse inkl. svinn</span>
-          <span class="out-value" id="fb-kg">—</span>
+        <div class="out-row primary">
+          <span class="out-label">1:100 — resten av gulvet</span>
+          <span class="out-value" id="fall-100">15 mm</span>
         </div>
-        <div class="out-row">
-          <span class="out-label">Vann til blanding</span>
-          <span class="out-value" id="fb-vann">—</span>
-        </div>
-        <div class="calc-warn" id="fb-warn" hidden></div>
-        <p class="out-note">Vannmengden regnes med 3,6 liter per 20 kg sekk (weberfloor 120 Reno). Andre produkter har annet blandeforhold — sjekk sekken.</p>
+        <p class="out-note">1:50 = 20 mm per meter. 1:100 = 10 mm per meter. Kravet gjelder <strong>ferdig gulv</strong> — altså inkludert beleggets tykkelse.</p>
       </div>
     </div>
+
   </section>
   </div>
 
@@ -613,7 +640,7 @@
       </li>
       <li>
         <strong>Herding og sluttsliping</strong>
-        La massen herde fullt iht. produktets angitte tid før du går videre. Slip lett ved behov for å fjerne små ujevnheter rett før belegg legges.
+        La massen herde fullt iht. produktets angitte tid før du går videre. Sjekk planheten med en 2 m rettholt — normalkravet før belegg er maks <code>3 mm</code> avvik (toleranseklasse PB). Slip lett ved behov for å fjerne ujevnheter utover det, rett før belegg legges.
       </li>
       <li>
         <strong>Fuktmåling</strong>
@@ -969,6 +996,10 @@
         src: 'Limprodusentens datablad er det bindende — 24 t er ingen universell regel.' }
     ],
     gulv: [
+      { id: 'gulv-planhet', label: 'Tillatt ugjevnhet, flatt gulv', value: '3 mm',
+        note: 'Målt med 2 m rettholt',
+        why: 'Toleranseklasse PB — vanlig krav til undergulv rett før belegg/flis legges. Selve råbygget (støpt betonggulv) leveres normalt grovere, toleranseklasse PD (±8 mm/2 m), og må derfor avrettes ned til PB.',
+        src: 'NS 3420-1, Tabell 1 — normalkrav til toleranser for ferdig overflate. Kontraktsbestemt, ikke forskrift.' },
       { id: 'gulv-lagtykkelse', label: 'Lagtykkelse', value: '4–50 mm',
         note: 'weberfloor 120 Reno',
         why: 'Produktspesifikt spenn for én bestemt renoveringssparkel. Andre produkter har andre grenser.',
@@ -1354,7 +1385,7 @@
 
   var lastQuery = '';
   var searchActive = false;
-  var currentPanel = 'maltall';
+  var currentPanel = 'kalkulator';
 
   function onSearch() {
     var v = searchInput.value.trim();
@@ -1396,7 +1427,7 @@
   // #<fane> åpner en fane, #f-<id> går rett til ett faktakort i Måltall.
   function routeFromHash(smooth) {
     var h = location.hash.replace('#', '');
-    if (!h) { activate('maltall', false); return; }
+    if (!h) { activate('kalkulator', false); return; }
     if (panelNames.indexOf(h) !== -1) { activate(h, false); return; }
     if (h.indexOf('f-') === 0) {
       activate('maltall', false);
@@ -1408,18 +1439,50 @@
       }
       return;
     }
-    activate('maltall', false);
+    activate('kalkulator', false);
   }
   window.addEventListener('hashchange', function () { routeFromHash(true); });
   routeFromHash(false);
 
   /* ------------------------------ Offline ------------------------------ */
   var status = document.getElementById('offline-status');
+
+  // Offline-cachen gjør at en gammel versjon kan bli liggende. Si fra i
+  // stedet for å la brukeren tro at en oppdatering ikke kom.
+  function showUpdateBanner() {
+    if (document.getElementById('update-banner')) return;
+    var bar = document.createElement('div');
+    bar.id = 'update-banner';
+    bar.innerHTML = '<span>Ny versjon av guiden er klar.</span>';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Oppdater';
+    btn.addEventListener('click', function () { location.reload(); });
+    bar.appendChild(btn);
+    document.body.appendChild(bar);
+  }
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').then(function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
         status.textContent = '✓ Lagret for offline bruk — siden fungerer uten dekning.';
         status.className = 'ready';
+
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', function () {
+            // controller finnes bare når en eldre versjon allerede kjørte,
+            // så dette er en oppdatering — ikke førstegangsinstallasjon.
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateBanner();
+            }
+          });
+        });
+        // Sjekk etter ny versjon når appen hentes fram igjen.
+        document.addEventListener('visibilitychange', function () {
+          if (!document.hidden) { reg.update().catch(function () {}); }
+        });
       }, function () {
         status.textContent = 'Offline-lagring er ikke tilgjengelig i denne nettleseren.';
       });
