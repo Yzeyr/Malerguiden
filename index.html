@@ -62,13 +62,38 @@
     padding: 0.7rem 1.25rem;
     font-size: 0.88rem;
   }
-  nav.toc a {
+  nav.toc .inner { align-items: center; }
+  .filter-btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink-soft);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .toc-link {
     color: var(--ink-soft);
     text-decoration: none;
     font-weight: 600;
+    font-size: 0.85rem;
     white-space: nowrap;
+    margin-left: auto;
   }
-  nav.toc a:hover { color: var(--accent); }
+  .toc-link:hover { color: var(--accent); }
+  main [id] { scroll-margin-top: 5.5rem; }
+  .panel[hidden] { display: none; }
   main { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem 4rem; }
   section { padding-top: 2.6rem; }
   section > h2 {
@@ -248,10 +273,11 @@
 
 <nav class="toc">
   <div class="inner">
-    <a href="#fall">Fall til sluk</a>
-    <a href="#maling">Maling</a>
-    <a href="#vinyl">Vinylbelegg</a>
-    <a href="#kilder">Kilder</a>
+    <button type="button" class="filter-btn" data-panel="bad">Bad</button>
+    <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-tak">Maling tak</button>
+    <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-vegg">Maling vegg</button>
+    <button type="button" class="filter-btn" data-panel="maling" data-anchor="#maling-fasade">Maling fasade</button>
+    <a class="toc-link" href="#kilder">Kilder</a>
   </div>
 </nav>
 
@@ -261,6 +287,8 @@
     <strong>Sjekk alltid gjeldende regelverk før du bygger på tallene her</strong>
     TEK17 og Byggforsk-detaljer oppdateres med jevne mellomrom. Tallene under er de preaksepterte ytelsene som gjaldt på research-tidspunktet (august 2026) — bruk denne siden som et raskt oppslag, men slå opp §13-15 og relevante Byggforsk-blad direkte før noe som faktisk skal dokumenteres eller godkjennes.
   </div>
+
+  <div class="panel" data-panel="bad">
 
   <section id="fall">
     <h2>Fall til sluk</h2>
@@ -313,31 +341,6 @@
     <div class="callout">
       <strong>Fall er et minstekrav, ikke et måltall å ramme nøyaktig</strong>
       Kravene i tabellen er minimum. For bratt fall nær sluket gir gjerne dårligere gangkomfort og økt snublefare uten at det tilfører noe — de fleste fagfolk sikter seg inn nær minstekravet i praksis, ikke over det. Sjekk fallet med vater/laser før belegget legges, ikke bare etter.
-    </div>
-  </section>
-
-  <section id="maling">
-    <h2>Maling</h2>
-    <p class="section-intro">Riktig malingtype handler om fukttransport, ikke bare farge og glans. Hovedskillet står mellom diffusjonsåpne produkter (slipper vanndamp gjennom) og tettere produkter — og hva som er riktig valg er stikk motsatt inne og ute.</p>
-
-    <h3>Hva "diffusjonsåpen" faktisk betyr</h3>
-    <p>Et diffusjonsåpent produkt lar vanndamp passere gjennom laget uten å slippe inn vann i flytende form — det "puster". Fukt i underlaget kan dermed tørke ut gjennom malingen i stedet for å bli fanget bak et tett lag, som over tid løsner både maling og puss/sparkel.</p>
-
-    <h3>Utvendig fasade <span class="tag">Diffusjonsåpen anbefalt</span></h3>
-    <div class="card">
-      <p>På mur, puss, betong og lignende fuktutsatte fasader er diffusjonsåpen maling det klare rådet — <strong>silikatmaling</strong> og <strong>silikonharpiksmaling</strong> er typiske kategorier. Er malingen ikke diffusjonsåpen, kan fukt bygge seg opp bak laget og med tiden presse av både maling og puss.</p>
-      <p>Utvendig treverk (kledning, panel) males oftere med <strong>alkydmaling</strong>, som er tettere av natur — her er det treverkets egen fuktbalanse og korrekt forbehandling (grunning, eventuelt beis) som styrer valget mer enn diffusjonsevnen alene.</p>
-    </div>
-
-    <h3>Innendørs bad/våtrom <span class="tag">Diffusjonsåpen er ikke poenget her</span></h3>
-    <div class="card">
-      <p>Innendørs i våtrom er situasjonen snudd på hodet: det er det <strong>sveisede gulvbelegget</strong> — med oppbrett på vegg i dusjsonen — som er selve fuktsperren, ikke malingen på tak og resten av veggene. Malingprodusenter er samstemte om at diffusjonsåpenhet ikke har noen praktisk hensikt innendørs — kravet hentes ofte inn av vane fra fasadeverden der det faktisk betyr noe.</p>
-      <p>For tak og vegger i bad (utenom der belegget selv dekker gulv og eventuelt brettes opp på vegg) er den relevante kategorien <strong>våtromsmaling</strong> — typisk akrylbasert, ofte med sopphindrende tilsetning, og testet for høy luftfuktighet og jevnlig avvasking. Vanlig innendørsmaling holder normalt ikke mål over tid i et rom med dusj.</p>
-    </div>
-
-    <div class="callout">
-      <strong>Tommelfingerregel</strong>
-      Ute: fukten skal ut gjennom veggen → velg diffusjonsåpent. Inne i bad: fukten skal aldri inn i veggen i utgangspunktet (det er det sveisede gulvbelegget sin jobb) → velg våtromsmaling for holdbarhet og soppmotstand, ikke for diffusjonsevne.
     </div>
   </section>
 
@@ -399,6 +402,44 @@
     </div>
   </section>
 
+  </div>
+
+  <div class="panel" data-panel="maling" hidden>
+
+  <section id="maling">
+    <h2>Maling</h2>
+    <p class="section-intro">Riktig malingtype handler om fukttransport, ikke bare farge og glans. Hovedskillet står mellom diffusjonsåpne produkter (slipper vanndamp gjennom) og tettere produkter — og hva som er riktig valg er stikk motsatt inne og ute.</p>
+
+    <h3>Hva "diffusjonsåpen" faktisk betyr</h3>
+    <p>Et diffusjonsåpent produkt lar vanndamp passere gjennom laget uten å slippe inn vann i flytende form — det "puster". Fukt i underlaget kan dermed tørke ut gjennom malingen i stedet for å bli fanget bak et tett lag, som over tid løsner både maling og puss/sparkel.</p>
+
+    <h3 id="maling-fasade">Utvendig fasade <span class="tag">Diffusjonsåpen anbefalt</span></h3>
+    <div class="card">
+      <p>På mur, puss, betong og lignende fuktutsatte fasader er diffusjonsåpen maling det klare rådet — <strong>silikatmaling</strong> og <strong>silikonharpiksmaling</strong> er typiske kategorier. Er malingen ikke diffusjonsåpen, kan fukt bygge seg opp bak laget og med tiden presse av både maling og puss.</p>
+      <p>Utvendig treverk (kledning, panel) males oftere med <strong>alkydmaling</strong>, som er tettere av natur — her er det treverkets egen fuktbalanse og korrekt forbehandling (grunning, eventuelt beis) som styrer valget mer enn diffusjonsevnen alene.</p>
+    </div>
+
+    <h3>Innendørs bad/våtrom <span class="tag">Diffusjonsåpen er ikke poenget her</span></h3>
+    <p>Innendørs i våtrom er situasjonen snudd på hodet: det er det <strong>sveisede gulvbelegget</strong> — med oppbrett på vegg i dusjsonen — som er selve fuktsperren, ikke malingen på tak og veggene rundt. Malingprodusenter er samstemte om at diffusjonsåpenhet ikke har noen praktisk hensikt innendørs — kravet hentes ofte inn av vane fra fasadeverden der det faktisk betyr noe. Begge kategoriene under er derfor samme type produkt, <strong>våtromsmaling</strong>, men med litt ulikt fokus.</p>
+
+    <h3 id="maling-tak">Tak <span class="tag">Fuktbestandig, ikke blank</span></h3>
+    <div class="card">
+      <p>Taket får ikke direkte sprut, men samler kondens fra dusjdampen som stiger og legger seg der luften er kaldest. Bruk våtromsmaling — typisk akrylbasert med sopphindrende tilsetning — fremfor vanlig takmaling, og hold deg til matt/halvblank: en blankere overflate synliggjør kondensdrypp og ujevnheter tydeligere.</p>
+    </div>
+
+    <h3 id="maling-vegg">Vegg <span class="tag">Slitesterk og lett å vaske</span></h3>
+    <div class="card">
+      <p>Veggene utenfor der belegget selv dekker (gulv og eventuelt oppbrett i dusjsonen) tåler jevnlig kontakt med sprut og hender. Samme kategori, våtromsmaling, men her teller skrubbfasthet og avvaskbarhet mest — den skal tåle jevnlig rengjøring uten at glansen eller fargen svekkes.</p>
+    </div>
+
+    <div class="callout">
+      <strong>Tommelfingerregel</strong>
+      Ute: fukten skal ut gjennom veggen → velg diffusjonsåpent. Inne i bad: fukten skal aldri inn i veggen i utgangspunktet (det er det sveisede gulvbelegget sin jobb) → velg våtromsmaling for holdbarhet og soppmotstand, ikke for diffusjonsevne.
+    </div>
+  </section>
+
+  </div>
+
 </main>
 
 <footer class="site">
@@ -416,6 +457,52 @@
   </ul>
   <p class="updated">Sist researchet: august 2026. Denne siden er en praktisk fagreferanse, ikke juridisk rådgivning — verifiser mot gjeldende TEK17-tekst og Byggforsk-detaljer før bruk i faktisk prosjektering eller kundeleveranse.</p>
 </footer>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll('.filter-btn');
+  var panels = document.querySelectorAll('.panel');
+
+  function showPanel(name) {
+    panels.forEach(function (p) {
+      p.hidden = p.dataset.panel !== name;
+    });
+  }
+
+  function setActiveButton(panel, anchor) {
+    buttons.forEach(function (b) {
+      var match = b.dataset.panel === panel && (anchor ? b.dataset.anchor === anchor : !b.dataset.anchor);
+      b.classList.toggle('active', match);
+    });
+  }
+
+  function scrollToAnchor(anchor) {
+    var target = anchor ? document.querySelector(anchor) : document.querySelector('main');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var panel = btn.dataset.panel;
+      var anchor = btn.dataset.anchor || null;
+      showPanel(panel);
+      setActiveButton(panel, anchor);
+      scrollToAnchor(anchor || (panel === 'bad' ? '#fall' : null));
+    });
+  });
+
+  var mangeAnkre = ['#maling-tak', '#maling-vegg', '#maling-fasade'];
+  var initPanel = 'bad';
+  var initAnchor = null;
+  if (mangeAnkre.indexOf(location.hash) !== -1) {
+    initPanel = 'maling';
+    initAnchor = location.hash;
+  }
+  showPanel(initPanel);
+  setActiveButton(initPanel, initAnchor);
+  if (initAnchor) scrollToAnchor(initAnchor);
+})();
+</script>
 
 </body>
 </html>
