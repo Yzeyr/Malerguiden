@@ -414,6 +414,24 @@
     border-radius: 6px; padding: 0.6rem 0.8rem;
   }
   .calc-warn[hidden] { display: none; }
+  /* Kort blink når romarealet mates ned i malingkalkulatoren, så det er
+     tydelig hvilket felt som nettopp ble fylt ut. */
+  .field-flash { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .calc-flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* Smartsøk-forslag: står øverst i trefflista, tydelig som et forslag og
+     ikke som et vanlig treff. Vanlige treff ligger rett under. */
+  .smart-suggest {
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 0.9rem 1rem; margin: 0 0 1.1rem;
+  }
+  .smart-badge {
+    display: table; font-size: 0.66rem; font-weight: 800;
+    letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent);
+    border: 1px solid var(--accent); padding: 0.1rem 0.45rem;
+    border-radius: 4px; margin-bottom: 0.5rem;
+  }
+  .smart-text { margin: 0 0 0.8rem; font-weight: 700; font-size: 0.98rem; }
 
   /* ---------- Search results ---------- */
   .search-count { color: var(--ink-soft); font-size: 0.9rem; margin: 1.6rem 0 0.8rem; }
@@ -772,6 +790,59 @@
 
     <div class="calc-group" data-calcgroup="maling" hidden>
 
+    <div class="calc" id="calc-rom">
+      <h3>Romareal <span class="tag">Mål rommet</span></h3>
+      <p class="calc-sub">Mål lengde, bredde og takhøyde — få veggareal og takareal ferdig utregnet. Trykk «Bruk i malingforbruk» for å sende arealet rett videre.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="rom-lengde">Lengde <span class="hint">meter</span></label>
+          <input type="text" id="rom-lengde" inputmode="decimal" value="4" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="rom-bredde">Bredde <span class="hint">meter</span></label>
+          <input type="text" id="rom-bredde" inputmode="decimal" value="3" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label for="rom-hoyde">Takhøyde <span class="hint">meter</span></label>
+        <input type="text" id="rom-hoyde" inputmode="decimal" value="2,4" autocomplete="off">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="rom-dorer">Dører <span class="hint">antall, à 1,6 m²</span></label>
+          <input type="text" id="rom-dorer" inputmode="numeric" value="1" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="rom-vinduer">Vinduer <span class="hint">antall, à 1,5 m²</span></label>
+          <input type="text" id="rom-vinduer" inputmode="numeric" value="1" autocomplete="off">
+        </div>
+      </div>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">Veggareal å male</span>
+          <span class="out-value" id="rom-vegg">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Takareal</span>
+          <span class="out-value" id="rom-tak">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Vegg + tak</span>
+          <span class="out-value" id="rom-total">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Omkrets (til lister)</span>
+          <span class="out-value" id="rom-omkrets">—</span>
+        </div>
+        <div class="calc-warn" id="rom-warn" hidden></div>
+        <div class="note-form-actions">
+          <button type="button" class="btn-primary" id="rom-bruk-vegg">Bruk veggareal ↓</button>
+          <button type="button" class="btn-ghost" id="rom-bruk-total">Bruk vegg + tak ↓</button>
+        </div>
+        <p class="out-note">Dør regnes som 1,6 m² (0,9 × 2,0 minus karm) og vindue som 1,5 m², som er vanlige snitt. Har du avvikende størrelser, mål dem og trekk fra selv — eller bruk 0 her og juster arealet i kalkulatoren under.</p>
+      </div>
+    </div>
+
     <div class="calc" id="calc-maling">
       <h3>Malingforbruk — vegg/tak</h3>
       <p class="calc-sub">Areal, strøk og svinn → liter og et konkret innkjøpsforslag i vanlige spannstørrelser.</p>
@@ -821,8 +892,41 @@
       </div>
     </div>
 
-    <div class="card" id="calc-sparkel-placeholder">
-      <p><strong>Sparkelforbruk</strong> — kommer. Vil helst ha et reelt forbrukstall fra deg eller et produktdatablad før jeg regner ut noe her, i stedet for å gjette.</p>
+    <div class="calc" id="calc-sparkel">
+      <h3>Sparkelforbruk</h3>
+      <p class="calc-sub">Areal og forbruk → kg og antall sekker. Forbrukstallet er veiledende — overskriv med ditt eget, det huskes til neste gang.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="sp-areal">Areal <span class="hint">m² som skal sparkles</span></label>
+          <input type="text" id="sp-areal" inputmode="decimal" value="60" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="sp-forbruk">Forbruk <span class="hint">kg/m²</span></label>
+          <input type="text" id="sp-forbruk" inputmode="decimal" value="1,5" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="sp-svinn">Svinn <span class="hint">% påslag</span></label>
+          <input type="text" id="sp-svinn" inputmode="decimal" value="10" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="sp-sekk">Sekk/spann <span class="hint">kg per enhet</span></label>
+          <input type="text" id="sp-sekk" inputmode="decimal" value="25" autocomplete="off">
+        </div>
+      </div>
+      <div class="calc-out">
+        <div class="out-row primary">
+          <span class="out-label">Trenger ca.</span>
+          <span class="out-value" id="sp-enheter">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Masse inkl. svinn</span>
+          <span class="out-value" id="sp-kg">—</span>
+        </div>
+        <div class="calc-warn" id="sp-warn" hidden></div>
+        <p class="out-note">1,5 kg/m² er et vanlig snitt for helsparkling. Tommelfingerregel ellers: ca. <strong>1 kg/m² per mm sjikt</strong>. K3 krever et ekstra finstrøk over hele flaten og bruker altså mer enn K2 — legg på selv etter hva du erfarer. Sjekk alltid sekken; produktene varierer.</p>
+      </div>
     </div>
 
     </div>
@@ -1137,6 +1241,22 @@
       <div class="mistake-bad">❌ Bestill masse etter areal × tykkelse ved sluket</div>
       <div class="mistake-why">→ Et gulv med fall er tykkere overalt ellers. Regn på snittykkelsen — se <strong>Kalkulator</strong>.</div>
     </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Gå på med strøk to fordi flaten «kjennes tørr»</div>
+      <div class="mistake-why">→ Klebefri er ikke overmalbar. Vannbasert maling er typisk støvtørr etter en time, men overmalbar først etter to — og de tidene forutsetter 23 °C og 50 % luftfuktighet. Går du på for tidlig, løses strøket under opp eller sperreeffekten uteblir.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Regn med databladets tørketid i et kaldt eller fuktig rom</div>
+      <div class="mistake-why">→ Lav temperatur og høy luftfuktighet forlenger tørketiden betydelig. Flere malinger krever 10–15 °C i både luft <em>og</em> underlag for å tørke i det hele tatt. Et nybygg i november er ikke 23 °C og 50 %.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Mal rett på ny gips uten grunning</div>
+      <div class="mistake-why">→ Ny gips og umalte flater suger ujevnt. Uten grunning får du dårligere feste og må ofte ta et strøk ekstra — du sparer ingen tid på å hoppe over det.</div>
+    </div>
+    <div class="mistake">
+      <div class="mistake-bad">❌ Mål opp arealet i hodet mens du står med tommestokken</div>
+      <div class="mistake-why">→ <code>2 × (L + B) × H</code> minus dører og vinduer er lett å bomme på når det haster. Skriv inn målene i <strong>Romareal</strong> i stedet, og send arealet rett videre til malingkalkulatoren.</div>
+    </div>
   </section>
   </div>
 
@@ -1261,6 +1381,9 @@
     <li><a href="https://www.altfikset.no/aktuelt/betonggulv---avretting-og-forberedelse-for-perfekt-gulvlegging-alt-fikset-as" target="_blank" rel="noopener">Alt Fikset — Betonggulv, avretting og forberedelse</a> <span class="src-kind">— praktisk guide</span></li>
     <li><a href="https://www.maxmaling.no/hva-betyr-diffusjonsapen-og-hvorfor-er-det-viktig-i-maling-og-murprodukter/" target="_blank" rel="noopener">Maxmaling — Hva betyr diffusjonsåpen?</a> <span class="src-kind">— forhandlerguide</span></li>
     <li><a href="https://fargemagasinet.no/ingen-hensikt-med-diffusjonsapen-maling-innendors" target="_blank" rel="noopener">Fargemagasinet — Diffusjonsåpen maling innendørs</a> <span class="src-kind">— bransjemedium</span></li>
+    <li><a href="https://www.ifi.no/temperatur-og-ventetid-er-viktig-ved-maling" target="_blank" rel="noopener">IFI — Temperatur og ventetid ved maling</a> <span class="src-kind">— tørketid, minstetemperatur</span></li>
+    <li><a href="https://inspirasjon.byggebolig.no/men-malingen-er-jo-toerr" target="_blank" rel="noopener">Byggebolig — «Men malingen er jo tørr!»</a> <span class="src-kind">— støvtørr vs. overmalbar</span></li>
+    <li><a href="https://frieord.no/hvor-mye-koster-det-a-sparkle-en-vegg/" target="_blank" rel="noopener">Forbrukstall helsparkling — ca. 1,5 kg/m²</a> <span class="src-kind">— grunnlag for sparkelkalkulatoren</span></li>
   </ul>
 
   <p class="updated">Sist researchet: august 2026. Praktisk fagreferanse, ikke juridisk rådgivning eller prosjektering. Der tallene er merket «preakseptert ytelse» stammer de fra veiledningen til TEK17, ikke forskriftsteksten — verifiser mot gjeldende tekst, NS-standard og produktdatablad før bruk som grunnlag for dokumentasjon eller utførelse.</p>
@@ -1388,7 +1511,15 @@
       { id: 'maling-bad', label: 'Bad, tak og vegg', value: 'Våtromsmaling',
         note: 'På flater utenfor tettesjiktet',
         why: 'Typisk akrylbasert, ofte med sopphindrende tilsetning, testet for høy luftfuktighet og avvasking.',
-        src: 'Produktvalg — ikke forskriftsregulert.' }
+        src: 'Produktvalg — ikke forskriftsregulert.' },
+      { id: 'maling-overmalbar', label: 'Overmalbar etter', value: '≈ 2 t',
+        note: 'Vannbasert, ved 23 °C / 50 % RF',
+        why: 'Støvtørr etter ca. 1 time, overmalbar etter ca. 2. Flaten kjennes tørr lenge før den tåler nytt strøk — går du på for tidlig, løses strøket under opp.',
+        src: 'Veiledende produsenttall. Databladets tider forutsetter 23 °C og 50 % relativ luftfuktighet.' },
+      { id: 'maling-temperatur', label: 'Minstetemperatur', value: '10–15 °C',
+        note: 'I luft OG underlag',
+        why: 'Flere malinger tørker rett og slett ikke under dette. Kaldt underlag teller like mye som kald luft — et nybygg om vinteren er sjelden i nærheten av databladets forutsetninger.',
+        src: 'Veiledende produsenttall — sjekk databladet for det aktuelle produktet.' }
     ],
     fasade: [
       { id: 'fasade-mur', label: 'Mur og puss', value: 'Diffusjonsåpen',
@@ -1898,6 +2029,89 @@
     setWarn('mal-warn', warns.join(' '));
   }
 
+  // Snittstørrelser for fratrekk. Bevisst faste tall — den som har
+  // avvikende dører/vinduer måler dem heller selv, se merknaden i UI-et.
+  var DOR_M2 = 1.6;
+  var VINDU_M2 = 1.5;
+  var romSisteVegg = NaN, romSisteTotal = NaN;
+
+  function calcRom() {
+    var L = num('rom-lengde');
+    var B = num('rom-bredde');
+    var H = num('rom-hoyde');
+    var dorer = num('rom-dorer');
+    var vinduer = num('rom-vinduer');
+
+    var ok = [L, B, H].every(function (v) { return isFinite(v) && v > 0; });
+    if (!ok) {
+      ['rom-vegg', 'rom-tak', 'rom-total', 'rom-omkrets'].forEach(function (i) { setText(i, '—'); });
+      setWarn('rom-warn', 'Fyll inn lengde, bredde og takhøyde.');
+      romSisteVegg = romSisteTotal = NaN;
+      return;
+    }
+
+    var omkrets = 2 * (L + B);
+    var brutto = omkrets * H;
+    var fratrekk = (isFinite(dorer) && dorer > 0 ? dorer * DOR_M2 : 0)
+                 + (isFinite(vinduer) && vinduer > 0 ? vinduer * VINDU_M2 : 0);
+    var vegg = brutto - fratrekk;
+    var tak = L * B;
+
+    var warns = [];
+    if (vegg <= 0) {
+      // Flere/større åpninger enn det er vegg — vis 0 heller enn et negativt tall.
+      warns.push('Fratrekket for dører og vinduer er større enn hele veggflaten. Sjekk antallet.');
+      vegg = 0;
+    }
+    if (H < 2 || H > 5) warns.push('Takhøyden ser uvanlig ut — er den i meter?');
+
+    romSisteVegg = vegg;
+    romSisteTotal = vegg + tak;
+
+    setText('rom-vegg', fmt(vegg, 1) + ' m²');
+    setText('rom-tak', fmt(tak, 1) + ' m²');
+    setText('rom-total', fmt(vegg + tak, 1) + ' m²');
+    setText('rom-omkrets', fmt(omkrets, 2) + ' m');
+    setWarn('rom-warn', warns.join(' '));
+  }
+
+  // Sender arealet ned i malingkalkulatoren. Lagrer verdien selv, siden
+  // programmatisk utfylling ikke trigger input-eventet "husk tall" lytter på.
+  function brukRomAreal(verdi) {
+    if (!isFinite(verdi) || verdi <= 0) return;
+    var felt = document.getElementById('mal-areal');
+    felt.value = fmt(verdi, 1);
+    try { localStorage.setItem('malerguiden:calc:mal-areal', felt.value); } catch (e) {}
+    calcMaling();
+    document.getElementById('calc-maling').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    felt.classList.add('field-flash');
+    setTimeout(function () { felt.classList.remove('field-flash'); }, 1600);
+  }
+
+  function calcSparkel() {
+    var areal = num('sp-areal');
+    var forbruk = num('sp-forbruk');
+    var svinn = num('sp-svinn');
+    var sekk = num('sp-sekk');
+
+    var ok = [areal, forbruk, sekk].every(function (v) { return isFinite(v) && v > 0; });
+    if (!ok) {
+      ['sp-enheter', 'sp-kg'].forEach(function (i) { setText(i, '—'); });
+      setWarn('sp-warn', 'Fyll inn areal, forbruk og sekkestørrelse.');
+      return;
+    }
+
+    var kg = areal * forbruk * (1 + (isFinite(svinn) ? svinn : 0) / 100);
+    var enheter = Math.ceil(kg / sekk);
+
+    setText('sp-kg', fmt(kg, 0) + ' kg');
+    setText('sp-enheter', enheter + (enheter === 1 ? ' sekk' : ' sekker'));
+
+    var warns = [];
+    if (forbruk > 4) warns.push('Over 4 kg/m² tilsvarer et ganske tykt sjikt — bygg heller opp i flere omganger, og la hvert strøk tørke.');
+    setWarn('sp-warn', warns.join(' '));
+  }
+
   function calcForbruk() {
     var areal = num('fb-areal');
     var tykk = num('fb-tykk');
@@ -1964,7 +2178,10 @@
     recalc();
   }
 
-  var calcRecalcByCard = { 'calc-bad': calcBad, 'calc-forbruk': calcForbruk, 'calc-maling': calcMaling };
+  var calcRecalcByCard = {
+    'calc-bad': calcBad, 'calc-forbruk': calcForbruk, 'calc-maling': calcMaling,
+    'calc-rom': calcRom, 'calc-sparkel': calcSparkel
+  };
   document.querySelectorAll('.calc').forEach(function (calcEl) {
     var recalc = calcRecalcByCard[calcEl.id];
     if (!recalc) return;
@@ -1996,21 +2213,31 @@
   ['mal-areal', 'mal-strok', 'mal-forbruk', 'mal-svinn'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', calcMaling);
   });
-  calcBad(); calcForbruk(); calcMaling();
+  ['rom-lengde', 'rom-bredde', 'rom-hoyde', 'rom-dorer', 'rom-vinduer'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calcRom);
+  });
+  document.getElementById('rom-bruk-vegg').addEventListener('click', function () { brukRomAreal(romSisteVegg); });
+  document.getElementById('rom-bruk-total').addEventListener('click', function () { brukRomAreal(romSisteTotal); });
+  ['sp-areal', 'sp-forbruk', 'sp-svinn', 'sp-sekk'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calcSparkel);
+  });
+  calcBad(); calcForbruk(); calcMaling(); calcRom(); calcSparkel();
 
-  /* Mini-faner i Kalkulator — avretting er prioritet 1, vises som standard. */
-  (function () {
-    var tabs = document.querySelectorAll('.mini-tab-btn');
-    var groups = document.querySelectorAll('.calc-group');
-    function showGroup(name) {
-      groups.forEach(function (g) { g.hidden = g.dataset.calcgroup !== name; });
-      tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.calcgroup === name); });
-    }
-    tabs.forEach(function (btn) {
-      btn.addEventListener('click', function () { showGroup(btn.dataset.calcgroup); });
+  /* Mini-faner i Kalkulator — avretting er prioritet 1, vises som standard.
+     showCalcGroup ligger i ytre scope fordi smartsøket også må kunne bytte
+     mini-fane når det åpner en kalkulator. */
+  function showCalcGroup(name) {
+    document.querySelectorAll('.calc-group').forEach(function (g) {
+      g.hidden = g.dataset.calcgroup !== name;
     });
-    showGroup('avretting');
-  })();
+    document.querySelectorAll('.mini-tab-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.calcgroup === name);
+    });
+  }
+  document.querySelectorAll('.mini-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { showCalcGroup(btn.dataset.calcgroup); });
+  });
+  showCalcGroup('avretting');
 
   /* -------------------------- Faner og søk -------------------------- */
   // Bunnbaren har bare 5 knapper; disse seks fagoppslagene nås via
@@ -2132,19 +2359,158 @@
   function showSearchIdle() { resultsBox.hidden = true; searchIdle.hidden = false; }
   function showSearchResultsBox() { searchIdle.hidden = true; resultsBox.hidden = false; }
 
+  /* ----------------------------- Smartsøk ------------------------------ *
+   * Rent lokal mønstergjenkjenning — ingen nettverk, ingen språkmodell.
+   * Den FORESLÅR bare: forslaget legges øverst, og vanlige søketreff står
+   * rett under. Gjetter den feil, koster det ingenting.
+   * -------------------------------------------------------------------- */
+  var SMART_TARGETS = [
+    { ord: ['maling', 'male', 'maler', 'malt', 'mal'], calc: 'calc-maling', gruppe: 'maling',
+      felt: 'mal-areal', navn: 'Malingforbruk' },
+    { ord: ['sparkel', 'sparkling', 'sparkle', 'sparkles'], calc: 'calc-sparkel', gruppe: 'maling',
+      felt: 'sp-areal', navn: 'Sparkelforbruk' },
+    { ord: ['bad', 'vatrom', 'dusj', 'fall'], calc: 'calc-bad', gruppe: 'avretting',
+      felt: 'bad-areal', navn: 'Masse til bad med fall' },
+    { ord: ['avretting', 'avrette', 'flytsparkel', 'gulv', 'sparkelmasse'], calc: 'calc-forbruk',
+      gruppe: 'avretting', felt: 'fb-areal', navn: 'Forbruk avrettingsmasse' }
+  ];
+
+  var RE_AREAL = /(\d+(?:[.,]\d+)?)\s*(?:m2|m²|kvm|kvadrat|kvadratmeter)/;
+  var RE_MAL = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)(?:\s*[x×]\s*(\d+(?:[.,]\d+)?))?/;
+
+  function nordiskTall(s) { return parseFloat(String(s).replace(',', '.')); }
+  function visTall(n) { return fmt(n, (n % 1 === 0) ? 0 : 1); }
+
+  // Fyller et felt programmatisk. Lagrer selv, siden det ikke trigger
+  // input-eventet som "husk sist brukte tall" lytter på.
+  function settFelt(id, verdi) {
+    var felt = document.getElementById(id);
+    if (!felt) return;
+    felt.value = verdi;
+    try { localStorage.setItem('malerguiden:calc:' + id, verdi); } catch (e) {}
+  }
+
+  function apneKalkulator(calcId, gruppe) {
+    activate('kalkulator', false);
+    showCalcGroup(gruppe);
+    var kort = document.getElementById(calcId);
+    if (kort) {
+      kort.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      kort.classList.add('calc-flash');
+      setTimeout(function () { kort.classList.remove('calc-flash'); }, 1800);
+    }
+  }
+
+  function tolkSok(query) {
+    var q = norm(query);
+
+    // "4x3" eller "4x3x2,4" -> Romareal. Sjekkes først: et mål med to tall
+    // er utvetydig, mens et enkelt areal trenger et nøkkelord i tillegg.
+    var mal = q.match(RE_MAL);
+    if (mal) {
+      var L = nordiskTall(mal[1]), B = nordiskTall(mal[2]);
+      var H = mal[3] ? nordiskTall(mal[3]) : null;
+      if (isFinite(L) && isFinite(B) && L > 0 && B > 0) {
+        return {
+          tekst: 'Regn ut romareal for ' + visTall(L) + ' × ' + visTall(B) +
+                 (H ? ' × ' + visTall(H) : '') + ' m',
+          knapp: 'Åpne Romareal',
+          kjor: function () {
+            settFelt('rom-lengde', String(mal[1]).replace('.', ','));
+            settFelt('rom-bredde', String(mal[2]).replace('.', ','));
+            if (H) settFelt('rom-hoyde', String(mal[3]).replace('.', ','));
+            calcRom();
+            apneKalkulator('calc-rom', 'maling');
+          }
+        };
+      }
+    }
+
+    // "<tall> m2" + et nøkkelord som peker på én bestemt kalkulator.
+    var areal = q.match(RE_AREAL);
+    if (!areal) return null;
+    var verdi = nordiskTall(areal[1]);
+    if (!isFinite(verdi) || verdi <= 0) return null;
+
+    var treff = null;
+    SMART_TARGETS.forEach(function (t) {
+      if (treff) return;
+      t.ord.forEach(function (o) {
+        if (!treff && q.indexOf(o) !== -1) treff = t;
+      });
+    });
+    if (!treff) return null; // areal uten nøkkelord — for utrygt å gjette
+
+    return {
+      tekst: treff.navn + ' for ' + visTall(verdi) + ' m²',
+      knapp: 'Åpne ' + treff.navn,
+      kjor: function () {
+        settFelt(treff.felt, String(areal[1]).replace('.', ','));
+        calcBad(); calcForbruk(); calcMaling(); calcSparkel();
+        apneKalkulator(treff.calc, treff.gruppe);
+      }
+    };
+  }
+
+  function byggSmartForslag(query) {
+    var forslag = tolkSok(query);
+    if (!forslag) return null;
+    var kort = el('div', 'smart-suggest');
+    kort.appendChild(el('span', 'smart-badge', '🧮 Regn ut'));
+    kort.appendChild(el('p', 'smart-text', forslag.tekst));
+    var knapp = el('button', 'btn-primary', forslag.knapp);
+    knapp.type = 'button';
+    knapp.addEventListener('click', forslag.kjor);
+    kort.appendChild(knapp);
+    return kort;
+  }
+
+  function esc(s) {
+    return s.replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  // "maling 60m2" matcher ingen tekst som én streng. Strip tall, mål og
+  // enheter, og søk på det som blir igjen ("maling") i stedet for å vise
+  // en tom trefflise.
+  function utenTall(q) {
+    return q
+      .replace(RE_MAL, ' ')
+      .replace(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|kvm|kvadratmeter|kvadrat|mm|cm|m|kg|liter|l)\b/g, ' ')
+      .replace(/\d+(?:[.,]\d+)?/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function renderResults(query) {
     var q = norm(query);
     var hits = index.filter(function (item) { return item.text.indexOf(q) !== -1; });
 
-    resultsList.textContent = '';
-    var safe = query.replace(/[&<>]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
-    });
+    // Falt hele søket gjennom? Prøv ordene uten tallene.
+    var brukteRest = null;
     if (!hits.length) {
-      countEl.innerHTML = 'Ingen treff på «<strong>' + safe + '</strong>». Prøv et kortere søkeord.';
+      var rest = utenTall(q);
+      if (rest.length >= 2 && rest !== q) {
+        var restTreff = index.filter(function (item) { return item.text.indexOf(rest) !== -1; });
+        if (restTreff.length) { hits = restTreff; brukteRest = rest; q = rest; }
+      }
+    }
+
+    resultsList.textContent = '';
+    var smart = byggSmartForslag(query);
+    if (smart) resultsList.appendChild(smart);
+
+    var safe = esc(query);
+    if (!hits.length) {
+      countEl.innerHTML = smart
+        ? 'Ingen tekst-treff på «<strong>' + safe + '</strong>», men se forslaget over.'
+        : 'Ingen treff på «<strong>' + safe + '</strong>». Prøv et kortere søkeord.';
       return;
     }
-    countEl.innerHTML = hits.length + ' treff på «<strong>' + safe + '</strong>»';
+    countEl.innerHTML = brukteRest
+      ? hits.length + ' treff på «<strong>' + esc(brukteRest) + '</strong>»'
+      : hits.length + ' treff på «<strong>' + safe + '</strong>»';
 
     hits.forEach(function (item) {
       var wrap = el('div', 'result');
