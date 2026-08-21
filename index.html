@@ -243,8 +243,78 @@
   .fact-src summary::before { content: "▸ "; }
   .fact-src[open] summary::before { content: "▾ "; }
   .fact-src p { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
-  #favorites-empty { color: var(--ink-soft); font-size: 0.88rem; margin: 0.6rem 0 1.6rem; }
-  #favorites-empty[hidden], #favorites-grid[hidden] { display: none; }
+  .fav-hint { color: var(--ink-soft); font-size: 0.88rem; margin: 0.6rem 0 1.6rem; }
+  #favorites-empty[hidden], #favorites-grid[hidden], #notes-empty[hidden] { display: none; }
+
+  /* ---------- Mine notater (egen praksis, lagret lokalt) ---------- */
+  .note-add-btn {
+    appearance: none; width: 100%;
+    border: 1px dashed var(--tip); background: none; color: var(--tip);
+    font: inherit; font-weight: 700; font-size: 0.92rem;
+    padding: 0.8rem 1rem; border-radius: 10px; cursor: pointer;
+    min-height: 3rem; margin: 0.9rem 0 0.4rem;
+  }
+  .note-add-btn:hover { background: var(--tip-bg); }
+  .note-add-btn[hidden] { display: none; }
+
+  .note-form {
+    background: var(--card); border: 1px solid var(--tip);
+    border-radius: 10px; padding: 1rem 1.1rem; margin: 0.9rem 0 1.2rem;
+  }
+  .note-form[hidden] { display: none; }
+  .note-form textarea {
+    width: 100%; font: inherit; font-size: 1rem;
+    padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink); resize: vertical;
+  }
+  .note-form textarea:focus, #backup-paste:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  #backup-paste {
+    width: 100%; font: inherit; font-size: 0.9rem;
+    padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink); resize: vertical;
+  }
+  .note-form-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
+  .note-form-err { color: var(--bad); font-size: 0.85rem; font-weight: 600; margin: 0.5rem 0 0; }
+  .note-form-err[hidden] { display: none; }
+  .btn-primary {
+    appearance: none; border: none; cursor: pointer; font: inherit;
+    font-weight: 700; font-size: 0.9rem;
+    background: var(--accent); color: #fff;
+    border-radius: 999px; padding: 0.6rem 1.2rem; min-height: 2.75rem;
+  }
+  .btn-ghost {
+    appearance: none; cursor: pointer; font: inherit;
+    font-weight: 700; font-size: 0.9rem;
+    background: none; color: var(--ink-soft); border: 1px solid var(--line);
+    border-radius: 999px; padding: 0.6rem 1.2rem; min-height: 2.75rem;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .note-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--tip);
+    border-radius: 10px; padding: 0.85rem 1rem; margin: 0.65rem 0;
+  }
+  .note-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+  .note-title { font-weight: 700; font-size: 0.95rem; }
+  .note-value { font-size: 1.2rem; font-weight: 800; color: var(--tip); white-space: nowrap; }
+  .note-text { margin: 0.45rem 0 0; font-size: 0.89rem; white-space: pre-wrap; }
+  .note-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem;
+  }
+  .note-date { font-size: 0.74rem; color: var(--ink-soft); }
+  .note-actions { display: flex; gap: 0.2rem; }
+  .note-btn {
+    appearance: none; border: none; background: none; cursor: pointer;
+    font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--accent);
+    padding: 0.5rem 0.6rem; min-height: 2.75rem; border-radius: 8px;
+  }
+  .note-btn:hover { background: var(--accent-soft); }
+  .note-btn.danger { color: var(--bad); }
+  .note-btn.danger:hover { background: var(--warn-bg); }
   .fact-link {
     flex: none; border: none; background: none; color: var(--ink-soft);
     cursor: pointer; font-size: 0.9rem; line-height: 1;
@@ -485,13 +555,67 @@
   </section>
   </div>
 
-  <!-- ============ FAVORITTER ============ -->
-  <div class="panel" data-panel="favoritter" hidden>
-  <section id="favoritter">
-    <h2>⭐ Favoritter</h2>
-    <p class="section-intro">Tallene du har merket, samlet ett sted — nåbar fra hvor som helst i appen, ikke bare fra Måltall.</p>
+  <!-- ============ MITT (favoritter + egne notater) ============ -->
+  <div class="panel" data-panel="mitt" hidden>
+  <section id="mitt">
+    <h2>⭐ Mitt</h2>
+    <p class="section-intro">Dine egne ting: tall du har merket, og notater du har lagt inn selv. Alt lagres lokalt på denne telefonen.</p>
+
+    <h3 class="group-heading">Favoritter</h3>
     <p id="favorites-empty" class="fav-hint">Ingen favoritter ennå. Trykk ☆ på et tall i Måltall eller en fagfane for å legge det her.</p>
     <div class="fact-grid" id="favorites-grid" hidden></div>
+
+    <h3 class="group-heading">Mine notater</h3>
+    <p class="section-intro" style="margin-top:0.4rem;">Egne forbrukstall, rutiner og huskeregler — det som ikke står i noen norm, men som du vet fungerer. Merkes automatisk som egen praksis, ikke regelverk.</p>
+
+    <button type="button" id="note-add-btn" class="note-add-btn">+ Nytt notat</button>
+
+    <form id="note-form" class="note-form" hidden>
+      <div class="field">
+        <label for="note-title">Tittel
+          <span class="hint">F.eks. «Sparkelforbruk Gyproc» eller «Storgata 5 — skjevt gulv»</span>
+        </label>
+        <input type="text" id="note-title" autocomplete="off" maxlength="80">
+      </div>
+      <div class="field">
+        <label for="note-value">Tall / verdi <span class="hint">Valgfritt. F.eks. «1,2 kg/m²» eller «12 % svinn»</span></label>
+        <input type="text" id="note-value" autocomplete="off" maxlength="40">
+      </div>
+      <div class="field">
+        <label for="note-text">Notat <span class="hint">Valgfritt. Utdypning, hvor det gjelder, hvorfor.</span></label>
+        <textarea id="note-text" rows="3" maxlength="600"></textarea>
+      </div>
+      <p class="note-form-err" id="note-err" hidden></p>
+      <div class="note-form-actions">
+        <button type="submit" class="btn-primary" id="note-save">Lagre</button>
+        <button type="button" class="btn-ghost" id="note-cancel">Avbryt</button>
+      </div>
+    </form>
+
+    <p id="notes-empty" class="fav-hint">Ingen notater ennå. Trykk «+ Nytt notat» når du kommer på noe som burde stått her.</p>
+    <div id="notes-list"></div>
+
+    <h3 class="group-heading">Sikkerhetskopi</h3>
+    <div class="card">
+      <p style="margin-top:0;">Notatene ligger bare i denne nettleseren. Tømmer du nettleserdata, eller bytter telefon, er de borte. Ta en kopi innimellom.</p>
+      <div class="note-form-actions" style="margin-top:0.8rem;">
+        <button type="button" class="btn-primary" id="backup-copy">Kopier alle notater</button>
+        <button type="button" class="btn-ghost" id="backup-import-toggle">Gjenopprett …</button>
+      </div>
+      <p class="out-note" id="backup-status" hidden></p>
+      <div id="backup-import" hidden style="margin-top:0.9rem;">
+        <div class="field">
+          <label for="backup-paste">Lim inn sikkerhetskopien her
+            <span class="hint">Teksten du kopierte tidligere. Legges til de notatene du alt har.</span>
+          </label>
+          <textarea id="backup-paste" rows="4" placeholder='[{"title":"…"}]'></textarea>
+        </div>
+        <div class="note-form-actions">
+          <button type="button" class="btn-primary" id="backup-do-import">Legg inn</button>
+          <button type="button" class="btn-ghost" id="backup-cancel">Avbryt</button>
+        </div>
+      </div>
+    </div>
   </section>
   </div>
 
@@ -1094,8 +1218,8 @@
   <button type="button" class="bottombar-btn" data-panel="maltall">
     <span class="bb-icon">📐</span><span class="bb-label">Måltall</span>
   </button>
-  <button type="button" class="bottombar-btn" data-panel="favoritter">
-    <span class="bb-icon">⭐</span><span class="bb-label">Favoritter</span>
+  <button type="button" class="bottombar-btn" data-panel="mitt">
+    <span class="bb-icon">⭐</span><span class="bb-label">Mitt</span>
   </button>
   <button type="button" class="bottombar-btn" data-panel="fagstoff">
     <span class="bb-icon">📚</span><span class="bb-label">Fagstoff</span>
@@ -1343,6 +1467,219 @@
     empty.hidden = any;
   }
 
+  /* ---------------------------- Mine notater ---------------------------- *
+   * Egne forbrukstall og rutiner, lagt inn i appen på telefonen i stedet
+   * for å måtte redigere kildekoden. Rent lokalt, som favorittene.
+   * All brukertekst settes med textContent — aldri innerHTML.
+   * -------------------------------------------------------------------- */
+  var NOTES_KEY = 'malerguiden:notater';
+
+  function loadNotes() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(NOTES_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter(function (n) { return n && n.title; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveNotes(list) {
+    try { localStorage.setItem(NOTES_KEY, JSON.stringify(list)); return true; }
+    catch (e) { return false; } // privat modus / full disk
+  }
+  function newNoteId() {
+    return 'n-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  }
+  function formatNoteDate(ts) {
+    if (!ts) return '';
+    try {
+      return new Date(ts).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (e) { return ''; }
+  }
+
+  var editingNoteId = null;
+
+  function buildNoteCard(note) {
+    var card = el('div', 'note-card');
+
+    var head = el('div', 'note-head');
+    head.appendChild(el('span', 'note-title', note.title));
+    if (note.value) head.appendChild(el('span', 'note-value', note.value));
+    card.appendChild(head);
+
+    // Samme merking som de hardkodede praksis-boksene, så egne notater
+    // aldri forveksles med sourcet regelverk.
+    card.appendChild(el('span', 'callout-badge', '🔧 Mitt eget notat'));
+
+    if (note.text) card.appendChild(el('p', 'note-text', note.text));
+
+    var meta = el('div', 'note-meta');
+    meta.appendChild(el('span', 'note-date',
+      (note.updated && note.updated !== note.created ? 'Endret ' : 'Lagt inn ') +
+      formatNoteDate(note.updated || note.created)));
+
+    var actions = el('div', 'note-actions');
+    var editBtn = el('button', 'note-btn', 'Endre');
+    editBtn.type = 'button';
+    editBtn.addEventListener('click', function () { openNoteForm(note.id); });
+    var delBtn = el('button', 'note-btn danger', 'Slett');
+    delBtn.type = 'button';
+    delBtn.addEventListener('click', function () {
+      if (!window.confirm('Slette notatet «' + note.title + '»?')) return;
+      saveNotes(loadNotes().filter(function (n) { return n.id !== note.id; }));
+      renderNotes();
+    });
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    meta.appendChild(actions);
+    card.appendChild(meta);
+    return card;
+  }
+
+  function renderNotes() {
+    var list = document.getElementById('notes-list');
+    var empty = document.getElementById('notes-empty');
+    if (!list) return;
+    var notes = loadNotes();
+    list.textContent = '';
+    // Nyeste først — det man nettopp la inn er som regel det man vil se.
+    notes.slice().sort(function (a, b) {
+      return (b.updated || b.created || 0) - (a.updated || a.created || 0);
+    }).forEach(function (n) { list.appendChild(buildNoteCard(n)); });
+    empty.hidden = notes.length > 0;
+    buildSearchIndex(); // notatene er søkbare sammen med resten
+  }
+
+  function openNoteForm(id) {
+    var form = document.getElementById('note-form');
+    var addBtn = document.getElementById('note-add-btn');
+    editingNoteId = id || null;
+    var note = id ? loadNotes().filter(function (n) { return n.id === id; })[0] : null;
+    document.getElementById('note-title').value = note ? note.title : '';
+    document.getElementById('note-value').value = note && note.value ? note.value : '';
+    document.getElementById('note-text').value = note && note.text ? note.text : '';
+    document.getElementById('note-save').textContent = note ? 'Lagre endring' : 'Lagre';
+    document.getElementById('note-err').hidden = true;
+    form.hidden = false;
+    addBtn.hidden = true;
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function () { document.getElementById('note-title').focus(); }, 60);
+  }
+
+  function closeNoteForm() {
+    document.getElementById('note-form').hidden = true;
+    document.getElementById('note-add-btn').hidden = false;
+    editingNoteId = null;
+  }
+
+  function initNotes() {
+    var form = document.getElementById('note-form');
+    if (!form) return;
+
+    document.getElementById('note-add-btn').addEventListener('click', function () { openNoteForm(null); });
+    document.getElementById('note-cancel').addEventListener('click', closeNoteForm);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var title = document.getElementById('note-title').value.trim();
+      var value = document.getElementById('note-value').value.trim();
+      var text = document.getElementById('note-text').value.trim();
+      var err = document.getElementById('note-err');
+
+      if (!title) {
+        err.textContent = 'Notatet trenger en tittel.';
+        err.hidden = false;
+        return;
+      }
+
+      var notes = loadNotes();
+      var now = Date.now();
+      if (editingNoteId) {
+        notes = notes.map(function (n) {
+          return n.id === editingNoteId
+            ? { id: n.id, title: title, value: value, text: text, created: n.created || now, updated: now }
+            : n;
+        });
+      } else {
+        notes.push({ id: newNoteId(), title: title, value: value, text: text, created: now, updated: now });
+      }
+
+      if (!saveNotes(notes)) {
+        err.textContent = 'Fikk ikke lagret — nettleseren blokkerer lagring (privat modus?).';
+        err.hidden = false;
+        return;
+      }
+      closeNoteForm();
+      renderNotes();
+    });
+
+    /* ---------- Sikkerhetskopi ---------- */
+    var statusEl = document.getElementById('backup-status');
+    function say(msg) {
+      statusEl.textContent = msg;
+      statusEl.hidden = false;
+      setTimeout(function () { statusEl.hidden = true; }, 4000);
+    }
+
+    document.getElementById('backup-copy').addEventListener('click', function () {
+      var notes = loadNotes();
+      if (!notes.length) { say('Ingen notater å kopiere ennå.'); return; }
+      var json = JSON.stringify(notes, null, 2);
+      var done = function () { say('Kopiert — lim inn i notater, e-post eller en melding til deg selv.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(json).then(done, function () { fallbackCopy(json, done); });
+      } else {
+        fallbackCopy(json, done);
+      }
+    });
+
+    var importBox = document.getElementById('backup-import');
+    document.getElementById('backup-import-toggle').addEventListener('click', function () {
+      importBox.hidden = !importBox.hidden;
+      if (!importBox.hidden) document.getElementById('backup-paste').focus();
+    });
+    document.getElementById('backup-cancel').addEventListener('click', function () {
+      importBox.hidden = true;
+      document.getElementById('backup-paste').value = '';
+    });
+
+    document.getElementById('backup-do-import').addEventListener('click', function () {
+      var raw = document.getElementById('backup-paste').value.trim();
+      if (!raw) { say('Lim inn sikkerhetskopien først.'); return; }
+      var parsed;
+      try { parsed = JSON.parse(raw); }
+      catch (e) { say('Klarte ikke lese teksten — er hele kopien med?'); return; }
+      if (!Array.isArray(parsed)) { say('Teksten ser ikke ut som en sikkerhetskopi.'); return; }
+
+      var existing = loadNotes();
+      var haveIds = {};
+      existing.forEach(function (n) { haveIds[n.id] = true; });
+
+      var added = 0;
+      parsed.forEach(function (n) {
+        if (!n || typeof n.title !== 'string' || !n.title.trim()) return;
+        // Behold id-en der den finnes, så samme notat ikke dubleres hvis
+        // kopien legges inn to ganger.
+        var id = (typeof n.id === 'string' && n.id) ? n.id : newNoteId();
+        if (haveIds[id]) return;
+        haveIds[id] = true;
+        existing.push({
+          id: id,
+          title: String(n.title).slice(0, 80),
+          value: n.value ? String(n.value).slice(0, 40) : '',
+          text: n.text ? String(n.text).slice(0, 600) : '',
+          created: Number(n.created) || Date.now(),
+          updated: Number(n.updated) || Number(n.created) || Date.now()
+        });
+        added++;
+      });
+
+      if (!added) { say('Ingen nye notater å legge inn — de fantes allerede.'); return; }
+      saveNotes(existing);
+      renderNotes();
+      importBox.hidden = true;
+      document.getElementById('backup-paste').value = '';
+      say('La inn ' + added + (added === 1 ? ' notat.' : ' notater.'));
+    });
+  }
+
   /* ------------------------- Rendering av fakta ------------------------- */
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -1426,6 +1763,8 @@
     });
   });
   renderFavorites();
+  initNotes();
+  renderNotes();
 
   /* ----------------------------- Kalkulator ----------------------------- */
   // Norske brukere skriver komma. Godta begge.
@@ -1718,17 +2057,29 @@
     return parts.join(' ');
   }
 
+  // Bygges på nytt når egne notater endres — de er dynamiske, og indeksen
+  // holder direkte DOM-referanser som blir foreldet ved ny rendering.
   var index = [];
-  panels.forEach(function (panel) {
-    var name = panel.dataset.panel;
-    var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc, .menu-item');
-    Array.prototype.forEach.call(blocks, function (node) {
-      // Favoritter er en kopi av et kort som allerede indekseres fra sin
-      // vanlige gruppe — ikke la det samme tallet komme opp to ganger i søk.
-      if (node.closest('#favorites-grid')) return;
-      index.push({ el: node, panel: name, text: norm(searchText(node)) });
+  function buildSearchIndex() {
+    // renderNotes() kjører før panels er satt opp; da bygges indeksen
+    // uansett rett etterpå, når søkeoppsettet initialiseres.
+    if (!panels) return;
+    index = [];
+    panels.forEach(function (panel) {
+      var name = panel.dataset.panel;
+      var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc, .menu-item, .note-card');
+      Array.prototype.forEach.call(blocks, function (node) {
+        // Favoritter er en kopi av et kort som allerede indekseres fra sin
+        // vanlige gruppe — ikke la det samme tallet komme opp to ganger i søk.
+        if (node.closest('#favorites-grid')) return;
+        // Skjema- og backup-boksene er verktøy, ikke innhold å søke i.
+        if (node.closest('#note-form') || node.closest('#backup-import')) return;
+        if (node.id === 'note-form') return;
+        index.push({ el: node, panel: name, text: norm(searchText(node)) });
+      });
     });
-  });
+  }
+  buildSearchIndex();
 
   function showPanel(name) {
     panels.forEach(function (p) { p.hidden = p.dataset.panel !== name; });
@@ -1817,6 +2168,11 @@
         // så favorittmerking virker direkte fra søketreff også.
         var favBtn = clone.querySelector('.fact-fav');
         if (favBtn) wireFavButton(favBtn, favBtn.dataset.for);
+        // Endre/slett på et notat ville vært døde knapper i en klone. Fjern
+        // dem heller enn å la dem se trykkbare ut — chipen over tar deg til
+        // Mitt-fanen der de virker.
+        var noteActions = clone.querySelector('.note-actions');
+        if (noteActions) noteActions.remove();
       }
       highlight(clone, q);
       // Et treff inne i en lukket <details> ville sett umarkert ut.
@@ -1868,8 +2224,13 @@
 
   /* --------------------------- Deep-linking --------------------------- */
   // #<fane> åpner en fane, #f-<id> går rett til ett faktakort i Måltall.
+  // Fanen het "favoritter" før den ble utvidet til "mitt" — hold gamle
+  // bokmerker og delte lenker i live.
+  var HASH_ALIAS = { favoritter: 'mitt' };
+
   function routeFromHash(smooth) {
     var h = location.hash.replace('#', '');
+    if (HASH_ALIAS[h]) h = HASH_ALIAS[h];
     if (!h) { activate('kalkulator', false); return; }
     if (panelNames.indexOf(h) !== -1) { activate(h, false); return; }
     if (h.indexOf('f-') === 0) {
