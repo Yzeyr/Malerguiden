@@ -350,6 +350,49 @@
     font-size: 0.78rem; font-weight: 700; color: var(--ink-soft);
     text-transform: none; letter-spacing: 0;
   }
+  /* ---------- Jobbhode og nivåer ---------- */
+  .job-hode {
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1.2rem;
+  }
+  .job-hode-tittel { font-size: 1.25rem; font-weight: 800; line-height: 1.2; }
+  .job-hode-under { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.15rem; }
+  .job-hode-status {
+    width: 100%; font: inherit; font-size: 1rem; font-weight: 700;
+    margin-top: 0.7rem; padding: 0.55rem 0.7rem; min-height: 2.75rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+  }
+  .job-hode-framdrift { font-size: 0.85rem; font-weight: 700; color: var(--ink-soft); margin-top: 0.7rem; }
+  .job-hode .job-progress-bar { height: 10px; margin-top: 0.3rem; }
+  .job-hode .job-link-row { margin-bottom: 0; }
+  .job-hode .job-link-row:empty { display: none; }
+
+  h3.group-heading.niva {
+    border-bottom: none; padding-bottom: 0; margin: 1.9rem 0 0.6rem;
+    display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;
+  }
+  h3.group-heading.niva::before {
+    content: ""; width: 0.7rem; height: 0.7rem; border-radius: 50%; flex: none;
+  }
+  h3.group-heading.niva-1::before { background: var(--bad); }
+  h3.group-heading.niva-2::before { background: var(--warn-line); }
+  h3.group-heading.niva-3::before { background: var(--accent); }
+  h3.group-heading.niva:first-of-type { margin-top: 0; }
+
+  .delseksjon { margin-bottom: 1.4rem; }
+  .delseksjon-tittel {
+    font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem;
+    display: flex; align-items: baseline; gap: 0.4rem;
+  }
+
+  .paaminnelse {
+    display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px;
+    padding: 0.7rem 0.9rem; margin-bottom: 0.5rem; color: var(--ink);
+  }
+  .paaminnelse strong { display: block; font-size: 0.92rem; }
+  .paaminnelse small { color: var(--ink-soft); font-size: 0.8rem; }
+
   /* ---------- Bilder ---------- */
   .bilder-verktoy { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
   .bilde-knapp {
@@ -838,6 +881,8 @@
         </div>
       </form>
 
+      <div id="jobber-paaminnelse" hidden></div>
+
       <p id="jobber-empty" class="fav-hint">Ingen jobber ennå. Trykk «+ Ny jobb» for å opprette den første.</p>
 
       <div id="jobber-aktive-list"></div>
@@ -851,95 +896,123 @@
     <div id="jobber-detalj-view" hidden>
       <button type="button" id="job-back-btn" class="btn-ghost job-back-btn">← Tilbake til jobber</button>
 
-      <div class="card job-customer-card">
-        <div class="field">
-          <label for="jd-navn">Kunde <span class="hint">Navn</span></label>
-          <input type="text" id="jd-navn" autocomplete="off" maxlength="80">
-        </div>
-        <div class="field">
-          <label for="jd-fag">Fag <span class="hint">Styrer hvilken sjekkliste jobben får</span></label>
-          <select id="jd-fag">
-            <option value="annet">🔧 Annet</option>
-            <option value="bad">🚿 Bad / våtrom</option>
-            <option value="maling">🎨 Maling</option>
-            <option value="sparkling">🧱 Sparkling</option>
-            <option value="fasade">🏠 Fasade</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="jd-rom">Rom <span class="hint">F.eks. «Bad 2. etg»</span></label>
-          <input type="text" id="jd-rom" autocomplete="off" maxlength="60">
-        </div>
-        <div class="field">
-          <label for="jd-adresse">Adresse</label>
-          <input type="text" id="jd-adresse" autocomplete="off" maxlength="140">
-        </div>
-        <div class="field">
-          <label for="jd-tlf">Telefon</label>
-          <input type="text" id="jd-tlf" inputmode="tel" autocomplete="off" maxlength="30">
-        </div>
-        <div class="job-link-row">
+      <!-- Jobbhodet: hva dette er, hvor langt det er kommet. Skal kunne
+           leses i det sekundet jobben åpnes, uten å lete. -->
+      <div class="job-hode">
+        <div class="job-hode-tittel" id="jd-hode-tittel"></div>
+        <div class="job-hode-under" id="jd-hode-under"></div>
+        <select id="jd-status" class="job-hode-status" aria-label="Status">
+          <option value="planlagt">⚪ Planlagt</option>
+          <option value="pagar">🟢 Pågår</option>
+          <option value="pauset">🟡 Pauset</option>
+          <option value="ferdig">🔵 Ferdig</option>
+        </select>
+        <div class="job-hode-framdrift" id="jd-hode-framdrift"></div>
+        <div class="job-progress-bar"><div class="job-progress-fill" id="jd-sjekkliste-fill" style="width:0%"></div></div>
+        <div class="job-link-row" id="jd-link-row">
           <a id="jd-maps-link" class="job-link-btn" target="_blank" rel="noopener" hidden>📍 Kart</a>
           <a id="jd-tel-link" class="job-link-btn" hidden>📞 Ring</a>
         </div>
-        <div class="field" style="margin-bottom:0;">
-          <label for="jd-status">Status</label>
-          <select id="jd-status">
-            <option value="planlagt">⚪ Planlagt</option>
-            <option value="pagar">🟢 Pågår</option>
-            <option value="pauset">🟡 Pauset</option>
-            <option value="ferdig">🔵 Ferdig</option>
+      </div>
+
+      <!-- ===== 1. DETTE GJØR DU NÅ ===== -->
+      <h3 class="group-heading niva niva-1">Dette gjør du nå
+        <span class="checklist-progress" id="jd-sjekkliste-teller"></span>
+      </h3>
+      <div class="card" id="jd-sjekkliste"></div>
+
+      <!-- ===== 2. DETTE MÅ DU HUSKE ===== -->
+      <h3 class="group-heading niva niva-2">Dette må du huske</h3>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">🧰 Neste besøk <span class="checklist-progress" id="jd-pakke-teller"></span></div>
+        <div class="pakke-addrow">
+          <input type="text" id="jd-pakke-input" autocomplete="off" maxlength="120" placeholder="F.eks. «ekstra sekk sparkel»">
+          <button type="button" id="jd-pakke-add" class="btn-ghost">+ Legg til</button>
+        </div>
+        <p id="jd-pakke-empty" class="fav-hint">Ingenting lagt til ennå.</p>
+        <div id="jd-pakke-list"></div>
+      </div>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">📸 Bilder <span class="checklist-progress" id="jd-bilder-teller"></span></div>
+        <div class="bilder-verktoy">
+          <label class="bilde-knapp">📷 Ta bilde
+            <input type="file" id="jd-bilde-kamera" accept="image/*" capture="environment" hidden>
+          </label>
+          <label class="bilde-knapp">🖼️ Fra galleri
+            <input type="file" id="jd-bilde-galleri" accept="image/*" multiple hidden>
+          </label>
+          <select id="jd-bilde-kategori" aria-label="Kategori for nye bilder">
+            <option value="for">Legg i: Før</option>
+            <option value="underveis">Legg i: Underveis</option>
+            <option value="ferdig">Legg i: Ferdig</option>
+            <option value="avvik">Legg i: Avvik</option>
           </select>
+        </div>
+        <p id="jd-bilde-status" class="out-note" hidden></p>
+        <p id="jd-bilder-empty" class="fav-hint">Ingen bilder ennå. «Før»-bildet er det man savner mest når kunden spør hvordan det så ut.</p>
+        <div id="jd-bilder-galleri"></div>
+      </div>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">📝 Notat</div>
+        <div class="field">
+          <textarea id="jd-notat" rows="4" maxlength="1500" placeholder="Fritekst — det som ikke passer noe annet sted."></textarea>
         </div>
       </div>
 
-      <h3 class="group-heading">Sjekkliste <span class="checklist-progress" id="jd-sjekkliste-teller"></span></h3>
-      <div class="job-progress-bar"><div class="job-progress-fill" id="jd-sjekkliste-fill" style="width:0%"></div></div>
-      <div class="card" id="jd-sjekkliste"></div>
-
-      <h3 class="group-heading">🧰 Neste besøk</h3>
-      <div class="pakke-addrow">
-        <input type="text" id="jd-pakke-input" autocomplete="off" maxlength="120" placeholder="F.eks. «ekstra sekk sparkel»">
-        <button type="button" id="jd-pakke-add" class="btn-ghost">+ Legg til</button>
-      </div>
-      <p id="jd-pakke-empty" class="fav-hint">Ingenting lagt til ennå.</p>
-      <div id="jd-pakke-list"></div>
-
-      <h3 class="group-heading">Beregninger</h3>
-      <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå. Trykk «💾 Lagre til jobb» under resultatet i en kalkulator.</p>
-      <div id="jd-beregninger-list"></div>
-
-      <h3 class="group-heading">📸 Bilder <span class="checklist-progress" id="jd-bilder-teller"></span></h3>
-      <div class="bilder-verktoy">
-        <label class="bilde-knapp">📷 Ta bilde
-          <input type="file" id="jd-bilde-kamera" accept="image/*" capture="environment" hidden>
-        </label>
-        <label class="bilde-knapp">🖼️ Fra galleri
-          <input type="file" id="jd-bilde-galleri" accept="image/*" multiple hidden>
-        </label>
-        <select id="jd-bilde-kategori" aria-label="Kategori for nye bilder">
-          <option value="for">Legg i: Før</option>
-          <option value="underveis">Legg i: Underveis</option>
-          <option value="ferdig">Legg i: Ferdig</option>
-          <option value="avvik">Legg i: Avvik</option>
-        </select>
-      </div>
-      <p id="jd-bilde-status" class="out-note" hidden></p>
-      <p id="jd-bilder-empty" class="fav-hint">Ingen bilder ennå. «Før»-bildet er det man savner mest når kunden spør hvordan det så ut.</p>
-      <div id="jd-bilder-galleri"></div>
-
-      <h3 class="group-heading">Notat</h3>
-      <div class="field">
-        <textarea id="jd-notat" rows="4" maxlength="1500" placeholder="Fritekst — det som ikke passer noe annet sted."></textarea>
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">⚠️ Forbehold</div>
+        <div class="field">
+          <textarea id="jd-forbehold" rows="3" maxlength="800" placeholder="Ett per linje, f.eks. «Sluk ikke kontrollert innvendig»."></textarea>
+        </div>
       </div>
 
-      <h3 class="group-heading">Forbehold</h3>
-      <div class="field">
-        <textarea id="jd-forbehold" rows="3" maxlength="800" placeholder="Ett per linje, f.eks. «Sluk ikke kontrollert innvendig»."></textarea>
+      <!-- ===== 3. INFORMASJON ===== -->
+      <h3 class="group-heading niva niva-3">Informasjon</h3>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">📐 Beregninger</div>
+        <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå. Trykk «💾 Lagre til jobb» under resultatet i en kalkulator.</p>
+        <div id="jd-beregninger-list"></div>
+      </div>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">👤 Kunde og sted</div>
+        <div class="card job-customer-card">
+          <div class="field">
+            <label for="jd-navn">Kunde <span class="hint">Navn</span></label>
+            <input type="text" id="jd-navn" autocomplete="off" maxlength="80">
+          </div>
+          <div class="field">
+            <label for="jd-fag">Fag <span class="hint">Styrer hvilken sjekkliste jobben får</span></label>
+            <select id="jd-fag">
+              <option value="annet">🔧 Annet</option>
+              <option value="bad">🚿 Bad / våtrom</option>
+              <option value="maling">🎨 Maling</option>
+              <option value="sparkling">🧱 Sparkling</option>
+              <option value="fasade">🏠 Fasade</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="jd-rom">Rom <span class="hint">F.eks. «Bad 2. etg»</span></label>
+            <input type="text" id="jd-rom" autocomplete="off" maxlength="60">
+          </div>
+          <div class="field">
+            <label for="jd-adresse">Adresse</label>
+            <input type="text" id="jd-adresse" autocomplete="off" maxlength="140">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="jd-tlf">Telefon</label>
+            <input type="text" id="jd-tlf" inputmode="tel" autocomplete="off" maxlength="30">
+          </div>
+        </div>
       </div>
 
       <div class="note-form-actions job-detail-actions">
-        <button type="button" class="btn-primary" id="jd-copy">Kopier jobb</button>
+        <button type="button" class="btn-primary" id="jd-copy">Kopier som tekst</button>
+        <button type="button" class="btn-ghost" id="jd-duplicate">Dupliser jobb</button>
         <button type="button" class="note-btn danger" id="jd-delete">Slett jobb</button>
       </div>
       <p class="out-note" id="jd-status-msg" hidden></p>
@@ -1690,6 +1763,22 @@
   </div>
   <div class="note-form-actions" style="margin-top:0.8rem;">
     <button type="button" class="btn-ghost" id="job-picker-cancel">Avbryt</button>
+  </div>
+</dialog>
+
+<dialog id="job-dupliser-dialog" class="job-picker">
+  <h3>Dupliser jobb</h3>
+  <p class="job-picker-sub">Kunde, adresse, telefon, fag og rom følger med. Sjekklista nullstilles, og statusen settes til planlagt.</p>
+  <div class="field field-checkbox">
+    <label><input type="checkbox" id="dup-notat"> Ta med notat og forbehold</label>
+  </div>
+  <div class="field field-checkbox">
+    <label><input type="checkbox" id="dup-beregninger"> Ta med lagrede beregninger</label>
+  </div>
+  <p class="job-picker-sub">Bilder og «neste besøk» følger aldri med — de hører til jobben som ble gjort.</p>
+  <div class="note-form-actions" style="margin-top:0.8rem;">
+    <button type="button" class="btn-primary" id="dup-ok">Dupliser</button>
+    <button type="button" class="btn-ghost" id="dup-avbryt">Avbryt</button>
   </div>
 </dialog>
 
@@ -2595,6 +2684,29 @@
     return card;
   }
 
+  // Det man har skrevet ned at man må huske, er verdiløst hvis man må åpne
+  // jobben for å se det. Derfor står det øverst på Jobber-fanen.
+  function renderPaaminnelser(aktive) {
+    var boks = document.getElementById('jobber-paaminnelse');
+    if (!boks) return;
+    boks.textContent = '';
+    var medTing = aktive.filter(function (j) {
+      return j.utstyr.some(function (u) { return !u.checked; });
+    });
+    boks.hidden = !medTing.length;
+    medTing.slice(0, 4).forEach(function (job) {
+      var apne = job.utstyr.filter(function (u) { return !u.checked; });
+      var knapp = el('button', 'paaminnelse');
+      knapp.type = 'button';
+      knapp.appendChild(el('strong', null,
+        '🔔 ' + (job.kunde.navn || 'Uten navn') + ' — ' + apne.length +
+        (apne.length === 1 ? ' ting å huske' : ' ting å huske')));
+      knapp.appendChild(el('small', null, apne.map(function (u) { return u.tekst; }).join(' · ')));
+      knapp.addEventListener('click', function () { openJob(job.id); });
+      boks.appendChild(knapp);
+    });
+  }
+
   function renderJobList() {
     var aktiveList = document.getElementById('jobber-aktive-list');
     if (!aktiveList) return;
@@ -2610,6 +2722,7 @@
     aktiveList.textContent = '';
     aktive.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
     empty.hidden = jobs.length > 0;
+    renderPaaminnelser(aktive);
 
     if (ferdige.length) {
       ferdigeWrap.hidden = false;
@@ -2690,6 +2803,7 @@
     if (!job) return;
     var f = sjekklisteFramdrift(job);
     setText('jd-sjekkliste-teller', f.gjort + '/' + f.av + ' ferdig');
+    setText('jd-hode-framdrift', f.gjort + ' av ' + f.av + ' punkter ferdig');
     var fill = document.getElementById('jd-sjekkliste-fill');
     if (fill) fill.style.width = (f.av ? Math.round((f.gjort / f.av) * 100) : 0) + '%';
 
@@ -2724,6 +2838,7 @@
         return j;
       });
       row.classList.toggle('checked', cb.checked);
+      oppdaterPakkeTeller(getJob(currentJobId));
     });
     var label = document.createElement('label');
     label.setAttribute('for', cb.id);
@@ -2753,6 +2868,13 @@
     job.utstyr.slice().sort(function (a, b) { return (a.created || 0) - (b.created || 0); })
       .forEach(function (item) { list.appendChild(buildPakkeRow(item)); });
     empty.hidden = job.utstyr.length > 0;
+    oppdaterPakkeTeller(job);
+  }
+
+  function oppdaterPakkeTeller(job) {
+    if (!job) return;
+    var apne = job.utstyr.filter(function (u) { return !u.checked; }).length;
+    setText('jd-pakke-teller', apne ? apne + ' igjen' : '');
   }
 
   function leggTilPakkeItem() {
@@ -3093,10 +3215,26 @@
 
     updateJobLinksLive('adresse', job.kunde.adresse);
     updateJobLinksLive('tlf', job.kunde.tlf);
+    renderJobHode(job);
     renderChecklist(job);
     renderPakkeliste(job);
     renderBilder(job);
     renderBeregninger(job);
+  }
+
+  // Jobbhodet svarer på «hva er dette, og hvor langt er det kommet» før
+  // man i det hele tatt begynner å lese resten av siden.
+  function renderJobHode(job) {
+    var rom = job.rom ? job.rom.toUpperCase() : FAG_LABEL[job.fag].replace(/^\S+\s/, '').toUpperCase();
+    var navn = (job.kunde.navn || 'Uten navn').toUpperCase();
+    setText('jd-hode-tittel', rom + ' – ' + navn);
+
+    var under = [FAG_LABEL[job.fag]];
+    if (job.kunde.adresse) under.push(job.kunde.adresse);
+    setText('jd-hode-under', under.join(' · '));
+
+    var f = sjekklisteFramdrift(job);
+    setText('jd-hode-framdrift', f.gjort + ' av ' + f.av + ' punkter ferdig');
   }
 
   // Lagrer med kort debounce mens man skriver, men fanger opp jobb-id-en
@@ -3221,6 +3359,50 @@
       // og oppta plass uten at noe peker på dem.
       job.bilder.forEach(function (b) { slettBildeBlob(b.id).catch(function () {}); });
       closeJobDetail();
+    });
+
+    // Dupliser: samme kunde, samme fag, blank sjekkliste. Det er dette man
+    // vil ha når man kommer tilbake til samme kunde for neste rom — ikke å
+    // taste inn navn, adresse og telefon på nytt.
+    var dupDialog = document.getElementById('job-dupliser-dialog');
+    document.getElementById('jd-duplicate').addEventListener('click', function () {
+      if (!getJob(currentJobId)) return;
+      document.getElementById('dup-notat').checked = false;
+      document.getElementById('dup-beregninger').checked = false;
+      dupDialog.showModal();
+    });
+    document.getElementById('dup-avbryt').addEventListener('click', function () { dupDialog.close(); });
+    dupDialog.addEventListener('click', function (e) { if (e.target === dupDialog) dupDialog.close(); });
+
+    document.getElementById('dup-ok').addEventListener('click', function () {
+      var kilde = getJob(currentJobId);
+      if (!kilde) { dupDialog.close(); return; }
+      var taNotat = document.getElementById('dup-notat').checked;
+      var taBeregninger = document.getElementById('dup-beregninger').checked;
+
+      var ny = normalizeJob({
+        id: newJobId(), created: Date.now(), status: 'planlagt',
+        fag: kilde.fag, rom: kilde.rom,
+        kunde: { navn: kilde.kunde.navn, adresse: kilde.kunde.adresse, tlf: kilde.kunde.tlf },
+        // Sjekkliste, bilder og «neste besøk» hører til jobben som ble gjort.
+        sjekkliste: {}, bilder: [], utstyr: [],
+        notat: taNotat ? kilde.notat : '',
+        forbehold: taNotat ? kilde.forbehold : '',
+        beregninger: taBeregninger ? kilde.beregninger.map(function (b) {
+          // Ny id og nytt tidspunkt: dette er en ny jobbs beregning, og
+          // det faktiske forbruket fra forrige jobb gjelder ikke her.
+          return { id: newCalcEntryId(), calcId: b.calcId, tidspunkt: Date.now(),
+            sammendrag: b.sammendrag, input: b.input, planlagtMengde: b.planlagtMengde,
+            enhet: b.enhet, faktiskMengde: null };
+        }) : []
+      });
+
+      var jobber = loadJobs();
+      jobber.push(ny);
+      if (!saveJobs(jobber)) { jobToast('Fikk ikke lagret duplikatet.'); dupDialog.close(); return; }
+      dupDialog.close();
+      openJob(ny.id);
+      jobToast('Jobben er duplisert.');
     });
 
     document.getElementById('jd-copy').addEventListener('click', function () {
