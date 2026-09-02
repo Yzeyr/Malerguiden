@@ -7,7 +7,7 @@
  *
  * Bump CACHE_VERSION ved hver deploy, ellers ligger gammelt innhold igjen.
  */
-const CACHE_VERSION = 'malerguiden-v18';
+const CACHE_VERSION = 'malerguiden-v19';
 
 // Relative stier: siden ligger under /Malerguiden/ på GitHub Pages, ikke på rot.
 const PRECACHE = [
