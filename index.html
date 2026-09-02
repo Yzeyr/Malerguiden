@@ -350,6 +350,43 @@
     font-size: 0.78rem; font-weight: 700; color: var(--ink-soft);
     text-transform: none; letter-spacing: 0;
   }
+  /* ---------- Bilder ---------- */
+  .bilder-verktoy { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+  .bilde-knapp {
+    flex: 1 1 auto; text-align: center; cursor: pointer;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 0.85rem;
+    border-radius: 8px; padding: 0.6rem 0.8rem; min-height: 2.75rem;
+    display: flex; align-items: center; justify-content: center; white-space: nowrap;
+  }
+  .bilder-verktoy select {
+    flex: 1 1 100%; font: inherit; font-size: 0.9rem; padding: 0.55rem 0.7rem; min-height: 2.75rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+  }
+  .bilde-gruppe { margin-top: 0.9rem; }
+  .bilde-gruppe-tittel {
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 0.35rem;
+  }
+  .bilde-rutenett { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+  .bilde-rute {
+    appearance: none; border: 1px solid var(--line); border-radius: 8px; padding: 0; cursor: pointer;
+    background: var(--card); overflow: hidden; aspect-ratio: 1 / 1;
+  }
+  .bilde-rute img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bilde-viser {
+    position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.92);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem;
+    padding: 1rem; padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  .bilde-viser[hidden] { display: none; }
+  .bilde-viser img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 8px; }
+  .bilde-viser-verktoy { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .bilde-viser-verktoy select {
+    font: inherit; font-size: 0.9rem; padding: 0.5rem 0.7rem; min-height: 2.75rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink);
+  }
+  .bilde-viser-verktoy .note-btn { background: var(--card); }
+
   .job-progress-bar {
     height: 6px; border-radius: 999px; background: var(--line);
     overflow: hidden; margin: 0.5rem 0 0.2rem;
@@ -871,6 +908,25 @@
       <h3 class="group-heading">Beregninger</h3>
       <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå. Trykk «💾 Lagre til jobb» under resultatet i en kalkulator.</p>
       <div id="jd-beregninger-list"></div>
+
+      <h3 class="group-heading">📸 Bilder <span class="checklist-progress" id="jd-bilder-teller"></span></h3>
+      <div class="bilder-verktoy">
+        <label class="bilde-knapp">📷 Ta bilde
+          <input type="file" id="jd-bilde-kamera" accept="image/*" capture="environment" hidden>
+        </label>
+        <label class="bilde-knapp">🖼️ Fra galleri
+          <input type="file" id="jd-bilde-galleri" accept="image/*" multiple hidden>
+        </label>
+        <select id="jd-bilde-kategori" aria-label="Kategori for nye bilder">
+          <option value="for">Legg i: Før</option>
+          <option value="underveis">Legg i: Underveis</option>
+          <option value="ferdig">Legg i: Ferdig</option>
+          <option value="avvik">Legg i: Avvik</option>
+        </select>
+      </div>
+      <p id="jd-bilde-status" class="out-note" hidden></p>
+      <p id="jd-bilder-empty" class="fav-hint">Ingen bilder ennå. «Før»-bildet er det man savner mest når kunden spør hvordan det så ut.</p>
+      <div id="jd-bilder-galleri"></div>
 
       <h3 class="group-heading">Notat</h3>
       <div class="field">
@@ -1639,6 +1695,20 @@
 
 <div id="job-toast" class="job-toast" hidden></div>
 
+<div id="bilde-viser" class="bilde-viser" hidden>
+  <img id="bilde-viser-img" alt="">
+  <div class="bilde-viser-verktoy">
+    <select id="bilde-viser-kategori" aria-label="Endre kategori">
+      <option value="for">Før</option>
+      <option value="underveis">Underveis</option>
+      <option value="ferdig">Ferdig</option>
+      <option value="avvik">Avvik</option>
+    </select>
+    <button type="button" class="note-btn danger" id="bilde-viser-slett">Slett bilde</button>
+    <button type="button" class="btn-primary" id="bilde-viser-lukk">Lukk</button>
+  </div>
+</div>
+
 <footer class="site">
   <h2 id="kilder">Kilder</h2>
   <p>Gruppert etter hva slags kilde det er. Regelverk og standard er det bindende; resten er fagveiledning og produktdata som utdyper hvordan det gjøres i praksis.</p>
@@ -2288,6 +2358,7 @@
       rom: j.rom ? String(j.rom) : '',
       sjekkliste: (j.sjekkliste && typeof j.sjekkliste === 'object') ? j.sjekkliste : {},
       utstyr: Array.isArray(j.utstyr) ? j.utstyr.filter(function (u) { return u && u.id && typeof u.tekst === 'string' && u.tekst; }) : [],
+      bilder: Array.isArray(j.bilder) ? j.bilder.filter(function (b) { return b && b.id; }) : [],
       beregninger: Array.isArray(j.beregninger) ? j.beregninger : [],
       notat: j.notat ? String(j.notat) : '',
       forbehold: j.forbehold ? String(j.forbehold) : ''
@@ -2512,6 +2583,7 @@
       card.appendChild(bar);
     }
 
+    if (job.bilder.length) card.appendChild(el('div', 'job-card-last', '📸 ' + job.bilder.length + (job.bilder.length === 1 ? ' bilde' : ' bilder')));
     var apne = job.utstyr.filter(function (u) { return !u.checked; }).length;
     if (apne) card.appendChild(el('div', 'job-card-last', '🧰 ' + apne + (apne === 1 ? ' ting å ta med' : ' ting å ta med')));
     if (job.beregninger.length) {
@@ -2703,6 +2775,241 @@
     });
   }
 
+  /* ------------------------------------------------------------------- *
+   * BILDER — «se hvordan det så ut før vi begynte».
+   *
+   * Selve bildene ligger i IndexedDB, ikke i localStorage: ett telefonbilde
+   * er 2-5 MB, og localStorage har rundt 5 MB til HELE appen. Ett bilde
+   * ville altså kunne sprengt lagringen og tatt notater og jobber med i
+   * fallet. Jobben i localStorage bærer bare metadata (id, kategori,
+   * tidspunkt) — bildedataene hentes for seg, asynkront.
+   *
+   * Alt skaleres ned til maks 1600 px lengste kant og lagres som JPEG før
+   * det legges inn. Et råbilde fra telefonen er langt større enn noe man
+   * trenger for å dokumentere et gulv, og full oppløsning ville fylt
+   * telefonen uten å vise mer.
+   * -------------------------------------------------------------------- */
+  var BILDE_DB = 'malerguiden-bilder';
+  var BILDE_STORE = 'bilder';
+  var BILDE_MAKS_KANT = 1600;
+  var BILDE_KATEGORIER = [
+    { id: 'for', label: 'Før' },
+    { id: 'underveis', label: 'Underveis' },
+    { id: 'ferdig', label: 'Ferdig' },
+    { id: 'avvik', label: 'Avvik' }
+  ];
+  var BILDE_KATEGORI_LABEL = {};
+  BILDE_KATEGORIER.forEach(function (k) { BILDE_KATEGORI_LABEL[k.id] = k.label; });
+
+  function newBildeId() {
+    return 'img-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  }
+
+  function apneBildeDb() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) { reject(new Error('IndexedDB utilgjengelig')); return; }
+      var req = indexedDB.open(BILDE_DB, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(BILDE_STORE)) db.createObjectStore(BILDE_STORE);
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  function bildeTransaksjon(modus, arbeid) {
+    return apneBildeDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(BILDE_STORE, modus);
+        var req = arbeid(tx.objectStore(BILDE_STORE));
+        tx.oncomplete = function () { db.close(); resolve(req ? req.result : null); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+      });
+    });
+  }
+
+  function lagreBildeBlob(id, blob) { return bildeTransaksjon('readwrite', function (s) { return s.put(blob, id); }); }
+  function hentBildeBlob(id) { return bildeTransaksjon('readonly', function (s) { return s.get(id); }); }
+  function slettBildeBlob(id) { return bildeTransaksjon('readwrite', function (s) { return s.delete(id); }); }
+
+  // Skalerer ned og komprimerer i en canvas før lagring.
+  function forminskBilde(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var skala = Math.min(1, BILDE_MAKS_KANT / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * skala);
+        c.height = Math.round(img.height * skala);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (blob) {
+          if (blob) resolve(blob); else reject(new Error('Klarte ikke lage bildefil'));
+        }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Klarte ikke lese bildet')); };
+      img.src = url;
+    });
+  }
+
+  function bildeStatus(msg) {
+    var n = document.getElementById('jd-bilde-status');
+    if (!n) return;
+    if (!msg) { n.hidden = true; return; }
+    n.textContent = msg;
+    n.hidden = false;
+  }
+
+  function leggTilBilder(filer) {
+    if (!filer || !filer.length || !currentJobId) return;
+    var jobIdVedValg = currentJobId;
+    var kategori = document.getElementById('jd-bilde-kategori').value;
+    var liste = Array.prototype.slice.call(filer);
+    bildeStatus(liste.length === 1 ? 'Lagrer bilde …' : 'Lagrer ' + liste.length + ' bilder …');
+
+    // Ett om gangen: to store bilder gjennom canvas samtidig er nok til at
+    // en eldre telefon gir opp midt i.
+    var kjede = Promise.resolve();
+    var lagret = 0;
+    liste.forEach(function (file) {
+      kjede = kjede.then(function () {
+        return forminskBilde(file).then(function (blob) {
+          var id = newBildeId();
+          return lagreBildeBlob(id, blob).then(function () {
+            updateJob(jobIdVedValg, function (j) {
+              j.bilder = j.bilder.concat([{ id: id, kategori: kategori, tatt: Date.now() }]);
+              return j;
+            });
+            lagret++;
+          });
+        });
+      });
+    });
+
+    kjede.then(function () {
+      bildeStatus('');
+      jobToast(lagret === 1 ? 'Bilde lagret.' : lagret + ' bilder lagret.');
+      if (currentJobId === jobIdVedValg) renderBilder(getJob(currentJobId));
+      renderJobList();
+    }).catch(function (e) {
+      bildeStatus('Fikk ikke lagret bildet: ' + (e && e.message ? e.message : 'ukjent feil'));
+    });
+  }
+
+  // Object-URL-ene må ryddes, ellers holder nettleseren på bildedataene
+  // for hver eneste gang galleriet er tegnet.
+  var bildeUrler = [];
+  function frigiBildeUrler() {
+    bildeUrler.forEach(function (u) { URL.revokeObjectURL(u); });
+    bildeUrler = [];
+  }
+
+  function renderBilder(job) {
+    var galleri = document.getElementById('jd-bilder-galleri');
+    var empty = document.getElementById('jd-bilder-empty');
+    if (!galleri || !job) return;
+    frigiBildeUrler();
+    galleri.textContent = '';
+    setText('jd-bilder-teller', job.bilder.length ? String(job.bilder.length) : '');
+    empty.hidden = job.bilder.length > 0;
+
+    BILDE_KATEGORIER.forEach(function (kat) {
+      var iKat = job.bilder.filter(function (b) { return b.kategori === kat.id; })
+        .sort(function (a, b) { return a.tatt - b.tatt; });
+      if (!iKat.length) return;
+
+      var gruppe = el('div', 'bilde-gruppe');
+      gruppe.appendChild(el('div', 'bilde-gruppe-tittel', kat.label + ' · ' + iKat.length));
+      var rutenett = el('div', 'bilde-rutenett');
+      iKat.forEach(function (meta) {
+        var knapp = el('button', 'bilde-rute');
+        knapp.type = 'button';
+        var img = document.createElement('img');
+        img.alt = kat.label + ', ' + formatNoteDate(meta.tatt);
+        img.loading = 'lazy';
+        knapp.appendChild(img);
+        knapp.addEventListener('click', function () { visBilde(meta); });
+        rutenett.appendChild(knapp);
+
+        hentBildeBlob(meta.id).then(function (blob) {
+          if (!blob) { knapp.remove(); return; }
+          var url = URL.createObjectURL(blob);
+          bildeUrler.push(url);
+          img.src = url;
+        }).catch(function () { knapp.remove(); });
+      });
+      gruppe.appendChild(rutenett);
+      galleri.appendChild(gruppe);
+    });
+  }
+
+  var visesBilde = null;
+  var visesBildeUrl = null;
+
+  function visBilde(meta) {
+    visesBilde = meta;
+    var boks = document.getElementById('bilde-viser');
+    var img = document.getElementById('bilde-viser-img');
+    document.getElementById('bilde-viser-kategori').value = meta.kategori;
+    hentBildeBlob(meta.id).then(function (blob) {
+      if (!blob) return;
+      if (visesBildeUrl) URL.revokeObjectURL(visesBildeUrl);
+      visesBildeUrl = URL.createObjectURL(blob);
+      img.src = visesBildeUrl;
+      boks.hidden = false;
+    });
+  }
+
+  function lukkBildeViser() {
+    document.getElementById('bilde-viser').hidden = true;
+    document.getElementById('bilde-viser-img').removeAttribute('src');
+    if (visesBildeUrl) { URL.revokeObjectURL(visesBildeUrl); visesBildeUrl = null; }
+    visesBilde = null;
+  }
+
+  function initBilder() {
+    ['jd-bilde-kamera', 'jd-bilde-galleri'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', function (e) {
+        leggTilBilder(e.target.files);
+        e.target.value = ''; // så samme bilde kan velges igjen
+      });
+    });
+
+    document.getElementById('bilde-viser-lukk').addEventListener('click', lukkBildeViser);
+    document.getElementById('bilde-viser').addEventListener('click', function (e) {
+      if (e.target === this) lukkBildeViser();
+    });
+
+    document.getElementById('bilde-viser-kategori').addEventListener('change', function (e) {
+      if (!visesBilde || !currentJobId) return;
+      var ny = e.target.value;
+      var id = visesBilde.id;
+      updateJob(currentJobId, function (j) {
+        j.bilder = j.bilder.map(function (b) { if (b.id === id) b.kategori = ny; return b; });
+        return j;
+      });
+      visesBilde.kategori = ny;
+      renderBilder(getJob(currentJobId));
+    });
+
+    document.getElementById('bilde-viser-slett').addEventListener('click', function () {
+      if (!visesBilde || !currentJobId) return;
+      if (!window.confirm('Slette dette bildet for godt?')) return;
+      var id = visesBilde.id;
+      var jobId = currentJobId;
+      updateJob(jobId, function (j) {
+        j.bilder = j.bilder.filter(function (b) { return b.id !== id; });
+        return j;
+      });
+      lukkBildeViser();
+      slettBildeBlob(id).catch(function () {});
+      renderBilder(getJob(jobId));
+      renderJobList();
+    });
+  }
+
   function buildBeregningRow(entry) {
     var row = el('div', 'job-calc-row');
     var head = el('div', 'job-calc-head');
@@ -2788,6 +3095,7 @@
     updateJobLinksLive('tlf', job.kunde.tlf);
     renderChecklist(job);
     renderPakkeliste(job);
+    renderBilder(job);
     renderBeregninger(job);
   }
 
@@ -2884,6 +3192,15 @@
       });
     }
 
+    if (job.bilder.length) {
+      linjer.push('');
+      var perKat = BILDE_KATEGORIER.map(function (k) {
+        var n = job.bilder.filter(function (b) { return b.kategori === k.id; }).length;
+        return n ? n + ' ' + k.label.toLowerCase() : null;
+      }).filter(Boolean);
+      linjer.push('Bilder: ' + job.bilder.length + ' (' + perKat.join(', ') + ') — ligger i appen på telefonen');
+    }
+
     if (job.notat.trim()) { linjer.push(''); linjer.push('Notat:'); linjer.push(job.notat.trim()); }
     if (job.forbehold.trim()) { linjer.push(''); linjer.push('Forbehold:'); linjer.push(job.forbehold.trim()); }
 
@@ -2900,6 +3217,9 @@
       if (!job) return;
       if (!window.confirm('Slette jobben «' + (job.kunde.navn || 'Uten navn') + '» for godt? Dette kan ikke angres.')) return;
       saveJobs(loadJobs().filter(function (j) { return j.id !== currentJobId; }));
+      // Bildene ligger i sin egen base — uten dette blir de liggende igjen
+      // og oppta plass uten at noe peker på dem.
+      job.bilder.forEach(function (b) { slettBildeBlob(b.id).catch(function () {}); });
       closeJobDetail();
     });
 
@@ -2977,6 +3297,7 @@
     initJobDetailActions();
     initJobPicker();
     initPakkeliste();
+    initBilder();
     addJobSaveButtons();
     renderJobList();
   }
