@@ -25,6 +25,7 @@
     --warn-line: #b57e14;
     --bad: #a51f18;
     --ok: #1d6b3f;
+    --ok-bg: #e3f3e9;
     --tip: #6d4aa8;
     --tip-bg: #efe9f8;
     --fav: #b8860b;
@@ -315,6 +316,105 @@
   .note-btn:hover { background: var(--accent-soft); }
   .note-btn.danger { color: var(--bad); }
   .note-btn.danger:hover { background: var(--warn-bg); }
+
+  /* ---------- Jobber ---------- */
+  .job-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: 0.85rem 1rem; margin: 0.65rem 0;
+    cursor: pointer; text-align: left; width: 100%; font: inherit; color: var(--ink);
+    display: block;
+  }
+  .job-card:hover { border-color: var(--accent); }
+  .job-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+  .job-card-navn { font-weight: 700; font-size: 0.95rem; }
+  .job-card-rom { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.1rem; }
+  .job-card-last { font-size: 0.82rem; margin-top: 0.4rem; }
+  .job-card-meta { font-size: 0.74rem; color: var(--ink-soft); margin-top: 0.4rem; }
+  .job-status-pill {
+    font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px;
+    white-space: nowrap; flex: none;
+  }
+  .job-status-befaring { background: var(--tip-bg); color: var(--tip); }
+  .job-status-pagar { background: var(--accent-soft); color: var(--accent); }
+  .job-status-ferdig { background: var(--ok-bg); color: var(--ok); }
+
+  .job-ferdige-toggle { margin-top: 0.6rem; width: 100%; text-align: center; }
+  .job-back-btn { margin-bottom: 1rem; }
+
+  .job-customer-card .field:last-child { margin-bottom: 0; }
+  .job-link-row { display: flex; gap: 0.6rem; margin: 0.6rem 0; flex-wrap: wrap; }
+  .job-link-btn {
+    flex: 1 1 auto; text-align: center; text-decoration: none;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 0.85rem;
+    border-radius: 8px; padding: 0.6rem 0.8rem; min-height: 2.6rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .checklist-item {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--line);
+  }
+  .checklist-item:last-child { border-bottom: none; }
+  .checklist-item input[type="checkbox"] {
+    width: 1.15rem; height: 1.15rem; min-height: 0; padding: 0; flex: 0 0 auto; margin-top: 0.15rem;
+    border: 1px solid var(--line); border-radius: 4px; background: var(--paper); accent-color: var(--accent);
+  }
+  .checklist-item label { font-size: 0.87rem; cursor: pointer; }
+
+  .job-calc-row {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 0.75rem 0.9rem; margin: 0.6rem 0;
+  }
+  .job-calc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+  .job-calc-sammendrag { font-weight: 700; font-size: 0.9rem; }
+  .job-calc-date { font-size: 0.74rem; color: var(--ink-soft); }
+  .job-calc-faktisk { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.55rem; flex-wrap: wrap; }
+  .job-calc-faktisk label { font-size: 0.82rem; color: var(--ink-soft); }
+  .job-calc-faktisk input {
+    width: 6.5rem; font: inherit; font-size: 0.95rem; padding: 0.4rem 0.55rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+  }
+  .job-calc-actions { display: flex; gap: 0.2rem; margin-top: 0.5rem; justify-content: flex-end; }
+
+  .job-detail-actions { margin-top: 1.4rem; }
+
+  .job-save-btn {
+    appearance: none; border: 1px solid var(--line); cursor: pointer; font: inherit;
+    font-weight: 700; font-size: 0.85rem; background: var(--card); color: var(--accent);
+    border-radius: 8px; padding: 0.6rem 1rem; min-height: 2.75rem; margin-top: 0.9rem;
+  }
+  .job-save-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  dialog.job-picker {
+    border: none; border-radius: 14px; padding: 1.1rem 1.2rem;
+    background: var(--card); color: var(--ink);
+    max-width: min(92vw, 420px); width: 100%;
+  }
+  dialog.job-picker::backdrop { background: rgba(0,0,0,0.45); }
+  dialog.job-picker h3 { margin: 0 0 0.3rem; font-size: 1.05rem; }
+  .job-picker-sub { margin: 0 0 0.8rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .job-picker-item {
+    display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+    padding: 0.65rem 0.8rem; margin-bottom: 0.5rem; color: var(--ink);
+  }
+  .job-picker-item:hover { border-color: var(--accent); }
+  .job-picker-item small { display: block; color: var(--ink-soft); font-size: 0.76rem; margin-top: 0.1rem; }
+  .job-picker-newrow { display: flex; gap: 0.5rem; margin-top: 0.7rem; }
+  .job-picker-newrow input {
+    flex: 1 1 auto; min-width: 0; font: inherit; font-size: 0.9rem; padding: 0.55rem 0.7rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+  }
+
+  .job-toast {
+    position: fixed; left: 50%; bottom: calc(var(--bbh) + 0.8rem); transform: translateX(-50%);
+    background: var(--ink); color: var(--paper); font-size: 0.85rem; font-weight: 600;
+    padding: 0.6rem 1rem; border-radius: 999px; z-index: 50; max-width: 90vw; text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  .job-toast[hidden] { display: none; }
+
   .fact-link {
     flex: none; border: none; background: none; color: var(--ink-soft);
     cursor: pointer; font-size: 0.9rem; line-height: 1;
@@ -517,6 +617,7 @@
       --warn-line: #d9a441;
       --bad: #e57373;
       --ok: #6bbf8a;
+      --ok-bg: #17301f;
       --tip: #b39ddb;
       --tip-bg: #2a2338;
       --fav: #e0b64d;
@@ -628,6 +729,105 @@
           <button type="button" class="btn-ghost" id="backup-cancel">Avbryt</button>
         </div>
       </div>
+    </div>
+  </section>
+  </div>
+
+  <!-- ============ JOBBER ============ -->
+  <div class="panel" data-panel="jobber" hidden>
+  <section id="jobber">
+    <h2>🧰 Jobber</h2>
+    <p class="section-intro">Ett kort per jobb — kunde, sjekkliste, lagrede beregninger og notater samlet. Lagres lokalt på denne telefonen, som resten av appen.</p>
+
+    <div id="jobber-liste-view">
+      <button type="button" id="job-new-btn" class="note-add-btn">+ Ny jobb</button>
+
+      <form id="job-new-form" class="note-form" hidden>
+        <div class="field">
+          <label for="job-new-navn">Kunde
+            <span class="hint">Navn</span>
+          </label>
+          <input type="text" id="job-new-navn" autocomplete="off" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="job-new-adresse">Adresse
+            <span class="hint">Valgfritt nå — kan legges til senere</span>
+          </label>
+          <input type="text" id="job-new-adresse" autocomplete="off" maxlength="140">
+        </div>
+        <p class="note-form-err" id="job-new-err" hidden></p>
+        <div class="note-form-actions">
+          <button type="submit" class="btn-primary" id="job-new-save">Opprett jobb</button>
+          <button type="button" class="btn-ghost" id="job-new-cancel">Avbryt</button>
+        </div>
+      </form>
+
+      <p id="jobber-empty" class="fav-hint">Ingen jobber ennå. Trykk «+ Ny jobb» for å opprette den første.</p>
+
+      <div id="jobber-aktive-list"></div>
+
+      <div id="jobber-ferdige-wrap" hidden>
+        <button type="button" id="jobber-ferdige-toggle" class="btn-ghost job-ferdige-toggle"></button>
+        <div id="jobber-ferdige-list" hidden></div>
+      </div>
+    </div>
+
+    <div id="jobber-detalj-view" hidden>
+      <button type="button" id="job-back-btn" class="btn-ghost job-back-btn">← Tilbake til jobber</button>
+
+      <div class="card job-customer-card">
+        <div class="field">
+          <label for="jd-navn">Kunde <span class="hint">Navn</span></label>
+          <input type="text" id="jd-navn" autocomplete="off" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="jd-rom">Rom <span class="hint">F.eks. «Bad 2. etg»</span></label>
+          <input type="text" id="jd-rom" autocomplete="off" maxlength="60">
+        </div>
+        <div class="field">
+          <label for="jd-adresse">Adresse</label>
+          <input type="text" id="jd-adresse" autocomplete="off" maxlength="140">
+        </div>
+        <div class="field">
+          <label for="jd-tlf">Telefon</label>
+          <input type="text" id="jd-tlf" inputmode="tel" autocomplete="off" maxlength="30">
+        </div>
+        <div class="job-link-row">
+          <a id="jd-maps-link" class="job-link-btn" target="_blank" rel="noopener" hidden>📍 Kart</a>
+          <a id="jd-tel-link" class="job-link-btn" hidden>📞 Ring</a>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="jd-status">Status</label>
+          <select id="jd-status">
+            <option value="befaring">Befaring</option>
+            <option value="pagar">Pågår</option>
+            <option value="ferdig">Ferdig</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 class="group-heading">Sjekkliste</h3>
+      <div class="card" id="jd-sjekkliste"></div>
+
+      <h3 class="group-heading">Beregninger</h3>
+      <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå. Trykk «💾 Lagre til jobb» under resultatet i en kalkulator.</p>
+      <div id="jd-beregninger-list"></div>
+
+      <h3 class="group-heading">Notat</h3>
+      <div class="field">
+        <textarea id="jd-notat" rows="4" maxlength="1500" placeholder="Fritekst — det som ikke passer noe annet sted."></textarea>
+      </div>
+
+      <h3 class="group-heading">Forbehold</h3>
+      <div class="field">
+        <textarea id="jd-forbehold" rows="3" maxlength="800" placeholder="Ett per linje, f.eks. «Sluk ikke kontrollert innvendig»."></textarea>
+      </div>
+
+      <div class="note-form-actions job-detail-actions">
+        <button type="button" class="btn-primary" id="jd-copy">Kopier jobb</button>
+        <button type="button" class="note-btn danger" id="jd-delete">Slett jobb</button>
+      </div>
+      <p class="out-note" id="jd-status-msg" hidden></p>
     </div>
   </section>
   </div>
@@ -1348,6 +1548,9 @@
   <button type="button" class="bottombar-btn" data-panel="kalkulator">
     <span class="bb-icon">🧮</span><span class="bb-label">Kalkulator</span>
   </button>
+  <button type="button" class="bottombar-btn" data-panel="jobber">
+    <span class="bb-icon">🧰</span><span class="bb-label">Jobber</span>
+  </button>
   <button type="button" class="bottombar-btn" data-panel="maltall">
     <span class="bb-icon">📐</span><span class="bb-label">Måltall</span>
   </button>
@@ -1361,6 +1564,21 @@
     <span class="bb-icon">🔍</span><span class="bb-label">Søk</span>
   </button>
 </nav>
+
+<dialog id="job-picker-dialog" class="job-picker">
+  <h3 id="job-picker-title">Lagre til jobb</h3>
+  <p class="job-picker-sub" id="job-picker-sub"></p>
+  <div id="job-picker-list"></div>
+  <div class="job-picker-newrow">
+    <input type="text" id="job-picker-new-navn" placeholder="Navn på ny jobb" autocomplete="off" maxlength="80">
+    <button type="button" id="job-picker-new-btn" class="btn-ghost">+ Ny</button>
+  </div>
+  <div class="note-form-actions" style="margin-top:0.8rem;">
+    <button type="button" class="btn-ghost" id="job-picker-cancel">Avbryt</button>
+  </div>
+</dialog>
+
+<div id="job-toast" class="job-toast" hidden></div>
 
 <footer class="site">
   <h2 id="kilder">Kilder</h2>
@@ -1824,6 +2042,576 @@
     });
   }
 
+  /* ------------------------------------------------------------------- *
+   * JOBBER — ett kort per jobb: kunde, sjekkliste, lagrede beregninger og
+   * notater samlet, i stedet for spredt over kalkulator-fanene og en
+   * løsrevet notatblokk. Rent lokalt (localStorage), som favorittene og
+   * de egne notatene over. All brukertekst settes med textContent —
+   * aldri innerHTML.
+   * -------------------------------------------------------------------- */
+  var JOBS_KEY = 'malerguiden:jobber';
+
+  // Faste sjekkpunkter, hentet fra de samme fallgruvene som «Vanlige
+  // feil» dokumenterer andre steder i appen — ikke en fri, redigerbar
+  // liste, siden det er nettopp disse fem som går igjen.
+  var SJEKKLISTE_ITEMS = [
+    { id: 'sluk', label: 'Sluk kontrollert før avretting (nivå og plassering)' },
+    { id: 'fall-herdet', label: 'Fall kontrollert på herdet flate, før belegg' },
+    { id: 'finish-klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+    { id: 'skjot', label: 'Skjøteplassering avklart — min. 100 mm fra sluk, ikke i ytterhjørne' },
+    { id: 'akklimatisering', label: 'Belegg akklimatisert ≥24 t i romtemperatur før legging' }
+  ];
+  var JOB_STATUS_LABEL = { befaring: 'Befaring', pagar: 'Pågår', ferdig: 'Ferdig' };
+
+  function newJobId() {
+    return 'j-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  }
+  function newCalcEntryId() {
+    return 'b-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  }
+
+  // Normaliseres på vei inn — localStorage er en ekstern grense (kan være
+  // redigert, gjenopprettet fra en eldre versjon, eller korrupt), så alt
+  // internt kode jobber mot skal ha en garantert form.
+  function normalizeJob(j) {
+    return {
+      id: j.id,
+      created: Number(j.created) || Date.now(),
+      updated: Number(j.updated) || Number(j.created) || Date.now(),
+      status: (j.status === 'pagar' || j.status === 'ferdig') ? j.status : 'befaring',
+      kunde: {
+        navn: (j.kunde && j.kunde.navn) ? String(j.kunde.navn) : '',
+        adresse: (j.kunde && j.kunde.adresse) ? String(j.kunde.adresse) : '',
+        tlf: (j.kunde && j.kunde.tlf) ? String(j.kunde.tlf) : ''
+      },
+      rom: j.rom ? String(j.rom) : '',
+      sjekkliste: (j.sjekkliste && typeof j.sjekkliste === 'object') ? j.sjekkliste : {},
+      beregninger: Array.isArray(j.beregninger) ? j.beregninger : [],
+      notat: j.notat ? String(j.notat) : '',
+      forbehold: j.forbehold ? String(j.forbehold) : ''
+    };
+  }
+
+  function loadJobs() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter(function (j) { return j && j.id; }).map(normalizeJob) : [];
+    } catch (e) { return []; }
+  }
+  function saveJobs(list) {
+    try { localStorage.setItem(JOBS_KEY, JSON.stringify(list)); return true; }
+    catch (e) { return false; } // privat modus / full disk
+  }
+  function getJob(id) {
+    var jobs = loadJobs();
+    for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === id) return jobs[i]; }
+    return null;
+  }
+  // Laster hele lista, lar patch(j) endre jobben med gitt id, lagrer alt
+  // tilbake. All skriving går gjennom denne — én kilde til "updated"-stempling.
+  function updateJob(id, patch) {
+    var found = false;
+    var jobs = loadJobs().map(function (j) {
+      if (j.id !== id) return j;
+      found = true;
+      var merged = patch(j);
+      merged.updated = Date.now();
+      return merged;
+    });
+    if (!found) return false;
+    return saveJobs(jobs);
+  }
+
+  function parseMengde(text) {
+    var cleaned = String(text || '').replace(/[^\d,\-]/g, '');
+    var v = parseFloat(cleaned.replace(',', '.'));
+    return isFinite(v) ? v : null;
+  }
+
+  var jobToastTimer = null;
+  function jobToast(msg) {
+    var t = document.getElementById('job-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(jobToastTimer);
+    jobToastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+  }
+
+  /* ---------- Kalkulator-integrasjon: "Lagre til jobb" ---------- */
+  function txt(id) {
+    var n = document.getElementById(id);
+    return n ? n.textContent : '';
+  }
+  function calcOutOk(calcId) {
+    var kort = document.getElementById(calcId);
+    var primary = kort && kort.querySelector('.out-row.primary .out-value');
+    return !!primary && primary.textContent !== '—';
+  }
+
+  // Ett sted som beskriver hver kalkulator for Jobber: hvilke felt som
+  // utgjør inndataene (samme id-lister som "husk sist brukte tall" alt
+  // bruker), hvordan et kort sammendrag lages fra dagens resultat, og
+  // hvordan den regnes på nytt når en lagret beregning gjenbrukes.
+  var JOB_CALC_CONFIG = {
+    'calc-bad': {
+      gruppe: 'avretting', navn: 'Masse til bad med fall',
+      felter: ['bad-areal', 'bad-areal-dusj', 'bad-sluk', 'bad-avstand-dusj', 'bad-avstand-hoyeste', 'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form', 'bad-varmekabel'],
+      mengdeId: 'bad-kg', enhet: 'kg', recalc: calcBad,
+      sammendrag: function () { return 'Masse til bad: ' + txt('bad-sekker') + ' (' + txt('bad-kg') + ')'; }
+    },
+    'calc-forbruk': {
+      gruppe: 'avretting', navn: 'Forbruk avrettingsmasse',
+      felter: ['fb-areal', 'fb-tykk', 'fb-forbruk', 'fb-svinn', 'fb-sekk', 'fb-varmekabel'],
+      mengdeId: 'fb-kg', enhet: 'kg', recalc: calcForbruk,
+      sammendrag: function () { return 'Avrettingsmasse: ' + txt('fb-sekker') + ' (' + txt('fb-kg') + ')'; }
+    },
+    'calc-maling': {
+      gruppe: 'maling', navn: 'Malingforbruk',
+      felter: ['mal-areal', 'mal-strok', 'mal-forbruk', 'mal-svinn'],
+      mengdeId: 'mal-liter', enhet: 'liter', recalc: calcMaling,
+      sammendrag: function () { return 'Maling: ' + txt('mal-spann') + ' (' + txt('mal-liter') + ')'; }
+    },
+    'calc-sparkel': {
+      gruppe: 'maling', navn: 'Sparkelforbruk',
+      felter: ['sp-areal', 'sp-forbruk', 'sp-svinn', 'sp-sekk'],
+      mengdeId: 'sp-kg', enhet: 'kg', recalc: calcSparkel,
+      sammendrag: function () { return 'Sparkelmasse: ' + txt('sp-enheter') + ' (' + txt('sp-kg') + ')'; }
+    },
+    'calc-rom': {
+      gruppe: 'maling', navn: 'Romareal',
+      felter: ['rom-lengde', 'rom-bredde', 'rom-hoyde', 'rom-dorer', 'rom-vinduer'],
+      mengdeId: null, enhet: null, recalc: calcRom,
+      sammendrag: function () { return 'Romareal: ' + txt('rom-total'); }
+    }
+  };
+
+  var pendingCalcId = null;
+  var jobPickerDialog = document.getElementById('job-picker-dialog');
+
+  function attachBeregning(jobId, calcId) {
+    var cfg = JOB_CALC_CONFIG[calcId];
+    if (!cfg) return false;
+    var input = {};
+    cfg.felter.forEach(function (id) {
+      var n = document.getElementById(id);
+      if (!n) return;
+      input[id] = (n.type === 'checkbox') ? n.checked : n.value;
+    });
+    var entry = {
+      id: newCalcEntryId(), calcId: calcId, tidspunkt: Date.now(),
+      sammendrag: cfg.sammendrag(), input: input,
+      planlagtMengde: cfg.mengdeId ? parseMengde(txt(cfg.mengdeId)) : null,
+      enhet: cfg.enhet, faktiskMengde: null
+    };
+    var ok = updateJob(jobId, function (j) { j.beregninger = j.beregninger.concat([entry]); return j; });
+    if (ok) jobToast('Lagret til jobb.');
+    return ok;
+  }
+
+  function openJobPicker(calcId) {
+    pendingCalcId = calcId;
+    var cfg = JOB_CALC_CONFIG[calcId];
+    document.getElementById('job-picker-sub').textContent = cfg ? cfg.navn : '';
+    var jobs = loadJobs().filter(function (j) { return j.status !== 'ferdig'; })
+      .sort(function (a, b) { return b.updated - a.updated; });
+    var list = document.getElementById('job-picker-list');
+    list.textContent = '';
+    if (!jobs.length) list.appendChild(el('p', 'fav-hint', 'Ingen aktive jobber. Opprett en under.'));
+    jobs.forEach(function (j) {
+      var btn = el('button', 'job-picker-item');
+      btn.type = 'button';
+      btn.appendChild(el('span', null, j.kunde.navn || 'Uten navn'));
+      if (j.rom) btn.appendChild(el('small', null, j.rom));
+      btn.addEventListener('click', function () {
+        attachBeregning(j.id, pendingCalcId);
+        jobPickerDialog.close();
+      });
+      list.appendChild(btn);
+    });
+    document.getElementById('job-picker-new-navn').value = '';
+    jobPickerDialog.showModal();
+  }
+
+  function initJobPicker() {
+    document.getElementById('job-picker-cancel').addEventListener('click', function () { jobPickerDialog.close(); });
+    document.getElementById('job-picker-new-btn').addEventListener('click', function () {
+      var navnEl = document.getElementById('job-picker-new-navn');
+      var navn = navnEl.value.trim();
+      if (!navn) { navnEl.focus(); return; }
+      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn } });
+      var jobs = loadJobs();
+      jobs.push(job);
+      saveJobs(jobs);
+      attachBeregning(job.id, pendingCalcId);
+      jobPickerDialog.close();
+      renderJobList();
+    });
+    // Klikk utenfor selve dialoginnholdet (på <dialog>-elementets egen
+    // bakgrunn) lukker den, som et vanlig backdrop-klikk.
+    jobPickerDialog.addEventListener('click', function (e) {
+      if (e.target === jobPickerDialog) jobPickerDialog.close();
+    });
+  }
+
+  function addJobSaveButtons() {
+    Object.keys(JOB_CALC_CONFIG).forEach(function (calcId) {
+      var kort = document.getElementById(calcId);
+      var out = kort && kort.querySelector('.calc-out');
+      if (!out) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'job-save-btn';
+      btn.textContent = '💾 Lagre til jobb';
+      btn.addEventListener('click', function () {
+        if (!calcOutOk(calcId)) { jobToast('Fyll ut kalkulatoren først.'); return; }
+        openJobPicker(calcId);
+      });
+      out.appendChild(btn);
+    });
+  }
+
+  // Motsatt vei: en lagret beregning fylles tilbake i kalkulatoren og
+  // regnes på nytt, i stedet for at man må huske og skrive inn tallene selv.
+  function gjenbrukBeregning(entry) {
+    var cfg = JOB_CALC_CONFIG[entry.calcId];
+    if (!cfg) return;
+    Object.keys(entry.input).forEach(function (id) { settFelt(id, entry.input[id]); });
+    cfg.recalc();
+    apneKalkulator(entry.calcId, cfg.gruppe);
+  }
+
+  /* ---------- Rendering: jobbliste ---------- */
+  var currentJobId = null;
+
+  function buildJobCard(job) {
+    var card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'job-card';
+    var head = el('div', 'job-card-head');
+    head.appendChild(el('span', 'job-card-navn', job.kunde.navn || 'Uten navn'));
+    head.appendChild(el('span', 'job-status-pill job-status-' + job.status, JOB_STATUS_LABEL[job.status]));
+    card.appendChild(head);
+    if (job.rom) card.appendChild(el('div', 'job-card-rom', job.rom));
+    if (job.beregninger.length) {
+      card.appendChild(el('div', 'job-card-last', job.beregninger[job.beregninger.length - 1].sammendrag));
+    }
+    card.appendChild(el('div', 'job-card-meta',
+      (job.updated && job.updated !== job.created ? 'Endret ' : 'Opprettet ') + formatNoteDate(job.updated || job.created)));
+    card.addEventListener('click', function () { openJob(job.id); });
+    return card;
+  }
+
+  function renderJobList() {
+    var aktiveList = document.getElementById('jobber-aktive-list');
+    if (!aktiveList) return;
+    var ferdigeList = document.getElementById('jobber-ferdige-list');
+    var ferdigeWrap = document.getElementById('jobber-ferdige-wrap');
+    var ferdigeToggle = document.getElementById('jobber-ferdige-toggle');
+    var empty = document.getElementById('jobber-empty');
+
+    var jobs = loadJobs().sort(function (a, b) { return b.updated - a.updated; });
+    var aktive = jobs.filter(function (j) { return j.status !== 'ferdig'; });
+    var ferdige = jobs.filter(function (j) { return j.status === 'ferdig'; });
+
+    aktiveList.textContent = '';
+    aktive.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
+    empty.hidden = jobs.length > 0;
+
+    if (ferdige.length) {
+      ferdigeWrap.hidden = false;
+      var open = !ferdigeList.hidden;
+      ferdigeToggle.textContent = (open ? '▲ Skjul ' : '▼ Vis ') + ferdige.length + (ferdige.length === 1 ? ' ferdig jobb' : ' ferdige jobber');
+      ferdigeList.textContent = '';
+      ferdige.forEach(function (j) { ferdigeList.appendChild(buildJobCard(j)); });
+    } else {
+      ferdigeWrap.hidden = true;
+    }
+  }
+
+  function openJob(id) {
+    currentJobId = id;
+    document.getElementById('jobber-liste-view').hidden = true;
+    document.getElementById('jobber-detalj-view').hidden = false;
+    renderJobDetail();
+  }
+  function closeJobDetail() {
+    currentJobId = null;
+    document.getElementById('jobber-detalj-view').hidden = true;
+    document.getElementById('jobber-liste-view').hidden = false;
+    renderJobList();
+  }
+
+  /* ---------- Rendering: jobbdetalj ---------- */
+  function updateJobLinksLive(which, value) {
+    var mapsLink = document.getElementById('jd-maps-link');
+    var telLink = document.getElementById('jd-tel-link');
+    if (which === 'adresse') {
+      if (value) { mapsLink.href = 'https://maps.google.com/?q=' + encodeURIComponent(value); mapsLink.hidden = false; }
+      else mapsLink.hidden = true;
+    } else {
+      if (value) { telLink.href = 'tel:' + value.replace(/[^\d+]/g, ''); telLink.hidden = false; }
+      else telLink.hidden = true;
+    }
+  }
+
+  function renderChecklist(job) {
+    var wrap = document.getElementById('jd-sjekkliste');
+    wrap.textContent = '';
+    SJEKKLISTE_ITEMS.forEach(function (item) {
+      var row = el('div', 'checklist-item');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = 'jd-chk-' + item.id;
+      cb.checked = !!job.sjekkliste[item.id];
+      cb.addEventListener('change', function () {
+        updateJob(currentJobId, function (j) { j.sjekkliste[item.id] = cb.checked; return j; });
+      });
+      var label = document.createElement('label');
+      label.setAttribute('for', cb.id);
+      label.textContent = item.label;
+      row.appendChild(cb);
+      row.appendChild(label);
+      wrap.appendChild(row);
+    });
+  }
+
+  function buildBeregningRow(entry) {
+    var row = el('div', 'job-calc-row');
+    var head = el('div', 'job-calc-head');
+    head.appendChild(el('span', 'job-calc-sammendrag', entry.sammendrag));
+    head.appendChild(el('span', 'job-calc-date', formatNoteDate(entry.tidspunkt)));
+    row.appendChild(head);
+
+    if (entry.planlagtMengde != null) {
+      var faktiskWrap = el('div', 'job-calc-faktisk');
+      var lbl = document.createElement('label');
+      lbl.setAttribute('for', 'jd-faktisk-' + entry.id);
+      lbl.textContent = 'Faktisk gikk med (' + entry.enhet + ')';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.inputMode = 'decimal';
+      inp.id = 'jd-faktisk-' + entry.id;
+      inp.autocomplete = 'off';
+      inp.value = entry.faktiskMengde != null ? fmt(entry.faktiskMengde, 1) : '';
+      inp.placeholder = fmt(entry.planlagtMengde, 1);
+      inp.addEventListener('change', function () {
+        var v = num(inp.id);
+        var jobIdVedInntasting = currentJobId;
+        updateJob(jobIdVedInntasting, function (j) {
+          j.beregninger = j.beregninger.map(function (b) {
+            if (b.id !== entry.id) return b;
+            b.faktiskMengde = (isFinite(v) && v >= 0) ? v : null;
+            return b;
+          });
+          return j;
+        });
+      });
+      faktiskWrap.appendChild(lbl);
+      faktiskWrap.appendChild(inp);
+      row.appendChild(faktiskWrap);
+    }
+
+    var actions = el('div', 'job-calc-actions');
+    if (JOB_CALC_CONFIG[entry.calcId]) {
+      var again = el('button', 'note-btn', '↺ Bruk på nytt');
+      again.type = 'button';
+      again.addEventListener('click', function () { gjenbrukBeregning(entry); });
+      actions.appendChild(again);
+    }
+    var del = el('button', 'note-btn danger', 'Slett');
+    del.type = 'button';
+    del.addEventListener('click', function () {
+      if (!window.confirm('Slette denne beregningen?')) return;
+      updateJob(currentJobId, function (j) {
+        j.beregninger = j.beregninger.filter(function (b) { return b.id !== entry.id; });
+        return j;
+      });
+      renderJobDetail();
+    });
+    actions.appendChild(del);
+    row.appendChild(actions);
+    return row;
+  }
+
+  function renderBeregninger(job) {
+    var list = document.getElementById('jd-beregninger-list');
+    var empty = document.getElementById('jd-beregninger-empty');
+    list.textContent = '';
+    job.beregninger.slice().sort(function (a, b) { return b.tidspunkt - a.tidspunkt; })
+      .forEach(function (entry) { list.appendChild(buildBeregningRow(entry)); });
+    empty.hidden = job.beregninger.length > 0;
+  }
+
+  function renderJobDetail() {
+    var job = getJob(currentJobId);
+    if (!job) { closeJobDetail(); return; }
+
+    document.getElementById('jd-navn').value = job.kunde.navn;
+    document.getElementById('jd-rom').value = job.rom;
+    document.getElementById('jd-adresse').value = job.kunde.adresse;
+    document.getElementById('jd-tlf').value = job.kunde.tlf;
+    document.getElementById('jd-status').value = job.status;
+    document.getElementById('jd-notat').value = job.notat;
+    document.getElementById('jd-forbehold').value = job.forbehold;
+
+    updateJobLinksLive('adresse', job.kunde.adresse);
+    updateJobLinksLive('tlf', job.kunde.tlf);
+    renderChecklist(job);
+    renderBeregninger(job);
+  }
+
+  // Lagrer med kort debounce mens man skriver, men fanger opp jobb-id-en
+  // ved selve tastetrykket — ikke når timeren løser ut — slik at et raskt
+  // trykk på "Tilbake" rett etter siste bokstav ikke mister den.
+  function makeAutosave(fieldId, applyFn, onLiveInput) {
+    var field = document.getElementById(fieldId);
+    var pending = null, timer = null;
+    field.addEventListener('input', function () {
+      if (onLiveInput) onLiveInput(field.value);
+      pending = { jobId: currentJobId, value: field.value };
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        if (!pending || !pending.jobId) return;
+        updateJob(pending.jobId, function (j) { return applyFn(j, pending.value); });
+        pending = null;
+      }, 350);
+    });
+  }
+
+  function initJobFieldAutosave() {
+    makeAutosave('jd-navn', function (j, v) { j.kunde.navn = v; return j; });
+    makeAutosave('jd-rom', function (j, v) { j.rom = v; return j; });
+    makeAutosave('jd-adresse', function (j, v) { j.kunde.adresse = v; return j; }, function (v) { updateJobLinksLive('adresse', v); });
+    makeAutosave('jd-tlf', function (j, v) { j.kunde.tlf = v; return j; }, function (v) { updateJobLinksLive('tlf', v); });
+    makeAutosave('jd-notat', function (j, v) { j.notat = v; return j; });
+    makeAutosave('jd-forbehold', function (j, v) { j.forbehold = v; return j; });
+
+    document.getElementById('jd-status').addEventListener('change', function (e) {
+      if (!currentJobId) return;
+      var v = e.target.value;
+      updateJob(currentJobId, function (j) { j.status = v; return j; });
+    });
+  }
+
+  function byggEksportTekst(job) {
+    var linjer = [];
+    linjer.push((job.kunde.navn || 'Uten navn') + (job.rom ? ' — ' + job.rom : ''));
+    if (job.kunde.adresse) linjer.push('Adresse: ' + job.kunde.adresse);
+    if (job.kunde.tlf) linjer.push('Tlf: ' + job.kunde.tlf);
+    linjer.push('Status: ' + JOB_STATUS_LABEL[job.status]);
+
+    linjer.push('');
+    linjer.push('Sjekkliste:');
+    SJEKKLISTE_ITEMS.forEach(function (item) {
+      linjer.push((job.sjekkliste[item.id] ? '✓ ' : '✗ ') + item.label);
+    });
+
+    if (job.beregninger.length) {
+      linjer.push('');
+      linjer.push('Beregninger:');
+      job.beregninger.slice().sort(function (a, b) { return a.tidspunkt - b.tidspunkt; }).forEach(function (b) {
+        var rad = '- ' + b.sammendrag;
+        if (b.faktiskMengde != null) rad += ' — faktisk: ' + fmt(b.faktiskMengde, 1) + ' ' + b.enhet;
+        linjer.push(rad);
+      });
+    }
+
+    if (job.notat.trim()) { linjer.push(''); linjer.push('Notat:'); linjer.push(job.notat.trim()); }
+    if (job.forbehold.trim()) { linjer.push(''); linjer.push('Forbehold:'); linjer.push(job.forbehold.trim()); }
+
+    linjer.push('');
+    linjer.push('Sist oppdatert: ' + formatNoteDate(job.updated));
+    return linjer.join('\n');
+  }
+
+  function initJobDetailActions() {
+    document.getElementById('job-back-btn').addEventListener('click', closeJobDetail);
+
+    document.getElementById('jd-delete').addEventListener('click', function () {
+      var job = getJob(currentJobId);
+      if (!job) return;
+      if (!window.confirm('Slette jobben «' + (job.kunde.navn || 'Uten navn') + '» for godt? Dette kan ikke angres.')) return;
+      saveJobs(loadJobs().filter(function (j) { return j.id !== currentJobId; }));
+      closeJobDetail();
+    });
+
+    document.getElementById('jd-copy').addEventListener('click', function () {
+      var job = getJob(currentJobId);
+      if (!job) return;
+      var tekst = byggEksportTekst(job);
+      var msg = document.getElementById('jd-status-msg');
+      var done = function () {
+        msg.textContent = 'Kopiert — lim inn i en e-post, melding eller Notater.';
+        msg.hidden = false;
+        setTimeout(function () { msg.hidden = true; }, 4000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tekst).then(done, function () { fallbackCopy(tekst, done); });
+      } else {
+        fallbackCopy(tekst, done);
+      }
+    });
+  }
+
+  function initJobNewForm() {
+    var form = document.getElementById('job-new-form');
+    var addBtn = document.getElementById('job-new-btn');
+    addBtn.addEventListener('click', function () {
+      form.hidden = false;
+      addBtn.hidden = true;
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(function () { document.getElementById('job-new-navn').focus(); }, 60);
+    });
+    document.getElementById('job-new-cancel').addEventListener('click', function () {
+      form.hidden = true;
+      addBtn.hidden = false;
+      form.reset();
+      document.getElementById('job-new-err').hidden = true;
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var navn = document.getElementById('job-new-navn').value.trim();
+      var adresse = document.getElementById('job-new-adresse').value.trim();
+      var err = document.getElementById('job-new-err');
+      if (!navn) {
+        err.textContent = 'Jobben trenger et kundenavn.';
+        err.hidden = false;
+        return;
+      }
+      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse } });
+      var jobs = loadJobs();
+      jobs.push(job);
+      if (!saveJobs(jobs)) {
+        err.textContent = 'Fikk ikke lagret — nettleseren blokkerer lagring (privat modus?).';
+        err.hidden = false;
+        return;
+      }
+      form.hidden = true;
+      addBtn.hidden = false;
+      form.reset();
+      err.hidden = true;
+      openJob(job.id);
+    });
+  }
+
+  function initFerdigeToggle() {
+    document.getElementById('jobber-ferdige-toggle').addEventListener('click', function () {
+      document.getElementById('jobber-ferdige-list').hidden = !document.getElementById('jobber-ferdige-list').hidden;
+      renderJobList();
+    });
+  }
+
+  function initJobber() {
+    initJobNewForm();
+    initFerdigeToggle();
+    initJobFieldAutosave();
+    initJobDetailActions();
+    initJobPicker();
+    addJobSaveButtons();
+    renderJobList();
+  }
+
   /* ------------------------- Rendering av fakta ------------------------- */
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -1909,6 +2697,7 @@
   renderFavorites();
   initNotes();
   renderNotes();
+  initJobber();
 
   /* ----------------------------- Kalkulator ----------------------------- */
   // Norske brukere skriver komma. Godta begge.
@@ -2406,8 +3195,9 @@
   function settFelt(id, verdi) {
     var felt = document.getElementById(id);
     if (!felt) return;
-    felt.value = verdi;
-    try { localStorage.setItem('malerguiden:calc:' + id, verdi); } catch (e) {}
+    var isCheck = felt.type === 'checkbox';
+    if (isCheck) felt.checked = (verdi === true || verdi === 'true'); else felt.value = verdi;
+    try { localStorage.setItem('malerguiden:calc:' + id, isCheck ? felt.checked : verdi); } catch (e) {}
   }
 
   function apneKalkulator(calcId, gruppe) {
