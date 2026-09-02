@@ -340,6 +340,22 @@
   .job-status-pauset { background: var(--warn-bg); color: var(--warn-line); }
   .job-status-ferdig { background: var(--accent-soft); color: var(--accent); }
 
+  .del-blokk {
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.7rem;
+  }
+  .del-blokk.del-ferdig { border-left-color: var(--ok); }
+  .del-hode { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+  .del-tittel { font-weight: 800; font-size: 0.95rem; }
+  .del-teller { white-space: nowrap; }
+  .del-fjern {
+    appearance: none; border: none; background: none; cursor: pointer;
+    font: inherit; font-size: 0.74rem; font-weight: 700; color: var(--ink-soft);
+    padding: 0.25rem 0; margin-top: 0.1rem;
+  }
+  .del-fjern:hover { color: var(--bad); }
+  .del-blokk .checklist-fase:first-of-type { margin-top: 0.7rem; }
+
   .sjekkliste-praksis {
     display: block; background: var(--tip-bg); border-radius: 8px;
     padding: 0.6rem 0.7rem; margin-bottom: 0.9rem; font-size: 0.82rem;
@@ -938,7 +954,8 @@
       <h3 class="group-heading niva niva-1">Dette gjør du nå
         <span class="checklist-progress" id="jd-sjekkliste-teller"></span>
       </h3>
-      <div class="card" id="jd-sjekkliste"></div>
+      <div id="jd-sjekkliste"></div>
+      <button type="button" id="jd-legg-til-arbeid" class="note-add-btn">+ Legg til arbeid</button>
 
       <!-- ===== 2. DETTE MÅ DU HUSKE ===== -->
       <h3 class="group-heading niva niva-2">Dette må du huske</h3>
@@ -1003,20 +1020,6 @@
           <div class="field">
             <label for="jd-navn">Kunde <span class="hint">Navn</span></label>
             <input type="text" id="jd-navn" autocomplete="off" maxlength="80">
-          </div>
-          <div class="field">
-            <label for="jd-fag">Fag <span class="hint">Styrer hvilken sjekkliste jobben får</span></label>
-            <select id="jd-fag">
-              <option value="annet">🔧 Annet</option>
-              <option value="bad">🚿 Bad / våtrom</option>
-              <option value="maling">🎨 Maling</option>
-              <option value="sparkling">🧱 Sparkling</option>
-              <option value="fasade">🏠 Fasade</option>
-            </select>
-          </div>
-          <div class="field" id="jd-type-felt" hidden>
-            <label for="jd-type">Jobbtype <span class="hint">Finstyrer sjekklista</span></label>
-            <select id="jd-type"></select>
           </div>
           <div class="field">
             <label for="jd-rom">Rom <span class="hint">F.eks. «Bad 2. etg»</span></label>
@@ -1802,6 +1805,29 @@
   <div class="note-form-actions" style="margin-top:0.8rem;">
     <button type="button" class="btn-primary" id="dup-ok">Dupliser</button>
     <button type="button" class="btn-ghost" id="dup-avbryt">Avbryt</button>
+  </div>
+</dialog>
+
+<dialog id="arbeid-dialog" class="job-picker">
+  <h3>Legg til arbeid</h3>
+  <p class="job-picker-sub">Jobben beholder kunde, adresse, bilder og notater. Det nye arbeidet får sin egen sjekkliste.</p>
+  <div class="field">
+    <label for="arbeid-fag">Fag</label>
+    <select id="arbeid-fag">
+      <option value="annet">🔧 Annet</option>
+      <option value="bad">🚿 Bad / våtrom</option>
+      <option value="maling">🎨 Maling</option>
+      <option value="sparkling">🧱 Sparkling</option>
+      <option value="fasade">🏠 Fasade</option>
+    </select>
+  </div>
+  <div class="field" id="arbeid-type-felt" hidden>
+    <label for="arbeid-type">Jobbtype</label>
+    <select id="arbeid-type"></select>
+  </div>
+  <div class="note-form-actions" style="margin-top:0.8rem;">
+    <button type="button" class="btn-primary" id="arbeid-ok">Legg til</button>
+    <button type="button" class="btn-ghost" id="arbeid-avbryt">Avbryt</button>
   </div>
 </dialog>
 
@@ -2608,22 +2634,45 @@
     return t[0];
   }
 
-  function sjekklisteFor(job) {
-    var perType = SJEKKLISTE_BY_TYPE[job.fag];
-    if (perType) return perType[job.jobbtype] || perType[standardType(job.fag)];
-    return SJEKKLISTE_BY_FAG[job.fag] || SJEKKLISTE_BY_FAG.annet;
+  // En jobb består av ett eller flere ARBEIDER (deler). Et bad begynner ofte
+  // som ren avretting og vokser til belegg og sparkling underveis — da er det
+  // fortsatt én jobb på én adresse, ikke tre jobber.
+  function sjekklisteFor(del) {
+    var perType = SJEKKLISTE_BY_TYPE[del.fag];
+    if (perType) return perType[del.jobbtype] || perType[standardType(del.fag)];
+    return SJEKKLISTE_BY_FAG[del.fag] || SJEKKLISTE_BY_FAG.annet;
   }
   // Flat liste på tvers av fasene — til framdriftstelling og eksport.
-  function alleSjekkpunkter(job) {
+  function alleSjekkpunkter(del) {
     var ut = [];
-    sjekklisteFor(job).forEach(function (gruppe) { ut = ut.concat(gruppe.items); });
+    sjekklisteFor(del).forEach(function (gruppe) { ut = ut.concat(gruppe.items); });
     return ut;
   }
-  function sjekklisteFramdrift(job) {
-    var punkter = alleSjekkpunkter(job);
+  function delFramdrift(del) {
+    var punkter = alleSjekkpunkter(del);
     var gjort = 0;
-    punkter.forEach(function (p) { if (job.sjekkliste[p.id]) gjort++; });
+    punkter.forEach(function (p) { if (del.sjekkliste[p.id]) gjort++; });
     return { gjort: gjort, av: punkter.length };
+  }
+  // Framdrift for hele jobben er summen av arbeidene.
+  function sjekklisteFramdrift(job) {
+    var gjort = 0, av = 0;
+    job.deler.forEach(function (del) {
+      var f = delFramdrift(del);
+      gjort += f.gjort; av += f.av;
+    });
+    return { gjort: gjort, av: av };
+  }
+  // «🚿 Bad / våtrom — Full jobb — avretting og belegg» er to bindestreker
+  // for mye. Emojien bærer faget; typen sier resten.
+  function delTittel(del) {
+    var type = jobbtypeDef(del.fag, del.jobbtype);
+    var fagTekst = FAG_LABEL[del.fag];
+    if (!type) return fagTekst;
+    return fagTekst.split(' ')[0] + ' ' + type.label;
+  }
+  function newDelId() {
+    return 'd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
   }
 
   // Farget prikk foran statusen: lista skal kunne leses på et blikk, uten
@@ -2653,10 +2702,11 @@
       // «befaring» var navnet før statusene ble arbeidsgang-orientert;
       // gamle jobber i localStorage leses fortsatt riktig.
       status: JOB_STATUS_LABEL[j.status] ? j.status : 'planlagt',
-      fag: FAG_LABEL[j.fag] ? j.fag : 'annet',
-      // Jobber laget før jobbtypene fantes får standardtypen, som er den
-      // samme lista de hadde fra før — ingen avhukinger går tapt.
-      jobbtype: j.jobbtype || '',
+      // Jobber lagret før arbeidene fantes har fag, jobbtype og sjekkliste
+      // rett på seg. De blir til ett arbeid med nøyaktig samme innhold —
+      // se migrerDeler under.
+      deler: Array.isArray(j.deler) ? j.deler : null,
+      fag: j.fag, jobbtype: j.jobbtype,
       kunde: {
         navn: (j.kunde && j.kunde.navn) ? String(j.kunde.navn) : '',
         adresse: (j.kunde && j.kunde.adresse) ? String(j.kunde.adresse) : '',
@@ -2672,19 +2722,41 @@
     };
   }
 
-  // Kjøres etter normalizeJob, som ikke kan validere typen før faget er satt.
-  function fastsettJobbtype(job) {
-    var typer = jobbtyperFor(job.fag);
-    if (!typer) { job.jobbtype = ''; return job; }
-    var gyldig = typer.some(function (t) { return t.id === job.jobbtype; });
-    if (!gyldig) job.jobbtype = typer[0].id;
+  function normaliserDel(del) {
+    var fag = FAG_LABEL[del.fag] ? del.fag : 'annet';
+    var typer = jobbtyperFor(fag);
+    var type = '';
+    if (typer) {
+      type = typer.some(function (t) { return t.id === del.jobbtype; }) ? del.jobbtype : typer[0].id;
+    }
+    return {
+      id: del.id || newDelId(),
+      fag: fag,
+      jobbtype: type,
+      sjekkliste: (del.sjekkliste && typeof del.sjekkliste === 'object') ? del.sjekkliste : {},
+      lagtTil: Number(del.lagtTil) || Date.now()
+    };
+  }
+
+  // Kjøres etter normalizeJob. Har jobben ingen arbeider, er den lagret før
+  // de fantes: da blir dens fag/jobbtype/sjekkliste til det første arbeidet,
+  // med avhukingene i behold.
+  function migrerDeler(job) {
+    var raa = job.deler;
+    if (!raa || !raa.length) {
+      raa = [{ fag: job.fag, jobbtype: job.jobbtype, sjekkliste: job.sjekkliste, lagtTil: job.created }];
+    }
+    job.deler = raa.map(normaliserDel);
+    delete job.fag;
+    delete job.jobbtype;
+    delete job.sjekkliste;
     return job;
   }
 
   function loadJobs() {
     try {
       var raw = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]');
-      return Array.isArray(raw) ? raw.filter(function (j) { return j && j.id; }).map(normalizeJob).map(fastsettJobbtype) : [];
+      return Array.isArray(raw) ? raw.filter(function (j) { return j && j.id; }).map(normalizeJob).map(migrerDeler) : [];
     } catch (e) { return []; }
   }
   function saveJobs(list) {
@@ -2829,8 +2901,9 @@
       var navn = navnEl.value.trim();
       if (!navn) { navnEl.focus(); return; }
       var cfg = JOB_CALC_CONFIG[pendingCalcId];
-      var job = fastsettJobbtype(normalizeJob({
-        id: newJobId(), created: Date.now(), kunde: { navn: navn }, fag: cfg ? cfg.fag : 'annet' }));
+      var job = migrerDeler(normalizeJob({
+        id: newJobId(), created: Date.now(), kunde: { navn: navn },
+        deler: [{ fag: cfg ? cfg.fag : 'annet', sjekkliste: {} }] }));
       var jobs = loadJobs();
       jobs.push(job);
       saveJobs(jobs);
@@ -2878,9 +2951,12 @@
   // Neste uavhukede punkt i sjekklista — «hva er det neste jeg skal gjøre
   // på denne jobben» er det man leter etter i lista, ikke hva som er gjort.
   function nesteSjekkpunkt(job) {
-    var punkter = alleSjekkpunkter(job);
-    for (var i = 0; i < punkter.length; i++) {
-      if (!job.sjekkliste[punkter[i].id]) return punkter[i].label;
+    for (var d = 0; d < job.deler.length; d++) {
+      var del = job.deler[d];
+      var punkter = alleSjekkpunkter(del);
+      for (var i = 0; i < punkter.length; i++) {
+        if (!del.sjekkliste[punkter[i].id]) return punkter[i].label;
+      }
     }
     return null;
   }
@@ -2907,11 +2983,6 @@
     return sel.value;
   }
 
-  function jobbtypeTekst(job) {
-    var def = jobbtypeDef(job.fag, job.jobbtype);
-    return def ? def.label : '';
-  }
-
   function buildJobCard(job) {
     var card = document.createElement('button');
     card.type = 'button';
@@ -2927,9 +2998,7 @@
 
     // Linje 2: fag, og hvor langt det er kommet.
     var f = sjekklisteFramdrift(job);
-    var undertekst = FAG_LABEL[job.fag];
-    var type = jobbtypeTekst(job);
-    if (type) undertekst += ' · ' + type;
+    var undertekst = job.deler.map(delTittel).join(' + ');
     if (job.status !== 'planlagt') undertekst += ' · ' + f.gjort + '/' + f.av + ' ferdig';
     card.appendChild(el('div', 'job-card-fag', undertekst));
 
@@ -3031,39 +3100,75 @@
   function renderChecklist(job) {
     var wrap = document.getElementById('jd-sjekkliste');
     wrap.textContent = '';
+    job.deler.forEach(function (del) { wrap.appendChild(byggDelBlokk(job, del)); });
+    oppdaterFramdrift(job);
+  }
+
+  // Ett arbeid = ett kort med egen tittel, egen framdrift og egen liste.
+  function byggDelBlokk(job, del) {
+    var blokk = el('div', 'del-blokk');
+    blokk.dataset.del = del.id;
+
+    var hode = el('div', 'del-hode');
+    hode.appendChild(el('span', 'del-tittel', delTittel(del)));
+    var f = delFramdrift(del);
+    hode.appendChild(el('span', 'checklist-progress del-teller', f.gjort + '/' + f.av));
+    blokk.appendChild(hode);
+
+    // Bare når det er noe å velge mellom — én arbeidsdel skal ikke ha en
+    // fjern-knapp som etterlater jobben uten innhold.
+    if (job.deler.length > 1) {
+      var fjern = el('button', 'del-fjern', '✕ Fjern arbeidet');
+      fjern.type = 'button';
+      fjern.addEventListener('click', function () {
+        if (!window.confirm('Fjerne «' + delTittel(del) + '» fra jobben? Avhukingene på dette arbeidet forsvinner.')) return;
+        updateJob(currentJobId, function (j) {
+          j.deler = j.deler.filter(function (d) { return d.id !== del.id; });
+          return j;
+        });
+        var oppdatert = getJob(currentJobId);
+        renderChecklist(oppdatert);
+        renderJobHode(oppdatert);
+      });
+      blokk.appendChild(fjern);
+    }
 
     // Reparasjon og strimling er skrevet fra alminnelig praksis, ikke hentet
     // fra fagfanene eller en norm. Det skal stå på lista, ikke bare i hodet
     // på den som skrev den.
-    var typeDef = jobbtypeDef(job.fag, job.jobbtype);
+    var typeDef = jobbtypeDef(del.fag, del.jobbtype);
     if (typeDef && typeDef.praksis) {
       var merke = el('div', 'sjekkliste-praksis');
       merke.appendChild(el('span', 'callout-badge', '🔧 Praksis, ikke norm'));
       merke.appendChild(el('span', null,
         'Punktene for ' + typeDef.label.toLowerCase() + ' bygger på alminnelig malerpraksis. ' +
         'De står ikke i fagfanene, og er ikke hentet fra NS 3420 eller TEK17.'));
-      wrap.appendChild(merke);
+      blokk.appendChild(merke);
     }
 
-    sjekklisteFor(job).forEach(function (gruppe) {
-      var gjortIFasen = gruppe.items.filter(function (i) { return job.sjekkliste[i.id]; }).length;
+    sjekklisteFor(del).forEach(function (gruppe) {
+      var gjortIFasen = gruppe.items.filter(function (i) { return del.sjekkliste[i.id]; }).length;
       var heleFasen = gjortIFasen === gruppe.items.length;
-      var fase = el('div', 'checklist-fase' + (heleFasen ? ' ferdig-fase' : ''),
-        gruppe.fase + ' ');
+      var fase = el('div', 'checklist-fase' + (heleFasen ? ' ferdig-fase' : ''), gruppe.fase + ' ');
       fase.appendChild(el('span', 'checklist-progress',
         (heleFasen ? '✓ ' : '') + gjortIFasen + '/' + gruppe.items.length));
-      wrap.appendChild(fase);
+      blokk.appendChild(fase);
 
       gruppe.items.forEach(function (item) {
         var row = el('div', 'checklist-item');
         var cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.id = 'jd-chk-' + item.id;
-        cb.checked = !!job.sjekkliste[item.id];
+        // Id-en må være unik på tvers av arbeidene: to arbeider kan ha
+        // punkter som heter det samme.
+        cb.id = 'jd-chk-' + del.id + '-' + item.id;
+        cb.checked = !!del.sjekkliste[item.id];
         cb.addEventListener('change', function () {
-          updateJob(currentJobId, function (j) { j.sjekkliste[item.id] = cb.checked; return j; });
-          // Fase-tellerne og totalen over lista skal stemme med det man
-          // nettopp huket av, uten å bygge hele lista på nytt under fingeren.
+          updateJob(currentJobId, function (j) {
+            j.deler.forEach(function (d) { if (d.id === del.id) d.sjekkliste[item.id] = cb.checked; });
+            return j;
+          });
+          // Tellerne skal stemme med det man nettopp huket av, uten å bygge
+          // hele lista på nytt under fingeren.
           oppdaterFramdrift(getJob(currentJobId));
         });
         var label = document.createElement('label');
@@ -3071,11 +3176,11 @@
         label.textContent = item.label;
         row.appendChild(cb);
         row.appendChild(label);
-        wrap.appendChild(row);
+        blokk.appendChild(row);
       });
     });
 
-    oppdaterFramdrift(job);
+    return blokk;
   }
 
   // Oppdaterer bare tallene og stripa, ikke selve avkryssingene.
@@ -3088,16 +3193,25 @@
     if (fill) fill.style.width = (f.av ? Math.round((f.gjort / f.av) * 100) : 0) + '%';
 
     var wrap = document.getElementById('jd-sjekkliste');
-    var faser = wrap.querySelectorAll('.checklist-fase');
-    var grupper = sjekklisteFor(job);
-    Array.prototype.forEach.call(faser, function (node, i) {
-      var gruppe = grupper[i];
-      if (!gruppe) return;
-      var gjort = gruppe.items.filter(function (it) { return job.sjekkliste[it.id]; }).length;
-      var hel = gjort === gruppe.items.length;
-      node.classList.toggle('ferdig-fase', hel);
-      var teller = node.querySelector('.checklist-progress');
-      if (teller) teller.textContent = (hel ? '✓ ' : '') + gjort + '/' + gruppe.items.length;
+    job.deler.forEach(function (del) {
+      var blokk = wrap.querySelector('[data-del="' + del.id + '"]');
+      if (!blokk) return;
+      var df = delFramdrift(del);
+      var teller = blokk.querySelector('.del-teller');
+      if (teller) teller.textContent = df.gjort + '/' + df.av;
+      blokk.classList.toggle('del-ferdig', df.av > 0 && df.gjort === df.av);
+
+      var faser = blokk.querySelectorAll('.checklist-fase');
+      var grupper = sjekklisteFor(del);
+      Array.prototype.forEach.call(faser, function (node, i) {
+        var gruppe = grupper[i];
+        if (!gruppe) return;
+        var gjort = gruppe.items.filter(function (it) { return del.sjekkliste[it.id]; }).length;
+        var hel = gjort === gruppe.items.length;
+        node.classList.toggle('ferdig-fase', hel);
+        var t = node.querySelector('.checklist-progress');
+        if (t) t.textContent = (hel ? '✓ ' : '') + gjort + '/' + gruppe.items.length;
+      });
     });
   }
 
@@ -3506,8 +3620,6 @@
     if (!job) { closeJobDetail(); return; }
 
     document.getElementById('jd-navn').value = job.kunde.navn;
-    document.getElementById('jd-fag').value = job.fag;
-    fyllJobbtypeMeny('jd-type', 'jd-type-felt', job.fag, job.jobbtype);
     document.getElementById('jd-rom').value = job.rom;
     document.getElementById('jd-adresse').value = job.kunde.adresse;
     document.getElementById('jd-tlf').value = job.kunde.tlf;
@@ -3528,13 +3640,12 @@
   // Jobbhodet svarer på «hva er dette, og hvor langt er det kommet» før
   // man i det hele tatt begynner å lese resten av siden.
   function renderJobHode(job) {
-    var rom = job.rom ? job.rom.toUpperCase() : FAG_LABEL[job.fag].replace(/^\S+\s/, '').toUpperCase();
+    var forsteFag = FAG_LABEL[job.deler[0].fag];
+    var rom = job.rom ? job.rom.toUpperCase() : forsteFag.replace(/^\S+\s/, '').toUpperCase();
     var navn = (job.kunde.navn || 'Uten navn').toUpperCase();
     setText('jd-hode-tittel', rom + ' – ' + navn);
 
-    var under = [FAG_LABEL[job.fag]];
-    var type = jobbtypeTekst(job);
-    if (type) under.push(type);
+    var under = [job.deler.map(delTittel).join(' + ')];
     if (job.kunde.adresse) under.push(job.kunde.adresse);
     setText('jd-hode-under', under.join(' · '));
 
@@ -3590,24 +3701,40 @@
       jobToast('Lista er tømt.');
     });
 
-    document.getElementById('jd-fag').addEventListener('change', function (e) {
-      if (!currentJobId) return;
-      var v = e.target.value;
-      // Nytt fag betyr ny typeliste; den gamle typen gir ingen mening her.
-      var nyType = fyllJobbtypeMeny('jd-type', 'jd-type-felt', v, standardType(v));
-      updateJob(currentJobId, function (j) { j.fag = v; j.jobbtype = nyType; return j; });
-      var job = getJob(currentJobId);
-      renderChecklist(job);
-      renderJobHode(job);
-    });
+  }
 
-    document.getElementById('jd-type').addEventListener('change', function (e) {
+  // «Legg til arbeid» — en jobb som begynte som avretting og vokser til
+  // belegg og sparkling er fortsatt én jobb på én adresse.
+  function initLeggTilArbeid() {
+    var dialog = document.getElementById('arbeid-dialog');
+    var fagSel = document.getElementById('arbeid-fag');
+
+    document.getElementById('jd-legg-til-arbeid').addEventListener('click', function () {
       if (!currentJobId) return;
-      var v = e.target.value;
-      updateJob(currentJobId, function (j) { j.jobbtype = v; return j; });
+      fagSel.value = 'annet';
+      fyllJobbtypeMeny('arbeid-type', 'arbeid-type-felt', 'annet', '');
+      dialog.showModal();
+    });
+    fagSel.addEventListener('change', function () {
+      fyllJobbtypeMeny('arbeid-type', 'arbeid-type-felt', fagSel.value, '');
+    });
+    document.getElementById('arbeid-avbryt').addEventListener('click', function () { dialog.close(); });
+    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.close(); });
+
+    document.getElementById('arbeid-ok').addEventListener('click', function () {
+      if (!currentJobId) { dialog.close(); return; }
+      var ny = normaliserDel({
+        fag: fagSel.value,
+        jobbtype: document.getElementById('arbeid-type').value,
+        sjekkliste: {}, lagtTil: Date.now()
+      });
+      updateJob(currentJobId, function (j) { j.deler = j.deler.concat([ny]); return j; });
+      dialog.close();
       var job = getJob(currentJobId);
       renderChecklist(job);
       renderJobHode(job);
+      renderJobList();
+      jobToast('Arbeidet er lagt til.');
     });
   }
 
@@ -3616,18 +3743,19 @@
     linjer.push((job.kunde.navn || 'Uten navn') + (job.rom ? ' — ' + job.rom : ''));
     if (job.kunde.adresse) linjer.push('Adresse: ' + job.kunde.adresse);
     if (job.kunde.tlf) linjer.push('Tlf: ' + job.kunde.tlf);
-    var typeTekst = jobbtypeTekst(job);
-    linjer.push('Fag: ' + FAG_LABEL[job.fag] + (typeTekst ? ' — ' + typeTekst : ''));
+    linjer.push('Arbeid: ' + job.deler.map(delTittel).join(' + '));
     linjer.push('Status: ' + JOB_STATUS_LABEL[job.status]);
 
-    var f = sjekklisteFramdrift(job);
-    linjer.push('');
-    linjer.push('Sjekkliste (' + f.gjort + '/' + f.av + '):');
-    sjekklisteFor(job).forEach(function (gruppe) {
+    job.deler.forEach(function (del) {
+      var df = delFramdrift(del);
       linjer.push('');
-      linjer.push(gruppe.fase.toUpperCase());
-      gruppe.items.forEach(function (item) {
-        linjer.push((job.sjekkliste[item.id] ? '✓ ' : '☐ ') + item.label);
+      linjer.push('=== ' + delTittel(del) + ' (' + df.gjort + '/' + df.av + ') ===');
+      sjekklisteFor(del).forEach(function (gruppe) {
+        linjer.push('');
+        linjer.push(gruppe.fase.toUpperCase());
+        gruppe.items.forEach(function (item) {
+          linjer.push((del.sjekkliste[item.id] ? '✓ ' : '☐ ') + item.label);
+        });
       });
     });
 
@@ -3701,10 +3829,13 @@
 
       var ny = normalizeJob({
         id: newJobId(), created: Date.now(), status: 'planlagt',
-        fag: kilde.fag, jobbtype: kilde.jobbtype, rom: kilde.rom,
+        rom: kilde.rom,
+        deler: kilde.deler.map(function (d) {
+          return { id: newDelId(), fag: d.fag, jobbtype: d.jobbtype, sjekkliste: {}, lagtTil: Date.now() };
+        }),
         kunde: { navn: kilde.kunde.navn, adresse: kilde.kunde.adresse, tlf: kilde.kunde.tlf },
-        // Sjekkliste, bilder og «neste besøk» hører til jobben som ble gjort.
-        sjekkliste: {}, bilder: [], utstyr: [],
+        // Avhukinger, bilder og «neste besøk» hører til jobben som ble gjort.
+        bilder: [], utstyr: [],
         notat: taNotat ? kilde.notat : '',
         forbehold: taNotat ? kilde.forbehold : '',
         beregninger: taBeregninger ? kilde.beregninger.map(function (b) {
@@ -3716,7 +3847,7 @@
         }) : []
       });
 
-      ny = fastsettJobbtype(ny);
+      ny = migrerDeler(ny);
       var jobber = loadJobs();
       jobber.push(ny);
       if (!saveJobs(jobber)) { jobToast('Fikk ikke lagret duplikatet.'); dupDialog.close(); return; }
@@ -3775,9 +3906,9 @@
         err.hidden = false;
         return;
       }
-      var job = fastsettJobbtype(normalizeJob({
+      var job = migrerDeler(normalizeJob({
         id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse },
-        fag: fag, jobbtype: document.getElementById('job-new-type').value
+        deler: [{ fag: fag, jobbtype: document.getElementById('job-new-type').value, sjekkliste: {} }]
       }));
       var jobs = loadJobs();
       jobs.push(job);
@@ -3809,6 +3940,7 @@
     initJobDetailActions();
     initJobPicker();
     initPakkeliste();
+    initLeggTilArbeid();
     initBilder();
     addJobSaveButtons();
     renderJobList();
