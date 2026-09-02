@@ -328,7 +328,7 @@
   .job-card:hover { border-color: var(--accent); }
   .job-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
   .job-card-navn { font-weight: 700; font-size: 0.95rem; }
-  .job-card-rom { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.1rem; }
+  .job-card-fag { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.1rem; font-weight: 600; }
   .job-card-last { font-size: 0.82rem; margin-top: 0.4rem; }
   .job-card-meta { font-size: 0.74rem; color: var(--ink-soft); margin-top: 0.4rem; }
   .job-status-pill {
@@ -750,6 +750,18 @@
           <input type="text" id="job-new-navn" autocomplete="off" maxlength="80">
         </div>
         <div class="field">
+          <label for="job-new-fag">Fag
+            <span class="hint">Styrer hvilken sjekkliste jobben får</span>
+          </label>
+          <select id="job-new-fag">
+            <option value="annet" selected>🔧 Annet</option>
+            <option value="bad">🚿 Bad / våtrom</option>
+            <option value="maling">🎨 Maling</option>
+            <option value="sparkling">🧱 Sparkling</option>
+            <option value="fasade">🏠 Fasade</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="job-new-adresse">Adresse
             <span class="hint">Valgfritt nå — kan legges til senere</span>
           </label>
@@ -779,6 +791,16 @@
         <div class="field">
           <label for="jd-navn">Kunde <span class="hint">Navn</span></label>
           <input type="text" id="jd-navn" autocomplete="off" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="jd-fag">Fag <span class="hint">Styrer hvilken sjekkliste jobben får</span></label>
+          <select id="jd-fag">
+            <option value="annet">🔧 Annet</option>
+            <option value="bad">🚿 Bad / våtrom</option>
+            <option value="maling">🎨 Maling</option>
+            <option value="sparkling">🧱 Sparkling</option>
+            <option value="fasade">🏠 Fasade</option>
+          </select>
         </div>
         <div class="field">
           <label for="jd-rom">Rom <span class="hint">F.eks. «Bad 2. etg»</span></label>
@@ -2051,16 +2073,56 @@
    * -------------------------------------------------------------------- */
   var JOBS_KEY = 'malerguiden:jobber';
 
-  // Faste sjekkpunkter, hentet fra de samme fallgruvene som «Vanlige
-  // feil» dokumenterer andre steder i appen — ikke en fri, redigerbar
-  // liste, siden det er nettopp disse fem som går igjen.
-  var SJEKKLISTE_ITEMS = [
-    { id: 'sluk', label: 'Sluk kontrollert før avretting (nivå og plassering)' },
-    { id: 'fall-herdet', label: 'Fall kontrollert på herdet flate, før belegg' },
-    { id: 'finish-klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
-    { id: 'skjot', label: 'Skjøteplassering avklart — min. 100 mm fra sluk, ikke i ytterhjørne' },
-    { id: 'akklimatisering', label: 'Belegg akklimatisert ≥24 t i romtemperatur før legging' }
+  // En jobb er ikke alltid et bad — appen dekker fire fag, så sjekklista må
+  // det også. Fag velges når jobben opprettes (eller settes fra hvilken
+  // kalkulator «Lagre til jobb» ble trykket i) og styrer hvilket sett som
+  // vises. Alle punktene er hentet fra de samme fallgruvene som «Vanlige
+  // feil» og fagfanene dokumenterer andre steder i appen.
+  var FAG_DEFS = [
+    { id: 'annet', label: '🔧 Annet' },
+    { id: 'bad', label: '🚿 Bad / våtrom' },
+    { id: 'maling', label: '🎨 Maling' },
+    { id: 'sparkling', label: '🧱 Sparkling' },
+    { id: 'fasade', label: '🏠 Fasade' }
   ];
+  var FAG_LABEL = {};
+  FAG_DEFS.forEach(function (f) { FAG_LABEL[f.id] = f.label; });
+
+  var SJEKKLISTE_BY_FAG = {
+    bad: [
+      { id: 'sluk', label: 'Sluk kontrollert før avretting (nivå og plassering)' },
+      { id: 'fall-herdet', label: 'Fall kontrollert på herdet flate, før belegg' },
+      { id: 'finish-klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+      { id: 'skjot', label: 'Skjøteplassering avklart — min. 100 mm fra sluk, ikke i ytterhjørne' },
+      { id: 'akklimatisering', label: 'Belegg akklimatisert ≥24 t i romtemperatur før legging' }
+    ],
+    maling: [
+      { id: 'produkttype', label: 'Riktig produkttype valgt etter underlag og forhold' },
+      { id: 'temperatur', label: 'Minstetemperatur (10–15 °C) i luft og underlag sjekket' },
+      { id: 'grunning', label: 'Underlag grunnet og lett slipt mellom strøk' },
+      { id: 'ventetid', label: 'Ventetid mellom strøk overholdt — ikke gått på fordi flaten «kjentes tørr»' }
+    ],
+    sparkling: [
+      { id: 'finish-klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+      { id: 'sidelys', label: 'Sjekket med strøkende sidelys før godkjenning' },
+      { id: 'grunning', label: 'Grunning utført på sparklede flater før maling' },
+      { id: 'torketid', label: 'Sparkel tørket fullt før sliping — ikke bare kjennes tørr' }
+    ],
+    fasade: [
+      { id: 'underlag', label: 'Underlagstype identifisert (mur/puss vs. treverk) — styrer produktvalg' },
+      { id: 'eksisterende', label: 'Eksisterende malingssystem sjekket før nytt diffusjonsåpent sjikt' },
+      { id: 'vaer', label: 'Værforhold egnet i tørketiden — ikke nedbør eller frost varslet' },
+      { id: 'beskyttelse', label: 'Vinduer, dører og omkringliggende flater beskyttet' }
+    ],
+    annet: [
+      { id: 'underlag-klart', label: 'Underlag klargjort og kontrollert før oppstart' },
+      { id: 'beskyttelse', label: 'Beskyttelse/avdekking lagt der det trengs' },
+      { id: 'avtalt', label: 'Klasse/farge/produkt avtalt skriftlig med kunde' },
+      { id: 'sluttkontroll', label: 'Sluttkontroll utført i godt lys før jobben avsluttes' }
+    ]
+  };
+  function sjekklisteForFag(fag) { return SJEKKLISTE_BY_FAG[fag] || SJEKKLISTE_BY_FAG.annet; }
+
   var JOB_STATUS_LABEL = { befaring: 'Befaring', pagar: 'Pågår', ferdig: 'Ferdig' };
 
   function newJobId() {
@@ -2079,6 +2141,7 @@
       created: Number(j.created) || Date.now(),
       updated: Number(j.updated) || Number(j.created) || Date.now(),
       status: (j.status === 'pagar' || j.status === 'ferdig') ? j.status : 'befaring',
+      fag: FAG_LABEL[j.fag] ? j.fag : 'annet',
       kunde: {
         navn: (j.kunde && j.kunde.navn) ? String(j.kunde.navn) : '',
         adresse: (j.kunde && j.kunde.adresse) ? String(j.kunde.adresse) : '',
@@ -2155,31 +2218,31 @@
   // hvordan den regnes på nytt når en lagret beregning gjenbrukes.
   var JOB_CALC_CONFIG = {
     'calc-bad': {
-      gruppe: 'avretting', navn: 'Masse til bad med fall',
+      gruppe: 'avretting', navn: 'Masse til bad med fall', fag: 'bad',
       felter: ['bad-areal', 'bad-areal-dusj', 'bad-sluk', 'bad-avstand-dusj', 'bad-avstand-hoyeste', 'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form', 'bad-varmekabel'],
       mengdeId: 'bad-kg', enhet: 'kg', recalc: calcBad,
       sammendrag: function () { return 'Masse til bad: ' + txt('bad-sekker') + ' (' + txt('bad-kg') + ')'; }
     },
     'calc-forbruk': {
-      gruppe: 'avretting', navn: 'Forbruk avrettingsmasse',
+      gruppe: 'avretting', navn: 'Forbruk avrettingsmasse', fag: 'bad',
       felter: ['fb-areal', 'fb-tykk', 'fb-forbruk', 'fb-svinn', 'fb-sekk', 'fb-varmekabel'],
       mengdeId: 'fb-kg', enhet: 'kg', recalc: calcForbruk,
       sammendrag: function () { return 'Avrettingsmasse: ' + txt('fb-sekker') + ' (' + txt('fb-kg') + ')'; }
     },
     'calc-maling': {
-      gruppe: 'maling', navn: 'Malingforbruk',
+      gruppe: 'maling', navn: 'Malingforbruk', fag: 'maling',
       felter: ['mal-areal', 'mal-strok', 'mal-forbruk', 'mal-svinn'],
       mengdeId: 'mal-liter', enhet: 'liter', recalc: calcMaling,
       sammendrag: function () { return 'Maling: ' + txt('mal-spann') + ' (' + txt('mal-liter') + ')'; }
     },
     'calc-sparkel': {
-      gruppe: 'maling', navn: 'Sparkelforbruk',
+      gruppe: 'maling', navn: 'Sparkelforbruk', fag: 'sparkling',
       felter: ['sp-areal', 'sp-forbruk', 'sp-svinn', 'sp-sekk'],
       mengdeId: 'sp-kg', enhet: 'kg', recalc: calcSparkel,
       sammendrag: function () { return 'Sparkelmasse: ' + txt('sp-enheter') + ' (' + txt('sp-kg') + ')'; }
     },
     'calc-rom': {
-      gruppe: 'maling', navn: 'Romareal',
+      gruppe: 'maling', navn: 'Romareal', fag: 'maling',
       felter: ['rom-lengde', 'rom-bredde', 'rom-hoyde', 'rom-dorer', 'rom-vinduer'],
       mengdeId: null, enhet: null, recalc: calcRom,
       sammendrag: function () { return 'Romareal: ' + txt('rom-total'); }
@@ -2239,7 +2302,8 @@
       var navnEl = document.getElementById('job-picker-new-navn');
       var navn = navnEl.value.trim();
       if (!navn) { navnEl.focus(); return; }
-      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn } });
+      var cfg = JOB_CALC_CONFIG[pendingCalcId];
+      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn }, fag: cfg ? cfg.fag : 'annet' });
       var jobs = loadJobs();
       jobs.push(job);
       saveJobs(jobs);
@@ -2292,7 +2356,7 @@
     head.appendChild(el('span', 'job-card-navn', job.kunde.navn || 'Uten navn'));
     head.appendChild(el('span', 'job-status-pill job-status-' + job.status, JOB_STATUS_LABEL[job.status]));
     card.appendChild(head);
-    if (job.rom) card.appendChild(el('div', 'job-card-rom', job.rom));
+    card.appendChild(el('div', 'job-card-fag', FAG_LABEL[job.fag] + (job.rom ? ' · ' + job.rom : '')));
     if (job.beregninger.length) {
       card.appendChild(el('div', 'job-card-last', job.beregninger[job.beregninger.length - 1].sammendrag));
     }
@@ -2358,7 +2422,7 @@
   function renderChecklist(job) {
     var wrap = document.getElementById('jd-sjekkliste');
     wrap.textContent = '';
-    SJEKKLISTE_ITEMS.forEach(function (item) {
+    sjekklisteForFag(job.fag).forEach(function (item) {
       var row = el('div', 'checklist-item');
       var cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -2448,6 +2512,7 @@
     if (!job) { closeJobDetail(); return; }
 
     document.getElementById('jd-navn').value = job.kunde.navn;
+    document.getElementById('jd-fag').value = job.fag;
     document.getElementById('jd-rom').value = job.rom;
     document.getElementById('jd-adresse').value = job.kunde.adresse;
     document.getElementById('jd-tlf').value = job.kunde.tlf;
@@ -2492,6 +2557,13 @@
       var v = e.target.value;
       updateJob(currentJobId, function (j) { j.status = v; return j; });
     });
+
+    document.getElementById('jd-fag').addEventListener('change', function (e) {
+      if (!currentJobId) return;
+      var v = e.target.value;
+      updateJob(currentJobId, function (j) { j.fag = v; return j; });
+      renderChecklist(getJob(currentJobId));
+    });
   }
 
   function byggEksportTekst(job) {
@@ -2499,11 +2571,12 @@
     linjer.push((job.kunde.navn || 'Uten navn') + (job.rom ? ' — ' + job.rom : ''));
     if (job.kunde.adresse) linjer.push('Adresse: ' + job.kunde.adresse);
     if (job.kunde.tlf) linjer.push('Tlf: ' + job.kunde.tlf);
+    linjer.push('Fag: ' + FAG_LABEL[job.fag]);
     linjer.push('Status: ' + JOB_STATUS_LABEL[job.status]);
 
     linjer.push('');
     linjer.push('Sjekkliste:');
-    SJEKKLISTE_ITEMS.forEach(function (item) {
+    sjekklisteForFag(job.fag).forEach(function (item) {
       linjer.push((job.sjekkliste[item.id] ? '✓ ' : '✗ ') + item.label);
     });
 
@@ -2573,13 +2646,14 @@
       e.preventDefault();
       var navn = document.getElementById('job-new-navn').value.trim();
       var adresse = document.getElementById('job-new-adresse').value.trim();
+      var fag = document.getElementById('job-new-fag').value;
       var err = document.getElementById('job-new-err');
       if (!navn) {
         err.textContent = 'Jobben trenger et kundenavn.';
         err.hidden = false;
         return;
       }
-      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse } });
+      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse }, fag: fag });
       var jobs = loadJobs();
       jobs.push(job);
       if (!saveJobs(jobs)) {
