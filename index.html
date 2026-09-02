@@ -340,6 +340,12 @@
   .job-status-pauset { background: var(--warn-bg); color: var(--warn-line); }
   .job-status-ferdig { background: var(--accent-soft); color: var(--accent); }
 
+  .sjekkliste-praksis {
+    display: block; background: var(--tip-bg); border-radius: 8px;
+    padding: 0.6rem 0.7rem; margin-bottom: 0.9rem; font-size: 0.82rem;
+  }
+  .sjekkliste-praksis .callout-badge { margin-bottom: 0.25rem; }
+
   .checklist-fase {
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
     color: var(--ink-soft); margin: 1.1rem 0 0.15rem;
@@ -877,6 +883,12 @@
             <option value="fasade">🏠 Fasade</option>
           </select>
         </div>
+        <div class="field" id="job-new-type-felt" hidden>
+          <label for="job-new-type">Jobbtype
+            <span class="hint">Finstyrer sjekklista</span>
+          </label>
+          <select id="job-new-type"></select>
+        </div>
         <div class="field">
           <label for="job-new-adresse">Adresse
             <span class="hint">Valgfritt nå — kan legges til senere</span>
@@ -1001,6 +1013,10 @@
               <option value="sparkling">🧱 Sparkling</option>
               <option value="fasade">🏠 Fasade</option>
             </select>
+          </div>
+          <div class="field" id="jd-type-felt" hidden>
+            <label for="jd-type">Jobbtype <span class="hint">Finstyrer sjekklista</span></label>
+            <select id="jd-type"></select>
           </div>
           <div class="field">
             <label for="jd-rom">Rom <span class="hint">F.eks. «Bad 2. etg»</span></label>
@@ -2295,35 +2311,29 @@
   // står ikke og leser «alt som skal gjøres», han står i én fase og trenger
   // å se hva som gjenstår i den. Rekkefølgen og punktene er de samme som
   // fremgangsmåtene i fagfanene beskriver.
-  var SJEKKLISTE_BY_FAG = {
+  // Under hvert fag ligger jobbtyper der arbeidet faktisk er forskjellig.
+  // Maling har ingen: tak, vegg og listverk har samme arbeidsgang, og en
+  // ekstra meny der ville bare vært et ekstra trykk.
+  var JOBBTYPER = {
     bad: [
-      { fase: 'Før oppstart', items: [
-        { id: 'underlag', label: 'Underlag kontrollert (planhet, skader)' },
-        { id: 'fall-mal', label: 'Fall målt opp, høyder satt ut' },
-        { id: 'sluk', label: 'Sluk kontrollert — nivå og plassering' },
-        { id: 'fukt', label: 'Fukt målt' },
-        { id: 'produkt', label: 'Produkt/system dokumentert for våtrom' }
-      ]},
-      { fase: 'Klargjøring', items: [
-        { id: 'rengjor', label: 'Rengjort, gammelt belegg fjernet' },
-        { id: 'slip', label: 'Slipt' },
-        { id: 'primer', label: 'Primet' },
-        { id: 'avrett', label: 'Avrettet / fall bygget' }
-      ]},
-      { fase: 'Belegg', items: [
-        { id: 'akklim', label: 'Akklimatisert ≥ 24 t i romtemperatur' },
-        { id: 'lim', label: 'Limt — full liming (helflating)' },
-        { id: 'oppbrett', label: 'Oppbrett på vegg utført' },
-        { id: 'slukdetalj', label: 'Slukdetalj (klemring/mansjett) utført' },
-        { id: 'sveis', label: 'Skjøter sveist' }
-      ]},
-      { fase: 'Kontroll', items: [
-        { id: 'kontroll-fall', label: 'Fall kontrollert på ferdig gulv' },
-        { id: 'kontroll-skjot', label: 'Skjøter kontrollert — 100 mm fra sluk, ikke i ytterhjørne' },
-        { id: 'kontroll-oppbrett', label: 'Oppbrett og slukdetalj kontrollert' },
-        { id: 'bilder', label: 'Bilder tatt' }
-      ]}
+      { id: 'full', label: 'Full jobb — avretting og belegg' },
+      { id: 'avretting', label: 'Kun avretting og fall' },
+      { id: 'belegg', label: 'Kun belegg' }
     ],
+    sparkling: [
+      { id: 'hel', label: 'Helsparkling' },
+      { id: 'skjot', label: 'Skjøtsparkling / taping' },
+      { id: 'reparasjon', label: 'Reparasjon', praksis: true },
+      { id: 'strimling', label: 'Strimling', praksis: true }
+    ],
+    fasade: [
+      { id: 'mur', label: 'Mur og puss' },
+      { id: 'treverk', label: 'Treverk og kledning' }
+    ]
+  };
+
+  // Sjekklister for fag uten jobbtyper.
+  var SJEKKLISTE_BY_FAG = {
     maling: [
       { fase: 'Før oppstart', items: [
         { id: 'underlag', label: 'Underlag kontrollert' },
@@ -2348,47 +2358,6 @@
         { id: 'bilder', label: 'Bilder tatt' }
       ]}
     ],
-    sparkling: [
-      { fase: 'Før oppstart', items: [
-        { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
-        { id: 'underlag', label: 'Underlag kontrollert' }
-      ]},
-      { fase: 'Utførelse', items: [
-        { id: 'taping', label: 'Skjøter og hjørner tapet' },
-        { id: 'fyllstrok', label: 'Fyllstrøk (normalt to)' },
-        { id: 'fintstrok', label: 'Fintstrøk — hele flaten ved K3' }
-      ]},
-      { fase: 'Kontroll', items: [
-        { id: 'torketid', label: 'Tørket fullt før sliping' },
-        { id: 'sliping', label: 'Slipt — grovt P80–P120, fint P180–P240' },
-        { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
-        { id: 'grunning', label: 'Sparklede flater grunnet før maling' },
-        { id: 'bilder', label: 'Bilder tatt' }
-      ]}
-    ],
-    fasade: [
-      { fase: 'Før oppstart', items: [
-        { id: 'underlag', label: 'Underlagstype identifisert (mur/puss vs. treverk)' },
-        { id: 'eksisterende', label: 'Eksisterende malingssystem sjekket' },
-        { id: 'vaer', label: 'Værmelding sjekket — ingen nedbør eller frost i tørketiden' },
-        { id: 'tilkomst', label: 'Stillas/tilkomst sikret' }
-      ]},
-      { fase: 'Klargjøring', items: [
-        { id: 'vask', label: 'Vasket' },
-        { id: 'skader', label: 'Skader i underlaget utbedret' },
-        { id: 'tildekking', label: 'Vinduer, dører og beplantning tildekket' },
-        { id: 'grunning', label: 'Grunnet der underlaget krever det' }
-      ]},
-      { fase: 'Maling', items: [
-        { id: 'strok1', label: 'Første strøk' },
-        { id: 'strok2', label: 'Siste strøk' }
-      ]},
-      { fase: 'Kontroll', items: [
-        { id: 'dekning', label: 'Dekning kontrollert i dagslys' },
-        { id: 'rydding', label: 'Tildekking fjernet og ryddet' },
-        { id: 'bilder', label: 'Bilder tatt' }
-      ]}
-    ],
     annet: [
       { fase: 'Før oppstart', items: [
         { id: 'underlag', label: 'Underlag kontrollert' },
@@ -2404,15 +2373,245 @@
       ]}
     ]
   };
-  function sjekklisteForFag(fag) { return SJEKKLISTE_BY_FAG[fag] || SJEKKLISTE_BY_FAG.annet; }
+
+  // Sjekklister per jobbtype. Den første typen i JOBBTYPER er også den
+  // gamle, udelte lista for faget — så jobber laget før typene fantes
+  // beholder nøyaktig sine avhukinger.
+  var SJEKKLISTE_BY_TYPE = {
+    bad: {
+      full: [
+        { fase: 'Før oppstart', items: [
+          { id: 'underlag', label: 'Underlag kontrollert (planhet, skader)' },
+          { id: 'fall-mal', label: 'Fall målt opp, høyder satt ut' },
+          { id: 'sluk', label: 'Sluk kontrollert — nivå og plassering' },
+          { id: 'fukt', label: 'Fukt målt' },
+          { id: 'produkt', label: 'Produkt/system dokumentert for våtrom' }
+        ]},
+        { fase: 'Klargjøring', items: [
+          { id: 'rengjor', label: 'Rengjort, gammelt belegg fjernet' },
+          { id: 'slip', label: 'Slipt' },
+          { id: 'primer', label: 'Primet' },
+          { id: 'avrett', label: 'Avrettet / fall bygget' }
+        ]},
+        { fase: 'Belegg', items: [
+          { id: 'akklim', label: 'Akklimatisert ≥ 24 t i romtemperatur' },
+          { id: 'lim', label: 'Limt — full liming (helflating)' },
+          { id: 'oppbrett', label: 'Oppbrett på vegg utført' },
+          { id: 'slukdetalj', label: 'Slukdetalj (klemring/mansjett) utført' },
+          { id: 'sveis', label: 'Skjøter sveist' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'kontroll-fall', label: 'Fall kontrollert på ferdig gulv' },
+          { id: 'kontroll-skjot', label: 'Skjøter kontrollert — 100 mm fra sluk, ikke i ytterhjørne' },
+          { id: 'kontroll-oppbrett', label: 'Oppbrett og slukdetalj kontrollert' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ],
+      avretting: [
+        { fase: 'Før oppstart', items: [
+          { id: 'underlag', label: 'Underlag kontrollert (planhet, skader)' },
+          { id: 'sluk', label: 'Sluk kontrollert — nivå og plassering' },
+          { id: 'fall-mal', label: 'Høyder satt ut mot terskel og oppkant' },
+          { id: 'fukt', label: 'Fukt målt' }
+        ]},
+        { fase: 'Klargjøring', items: [
+          { id: 'rengjor', label: 'Rengjort og støvsugd' },
+          { id: 'skader', label: 'Skader og hull reparert' },
+          { id: 'slip', label: 'Slipt' },
+          { id: 'primer', label: 'Primet' }
+        ]},
+        { fase: 'Avretting', items: [
+          { id: 'produktvalg', label: 'Produkt egnet for fallforming — ikke ren selvutjevnende masse' },
+          { id: 'avrett', label: 'Avrettet og fall formet' },
+          { id: 'herding', label: 'Herdet etter databladets tid for lagtykkelsen' },
+          { id: 'sluttslip', label: 'Sluttslipt' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'kontroll-fall', label: 'Fall kontrollert på herdet flate' },
+          { id: 'kontroll-motfall', label: 'Kontrollert for motfall ved sluk og langs vegger' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ],
+      belegg: [
+        { fase: 'Før oppstart', items: [
+          { id: 'underlag', label: 'Avrettet underlag kontrollert — planhet og fall' },
+          { id: 'fukt', label: 'Fukt målt i underlaget' },
+          { id: 'produkt', label: 'Belegg, lim, sveisetråd og sluk hører til samme dokumenterte system' },
+          { id: 'skjotplan', label: 'Beleggretning og skjøter planlagt før kutting' }
+        ]},
+        { fase: 'Belegg', items: [
+          { id: 'akklim', label: 'Akklimatisert ≥ 24 t i romtemperatur' },
+          { id: 'lim', label: 'Limt — full liming (helflating)' },
+          { id: 'oppbrett', label: 'Oppbrett på vegg utført' },
+          { id: 'slukdetalj', label: 'Slukdetalj (klemring/mansjett) utført' },
+          { id: 'sveis', label: 'Skjøter sveist etter at limet har satt seg' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'kontroll-fall', label: 'Fall kontrollert på ferdig gulv, belegget medregnet' },
+          { id: 'kontroll-skjot', label: 'Skjøter kontrollert — 100 mm fra sluk, ikke i ytterhjørne' },
+          { id: 'kontroll-oppbrett', label: 'Oppbrett og slukdetalj kontrollert' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ]
+    },
+    sparkling: {
+      hel: [
+        { fase: 'Før oppstart', items: [
+          { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+          { id: 'underlag', label: 'Underlag kontrollert' }
+        ]},
+        { fase: 'Utførelse', items: [
+          { id: 'taping', label: 'Skjøter og hjørner tapet' },
+          { id: 'fyllstrok', label: 'Fyllstrøk (normalt to)' },
+          { id: 'fintstrok', label: 'Fintstrøk — hele flaten ved K3' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'torketid', label: 'Tørket fullt før sliping' },
+          { id: 'sliping', label: 'Slipt — grovt P80–P120, fint P180–P240' },
+          { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
+          { id: 'grunning', label: 'Sparklede flater grunnet før maling' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ],
+      skjot: [
+        { fase: 'Før oppstart', items: [
+          { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+          { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' }
+        ]},
+        { fase: 'Utførelse', items: [
+          { id: 'taping', label: 'Alle skjøter og hjørner tapet' },
+          { id: 'fyllstrok', label: 'Fyllstrøk over tape — to omganger' },
+          { id: 'skruehoder', label: 'Skruehull sparklet' },
+          { id: 'fintstrok', label: 'Fintstrøk med bred sparkel' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'antall-strok', label: 'Minst tre strøk totalt, taping medregnet' },
+          { id: 'torketid', label: 'Tørket fullt før sliping' },
+          { id: 'sliping', label: 'Slipt jevnt med resten av veggen' },
+          { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
+          { id: 'grunning', label: 'Sparklede flater grunnet før maling' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ],
+      reparasjon: [
+        { fase: 'Før oppstart', items: [
+          { id: 'omfang', label: 'Skadeomfang vurdert og avtalt med kunde' },
+          { id: 'arsak', label: 'Årsak vurdert — fukt, bevegelse eller feste' },
+          { id: 'bilder-for', label: 'Bilde av skaden tatt før utbedring' }
+        ]},
+        { fase: 'Utførelse', items: [
+          { id: 'rens', label: 'Løs masse og gammel maling skrapet bort, støvfritt' },
+          { id: 'armering', label: 'Sprekk armert med strimmel eller duk der det er bevegelse' },
+          { id: 'fyll', label: 'Fylt i flere tynne omganger, ikke ett tykt lag' },
+          { id: 'fintstrok', label: 'Fintstrøk trukket ut i flaten rundt' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'torketid', label: 'Tørket fullt før sliping' },
+          { id: 'sliping', label: 'Slipt jevnt med flaten rundt' },
+          { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
+          { id: 'grunning', label: 'Flekkgrunnet — sparkel suger annerledes enn veggen' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ],
+      strimling: [
+        { fase: 'Før oppstart', items: [
+          { id: 'omfang', label: 'Avklart hvilke flater som skal strimles' },
+          { id: 'underlag', label: 'Underlag fast og rent — løs maling og tapet fjernet' },
+          { id: 'arsak', label: 'Årsak til sprekkene vurdert' }
+        ]},
+        { fase: 'Utførelse', items: [
+          { id: 'lim', label: 'Lim eller klister påført jevnt' },
+          { id: 'strimmel', label: 'Strimmel lagt uten folder og luftbobler' },
+          { id: 'skjot', label: 'Skjøter i strimmelen stusset eller overlappet etter anvisning' },
+          { id: 'sparkel', label: 'Sparklet over strimmelen' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'torketid', label: 'Tørket fullt før sliping' },
+          { id: 'sliping', label: 'Slipt uten å slipe gjennom strimmelen' },
+          { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
+          { id: 'grunning', label: 'Grunnet før maling' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ]
+    },
+    fasade: {
+      mur: [
+        { fase: 'Før oppstart', items: [
+          { id: 'underlag', label: 'Underlagets tilstand vurdert — puss, sprekker, saltutslag' },
+          { id: 'eksisterende', label: 'Eksisterende system sjekket — diffusjonsåpen maling nytter ikke over et tett sjikt' },
+          { id: 'fukt', label: 'Fuktvurdering gjort ved tvil om oppbygningen' },
+          { id: 'vaer', label: 'Værmelding sjekket — ingen nedbør eller frost i tørketiden' },
+          { id: 'tilkomst', label: 'Stillas eller tilkomst sikret' }
+        ]},
+        { fase: 'Klargjøring', items: [
+          { id: 'vask', label: 'Vasket' },
+          { id: 'skader', label: 'Pussskader utbedret' },
+          { id: 'tildekking', label: 'Vinduer, dører og beplantning tildekket' },
+          { id: 'grunning', label: 'Grunnet etter systemets anvisning' }
+        ]},
+        { fase: 'Maling', items: [
+          { id: 'strok1', label: 'Første strøk' },
+          { id: 'strok2', label: 'Siste strøk' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'dekning', label: 'Dekning kontrollert i dagslys' },
+          { id: 'rydding', label: 'Tildekking fjernet og ryddet' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ],
+      treverk: [
+        { fase: 'Før oppstart', items: [
+          { id: 'underlag', label: 'Kledningens tilstand vurdert — råte, løs maling' },
+          { id: 'lufting', label: 'Lufting bak kledningen vurdert' },
+          { id: 'eksisterende', label: 'Eksisterende malingssystem identifisert' },
+          { id: 'vaer', label: 'Værmelding sjekket — ingen nedbør eller frost i tørketiden' },
+          { id: 'tilkomst', label: 'Stillas eller tilkomst sikret' }
+        ]},
+        { fase: 'Klargjøring', items: [
+          { id: 'vask', label: 'Vasket' },
+          { id: 'skrap', label: 'Løs maling skrapet, skadet virke skiftet' },
+          { id: 'slip', label: 'Slipt' },
+          { id: 'tildekking', label: 'Vinduer, dører og beplantning tildekket' },
+          { id: 'grunning', label: 'Bart trevirke grunnet eller impregnert' }
+        ]},
+        { fase: 'Maling', items: [
+          { id: 'strok1', label: 'Første strøk' },
+          { id: 'strok2', label: 'Siste strøk' }
+        ]},
+        { fase: 'Kontroll', items: [
+          { id: 'dekning', label: 'Dekning kontrollert i dagslys' },
+          { id: 'rydding', label: 'Tildekking fjernet og ryddet' },
+          { id: 'bilder', label: 'Bilder tatt' }
+        ]}
+      ]
+    }
+  };
+
+  function jobbtyperFor(fag) { return JOBBTYPER[fag] || null; }
+  function standardType(fag) {
+    var t = jobbtyperFor(fag);
+    return t ? t[0].id : '';
+  }
+  function jobbtypeDef(fag, type) {
+    var t = jobbtyperFor(fag);
+    if (!t) return null;
+    for (var i = 0; i < t.length; i++) { if (t[i].id === type) return t[i]; }
+    return t[0];
+  }
+
+  function sjekklisteFor(job) {
+    var perType = SJEKKLISTE_BY_TYPE[job.fag];
+    if (perType) return perType[job.jobbtype] || perType[standardType(job.fag)];
+    return SJEKKLISTE_BY_FAG[job.fag] || SJEKKLISTE_BY_FAG.annet;
+  }
   // Flat liste på tvers av fasene — til framdriftstelling og eksport.
-  function alleSjekkpunkter(fag) {
+  function alleSjekkpunkter(job) {
     var ut = [];
-    sjekklisteForFag(fag).forEach(function (gruppe) { ut = ut.concat(gruppe.items); });
+    sjekklisteFor(job).forEach(function (gruppe) { ut = ut.concat(gruppe.items); });
     return ut;
   }
   function sjekklisteFramdrift(job) {
-    var punkter = alleSjekkpunkter(job.fag);
+    var punkter = alleSjekkpunkter(job);
     var gjort = 0;
     punkter.forEach(function (p) { if (job.sjekkliste[p.id]) gjort++; });
     return { gjort: gjort, av: punkter.length };
@@ -2446,6 +2645,9 @@
       // gamle jobber i localStorage leses fortsatt riktig.
       status: JOB_STATUS_LABEL[j.status] ? j.status : 'planlagt',
       fag: FAG_LABEL[j.fag] ? j.fag : 'annet',
+      // Jobber laget før jobbtypene fantes får standardtypen, som er den
+      // samme lista de hadde fra før — ingen avhukinger går tapt.
+      jobbtype: j.jobbtype || '',
       kunde: {
         navn: (j.kunde && j.kunde.navn) ? String(j.kunde.navn) : '',
         adresse: (j.kunde && j.kunde.adresse) ? String(j.kunde.adresse) : '',
@@ -2461,10 +2663,19 @@
     };
   }
 
+  // Kjøres etter normalizeJob, som ikke kan validere typen før faget er satt.
+  function fastsettJobbtype(job) {
+    var typer = jobbtyperFor(job.fag);
+    if (!typer) { job.jobbtype = ''; return job; }
+    var gyldig = typer.some(function (t) { return t.id === job.jobbtype; });
+    if (!gyldig) job.jobbtype = typer[0].id;
+    return job;
+  }
+
   function loadJobs() {
     try {
       var raw = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]');
-      return Array.isArray(raw) ? raw.filter(function (j) { return j && j.id; }).map(normalizeJob) : [];
+      return Array.isArray(raw) ? raw.filter(function (j) { return j && j.id; }).map(normalizeJob).map(fastsettJobbtype) : [];
     } catch (e) { return []; }
   }
   function saveJobs(list) {
@@ -2609,7 +2820,8 @@
       var navn = navnEl.value.trim();
       if (!navn) { navnEl.focus(); return; }
       var cfg = JOB_CALC_CONFIG[pendingCalcId];
-      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn }, fag: cfg ? cfg.fag : 'annet' });
+      var job = fastsettJobbtype(normalizeJob({
+        id: newJobId(), created: Date.now(), kunde: { navn: navn }, fag: cfg ? cfg.fag : 'annet' }));
       var jobs = loadJobs();
       jobs.push(job);
       saveJobs(jobs);
@@ -2657,7 +2869,7 @@
   // Neste uavhukede punkt i sjekklista — «hva er det neste jeg skal gjøre
   // på denne jobben» er det man leter etter i lista, ikke hva som er gjort.
   function nesteSjekkpunkt(job) {
-    var punkter = alleSjekkpunkter(job.fag);
+    var punkter = alleSjekkpunkter(job);
     for (var i = 0; i < punkter.length; i++) {
       if (!job.sjekkliste[punkter[i].id]) return punkter[i].label;
     }
@@ -2665,6 +2877,31 @@
   }
 
   var UKE = 7 * 24 * 60 * 60 * 1000;
+
+  // Fyller en jobbtype-meny ut fra faget, og skjuler den for fag som ikke
+  // har typer. Returnerer valgt type.
+  function fyllJobbtypeMeny(selectId, feltId, fag, valgt) {
+    var felt = document.getElementById(feltId);
+    var sel = document.getElementById(selectId);
+    var typer = jobbtyperFor(fag);
+    sel.textContent = '';
+    if (!typer) { felt.hidden = true; return ''; }
+    typer.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.label + (t.praksis ? ' 🔧' : '');
+      sel.appendChild(o);
+    });
+    var gyldig = typer.some(function (t) { return t.id === valgt; });
+    sel.value = gyldig ? valgt : typer[0].id;
+    felt.hidden = false;
+    return sel.value;
+  }
+
+  function jobbtypeTekst(job) {
+    var def = jobbtypeDef(job.fag, job.jobbtype);
+    return def ? def.label : '';
+  }
 
   function buildJobCard(job) {
     var card = document.createElement('button');
@@ -2682,6 +2919,8 @@
     // Linje 2: fag, og hvor langt det er kommet.
     var f = sjekklisteFramdrift(job);
     var undertekst = FAG_LABEL[job.fag];
+    var type = jobbtypeTekst(job);
+    if (type) undertekst += ' · ' + type;
     if (job.status !== 'planlagt') undertekst += ' · ' + f.gjort + '/' + f.av + ' ferdig';
     card.appendChild(el('div', 'job-card-fag', undertekst));
 
@@ -2784,7 +3023,20 @@
     var wrap = document.getElementById('jd-sjekkliste');
     wrap.textContent = '';
 
-    sjekklisteForFag(job.fag).forEach(function (gruppe) {
+    // Reparasjon og strimling er skrevet fra alminnelig praksis, ikke hentet
+    // fra fagfanene eller en norm. Det skal stå på lista, ikke bare i hodet
+    // på den som skrev den.
+    var typeDef = jobbtypeDef(job.fag, job.jobbtype);
+    if (typeDef && typeDef.praksis) {
+      var merke = el('div', 'sjekkliste-praksis');
+      merke.appendChild(el('span', 'callout-badge', '🔧 Praksis, ikke norm'));
+      merke.appendChild(el('span', null,
+        'Punktene for ' + typeDef.label.toLowerCase() + ' bygger på alminnelig malerpraksis. ' +
+        'De står ikke i fagfanene, og er ikke hentet fra NS 3420 eller TEK17.'));
+      wrap.appendChild(merke);
+    }
+
+    sjekklisteFor(job).forEach(function (gruppe) {
       var gjortIFasen = gruppe.items.filter(function (i) { return job.sjekkliste[i.id]; }).length;
       var heleFasen = gjortIFasen === gruppe.items.length;
       var fase = el('div', 'checklist-fase' + (heleFasen ? ' ferdig-fase' : ''),
@@ -2828,7 +3080,7 @@
 
     var wrap = document.getElementById('jd-sjekkliste');
     var faser = wrap.querySelectorAll('.checklist-fase');
-    var grupper = sjekklisteForFag(job.fag);
+    var grupper = sjekklisteFor(job);
     Array.prototype.forEach.call(faser, function (node, i) {
       var gruppe = grupper[i];
       if (!gruppe) return;
@@ -3246,6 +3498,7 @@
 
     document.getElementById('jd-navn').value = job.kunde.navn;
     document.getElementById('jd-fag').value = job.fag;
+    fyllJobbtypeMeny('jd-type', 'jd-type-felt', job.fag, job.jobbtype);
     document.getElementById('jd-rom').value = job.rom;
     document.getElementById('jd-adresse').value = job.kunde.adresse;
     document.getElementById('jd-tlf').value = job.kunde.tlf;
@@ -3271,6 +3524,8 @@
     setText('jd-hode-tittel', rom + ' – ' + navn);
 
     var under = [FAG_LABEL[job.fag]];
+    var type = jobbtypeTekst(job);
+    if (type) under.push(type);
     if (job.kunde.adresse) under.push(job.kunde.adresse);
     setText('jd-hode-under', under.join(' · '));
 
@@ -3329,8 +3584,21 @@
     document.getElementById('jd-fag').addEventListener('change', function (e) {
       if (!currentJobId) return;
       var v = e.target.value;
-      updateJob(currentJobId, function (j) { j.fag = v; return j; });
-      renderChecklist(getJob(currentJobId));
+      // Nytt fag betyr ny typeliste; den gamle typen gir ingen mening her.
+      var nyType = fyllJobbtypeMeny('jd-type', 'jd-type-felt', v, standardType(v));
+      updateJob(currentJobId, function (j) { j.fag = v; j.jobbtype = nyType; return j; });
+      var job = getJob(currentJobId);
+      renderChecklist(job);
+      renderJobHode(job);
+    });
+
+    document.getElementById('jd-type').addEventListener('change', function (e) {
+      if (!currentJobId) return;
+      var v = e.target.value;
+      updateJob(currentJobId, function (j) { j.jobbtype = v; return j; });
+      var job = getJob(currentJobId);
+      renderChecklist(job);
+      renderJobHode(job);
     });
   }
 
@@ -3339,13 +3607,14 @@
     linjer.push((job.kunde.navn || 'Uten navn') + (job.rom ? ' — ' + job.rom : ''));
     if (job.kunde.adresse) linjer.push('Adresse: ' + job.kunde.adresse);
     if (job.kunde.tlf) linjer.push('Tlf: ' + job.kunde.tlf);
-    linjer.push('Fag: ' + FAG_LABEL[job.fag]);
+    var typeTekst = jobbtypeTekst(job);
+    linjer.push('Fag: ' + FAG_LABEL[job.fag] + (typeTekst ? ' — ' + typeTekst : ''));
     linjer.push('Status: ' + JOB_STATUS_LABEL[job.status]);
 
     var f = sjekklisteFramdrift(job);
     linjer.push('');
     linjer.push('Sjekkliste (' + f.gjort + '/' + f.av + '):');
-    sjekklisteForFag(job.fag).forEach(function (gruppe) {
+    sjekklisteFor(job).forEach(function (gruppe) {
       linjer.push('');
       linjer.push(gruppe.fase.toUpperCase());
       gruppe.items.forEach(function (item) {
@@ -3423,7 +3692,7 @@
 
       var ny = normalizeJob({
         id: newJobId(), created: Date.now(), status: 'planlagt',
-        fag: kilde.fag, rom: kilde.rom,
+        fag: kilde.fag, jobbtype: kilde.jobbtype, rom: kilde.rom,
         kunde: { navn: kilde.kunde.navn, adresse: kilde.kunde.adresse, tlf: kilde.kunde.tlf },
         // Sjekkliste, bilder og «neste besøk» hører til jobben som ble gjort.
         sjekkliste: {}, bilder: [], utstyr: [],
@@ -3438,6 +3707,7 @@
         }) : []
       });
 
+      ny = fastsettJobbtype(ny);
       var jobber = loadJobs();
       jobber.push(ny);
       if (!saveJobs(jobber)) { jobToast('Fikk ikke lagret duplikatet.'); dupDialog.close(); return; }
@@ -3479,6 +3749,12 @@
       form.reset();
       document.getElementById('job-new-err').hidden = true;
     });
+    var fagFelt = document.getElementById('job-new-fag');
+    fyllJobbtypeMeny('job-new-type', 'job-new-type-felt', fagFelt.value, '');
+    fagFelt.addEventListener('change', function () {
+      fyllJobbtypeMeny('job-new-type', 'job-new-type-felt', fagFelt.value, '');
+    });
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var navn = document.getElementById('job-new-navn').value.trim();
@@ -3490,7 +3766,10 @@
         err.hidden = false;
         return;
       }
-      var job = normalizeJob({ id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse }, fag: fag });
+      var job = fastsettJobbtype(normalizeJob({
+        id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse },
+        fag: fag, jobbtype: document.getElementById('job-new-type').value
+      }));
       var jobs = loadJobs();
       jobs.push(job);
       if (!saveJobs(jobs)) {
@@ -3501,6 +3780,7 @@
       form.hidden = true;
       addBtn.hidden = false;
       form.reset();
+      fyllJobbtypeMeny('job-new-type', 'job-new-type-felt', fagFelt.value, '');
       err.hidden = true;
       openJob(job.id);
     });
