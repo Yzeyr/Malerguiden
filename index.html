@@ -340,6 +340,34 @@
   .job-status-pauset { background: var(--warn-bg); color: var(--warn-line); }
   .job-status-ferdig { background: var(--accent-soft); color: var(--accent); }
 
+  /* Neste steg — det ene man skal gjøre nå, med en trykkflate som treffes
+     med tommelen mens den andre hånden holder noe. */
+  .neste-steg {
+    background: var(--accent); color: #fff;
+    border-radius: 12px; padding: 1rem 1.1rem 1.1rem; margin-bottom: 1rem;
+  }
+  .neste-steg.alt-ferdig { background: var(--ok); }
+  .neste-steg-merke {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    opacity: 0.85;
+  }
+  .neste-steg-tekst {
+    font-size: 1.3rem; font-weight: 800; line-height: 1.25; margin-top: 0.3rem;
+  }
+  .neste-steg-kontekst { font-size: 0.8rem; opacity: 0.85; margin-top: 0.25rem; }
+  .neste-steg-kontekst:empty { display: none; }
+  .neste-steg-knapp {
+    appearance: none; border: none; cursor: pointer; font: inherit;
+    display: block; width: 100%; margin-top: 0.9rem;
+    background: #fff; color: var(--accent);
+    font-size: 1.05rem; font-weight: 800;
+    border-radius: 10px; padding: 0.9rem 1rem; min-height: 3.4rem;
+  }
+  .neste-steg.alt-ferdig .neste-steg-knapp { color: var(--ok); }
+  .neste-steg-knapp:active { transform: translateY(1px); }
+  .neste-steg-knapp[hidden] { display: none; }
+  .neste-steg-framdrift { font-size: 0.8rem; opacity: 0.85; margin-top: 0.7rem; text-align: center; }
+
   .del-blokk {
     background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
     border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.7rem;
@@ -954,6 +982,13 @@
       <h3 class="group-heading niva niva-1">Dette gjør du nå
         <span class="checklist-progress" id="jd-sjekkliste-teller"></span>
       </h3>
+      <div class="neste-steg" id="jd-neste-steg">
+        <div class="neste-steg-merke" id="jd-neste-merke">🔨 Neste steg</div>
+        <div class="neste-steg-tekst" id="jd-neste-tekst"></div>
+        <div class="neste-steg-kontekst" id="jd-neste-kontekst"></div>
+        <button type="button" class="neste-steg-knapp" id="jd-neste-knapp"></button>
+        <div class="neste-steg-framdrift" id="jd-neste-framdrift"></div>
+      </div>
       <div id="jd-sjekkliste"></div>
       <button type="button" id="jd-legg-til-arbeid" class="note-add-btn">+ Legg til arbeid</button>
 
@@ -2950,15 +2985,25 @@
 
   // Neste uavhukede punkt i sjekklista — «hva er det neste jeg skal gjøre
   // på denne jobben» er det man leter etter i lista, ikke hva som er gjort.
-  function nesteSjekkpunkt(job) {
+  // Første uavhukede punkt, med nok kontekst til å vise hvor det hører hjemme.
+  function nesteSteg(job) {
     for (var d = 0; d < job.deler.length; d++) {
       var del = job.deler[d];
-      var punkter = alleSjekkpunkter(del);
-      for (var i = 0; i < punkter.length; i++) {
-        if (!del.sjekkliste[punkter[i].id]) return punkter[i].label;
+      var grupper = sjekklisteFor(del);
+      for (var g = 0; g < grupper.length; g++) {
+        var items = grupper[g].items;
+        for (var i = 0; i < items.length; i++) {
+          if (!del.sjekkliste[items[i].id]) {
+            return { del: del, fase: grupper[g].fase, item: items[i], flereDeler: job.deler.length > 1 };
+          }
+        }
       }
     }
     return null;
+  }
+  function nesteSjekkpunkt(job) {
+    var n = nesteSteg(job);
+    return n ? n.item.label : null;
   }
 
   var UKE = 7 * 24 * 60 * 60 * 1000;
@@ -3183,9 +3228,62 @@
     return blokk;
   }
 
+  // Kortet som svarer på «hva gjør jeg nå». Én stor trykkflate huker av og
+  // flytter kortet videre til neste punkt — da kan lista brukes med én hånd.
+  function renderNesteSteg(job) {
+    var boks = document.getElementById('jd-neste-steg');
+    if (!boks) return;
+    var knapp = document.getElementById('jd-neste-knapp');
+    var f = sjekklisteFramdrift(job);
+    var n = nesteSteg(job);
+
+    if (!n) {
+      boks.classList.add('alt-ferdig');
+      setText('jd-neste-merke', '✓ Alt er huket av');
+      setText('jd-neste-tekst', job.status === 'ferdig'
+        ? 'Jobben er ferdig.'
+        : 'Alle punktene er gjort.');
+      setText('jd-neste-kontekst', '');
+      setText('jd-neste-framdrift', f.gjort + ' av ' + f.av + ' ferdig');
+      // Siste dytt: er alt gjort, er det som regel bare statusen som står igjen.
+      knapp.hidden = job.status === 'ferdig';
+      knapp.textContent = 'Sett jobben som ferdig';
+      knapp.onclick = function () {
+        if (!currentJobId) return;
+        var sel = document.getElementById('jd-status');
+        sel.value = 'ferdig';
+        sel.dispatchEvent(new Event('change'));
+      };
+      return;
+    }
+
+    boks.classList.remove('alt-ferdig');
+    setText('jd-neste-merke', '🔨 Neste steg');
+    setText('jd-neste-tekst', n.item.label);
+    // Fasen sier hvor i arbeidsgangen man er; arbeidet nevnes bare når det
+    // faktisk finnes flere å forveksle det med.
+    setText('jd-neste-kontekst', n.flereDeler ? delTittel(n.del) + ' · ' + n.fase : n.fase);
+    setText('jd-neste-framdrift', f.gjort + ' av ' + f.av + ' ferdig');
+    knapp.hidden = false;
+    knapp.textContent = '✓ Ferdig';
+    knapp.onclick = function () {
+      if (!currentJobId) return;
+      var delId = n.del.id, itemId = n.item.id;
+      updateJob(currentJobId, function (j) {
+        j.deler.forEach(function (d) { if (d.id === delId) d.sjekkliste[itemId] = true; });
+        return j;
+      });
+      // Avkryssingen nede i lista skal følge med uten at hele lista bygges om.
+      var cb = document.getElementById('jd-chk-' + delId + '-' + itemId);
+      if (cb) cb.checked = true;
+      oppdaterFramdrift(getJob(currentJobId));
+    };
+  }
+
   // Oppdaterer bare tallene og stripa, ikke selve avkryssingene.
   function oppdaterFramdrift(job) {
     if (!job) return;
+    renderNesteSteg(job);
     var f = sjekklisteFramdrift(job);
     setText('jd-sjekkliste-teller', f.gjort + '/' + f.av + ' ferdig');
     setText('jd-hode-framdrift', f.gjort + ' av ' + f.av + ' punkter ferdig');
@@ -3683,6 +3781,9 @@
       if (!currentJobId) return;
       var v = e.target.value;
       updateJob(currentJobId, function (j) { j.status = v; return j; });
+      // Statusen endrer hva neste steg-kortet skal si — er alt huket av og
+      // jobben satt til ferdig, skal ikke knappen stå igjen og be om det.
+      renderNesteSteg(getJob(currentJobId));
 
       // Settes jobben til ferdig mens det fortsatt står ting igjen på
       // «Ta med neste gang», er det som regel ting som ble kjøpt eller
