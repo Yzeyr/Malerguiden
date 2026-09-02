@@ -358,6 +358,17 @@
 
   /* Neste steg — det ene man skal gjøre nå, med en trykkflate som treffes
      med tommelen mens den andre hånden holder noe. */
+  .farge-rad {
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--tip);
+    border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 0.5rem;
+  }
+  .farge-hode { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+  .farge-rom { font-weight: 800; font-size: 0.92rem; }
+  .farge-produkt { font-size: 0.87rem; margin-top: 0.2rem; }
+  .farge-kode { font-weight: 700; }
+  .farge-detaljer { font-size: 0.79rem; color: var(--ink-soft); margin-top: 0.25rem; }
+  .farge-knapper { display: flex; gap: 0.9rem; margin-top: 0.4rem; }
+
   .forbehold-knapper { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .forbehold-knapp {
     appearance: none; cursor: pointer; font: inherit; text-align: left;
@@ -1106,6 +1117,14 @@
           </select>
         </div>
         <p class="out-note" style="margin-top:0.3rem;">Klassen avgjør pris, og om en synlig bulk er reklamasjon eller innenfor avtalen. Står den som «ikke avtalt», er det verdt å avklare den skriftlig før oppstart.</p>
+      </div>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">🎨 Fargeprotokoll <span class="checklist-progress" id="jd-farger-teller"></span></div>
+        <p class="out-note" style="margin-top:0;">Produkt, kode, glans og strøk per rom. Dette er det kunden ringer om et år senere når en flekk skal fikses.</p>
+        <p id="jd-farger-empty" class="fav-hint">Ingen farger registrert ennå.</p>
+        <div id="jd-farger-liste"></div>
+        <button type="button" id="jd-ny-farge" class="note-add-btn">+ Legg til farge</button>
       </div>
 
       <div class="delseksjon">
@@ -1937,6 +1956,41 @@
   <div class="note-form-actions" style="margin-top:0.8rem;">
     <button type="button" class="btn-primary" id="dup-ok">Dupliser</button>
     <button type="button" class="btn-ghost" id="dup-avbryt">Avbryt</button>
+  </div>
+</dialog>
+
+<dialog id="farge-dialog" class="job-picker">
+  <h3 id="farge-tittel">Legg til farge</h3>
+  <div class="field">
+    <label for="farge-rom">Rom <span class="hint">F.eks. «Stue» eller «Bad, tak»</span></label>
+    <input type="text" id="farge-rom" autocomplete="off" maxlength="60">
+  </div>
+  <div class="field">
+    <label for="farge-produkt">Produkt <span class="hint">Merke og type</span></label>
+    <input type="text" id="farge-produkt" autocomplete="off" maxlength="80">
+  </div>
+  <div class="field">
+    <label for="farge-kode">Fargekode <span class="hint">F.eks. «S 0500-N» eller «10557 Egghvit»</span></label>
+    <input type="text" id="farge-kode" autocomplete="off" maxlength="60">
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label for="farge-glans">Glans <span class="hint">Tallet på spannet</span></label>
+      <input type="text" id="farge-glans" inputmode="decimal" autocomplete="off" maxlength="12">
+    </div>
+    <div class="field">
+      <label for="farge-strok">Antall strøk</label>
+      <input type="text" id="farge-strok" inputmode="numeric" autocomplete="off" maxlength="4">
+    </div>
+  </div>
+  <div class="field">
+    <label for="farge-dato">Dato</label>
+    <input type="date" id="farge-dato">
+  </div>
+  <p class="note-form-err" id="farge-err" hidden></p>
+  <div class="note-form-actions" style="margin-top:0.8rem;">
+    <button type="button" class="btn-primary" id="farge-ok">Lagre</button>
+    <button type="button" class="btn-ghost" id="farge-avbryt">Avbryt</button>
   </div>
 </dialog>
 
@@ -3035,6 +3089,7 @@
       bilder: Array.isArray(j.bilder) ? j.bilder.filter(function (b) { return b && b.id; }) : [],
       beregninger: Array.isArray(j.beregninger) ? j.beregninger : [],
       klasse: (j.klasse === 'K2' || j.klasse === 'K3') ? j.klasse : '',
+      farger: Array.isArray(j.farger) ? j.farger.filter(function (f) { return f && f.id; }) : [],
       forbeholdValgt: Array.isArray(j.forbeholdValgt) ? j.forbeholdValgt.filter(function (x) { return typeof x === 'string'; }) : [],
       notat: j.notat ? String(j.notat) : '',
       forbehold: j.forbehold ? String(j.forbehold) : ''
@@ -3459,6 +3514,7 @@
       iGruppe.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
     });
     empty.hidden = jobs.length > 0;
+    buildSearchIndex(); // jobbene er søkbare, og de endrer seg hele tiden
 
     if (ferdige.length) {
       ferdigeWrap.hidden = false;
@@ -3545,6 +3601,138 @@
     var egne = fritekst.split('\n').filter(function (l) { return l.trim(); }).length;
     var antall = job.forbeholdValgt.length + egne;
     setText('jd-forbehold-teller', antall ? antall + ' registrert' : '');
+  }
+
+  /* ---------- Fargeprotokoll ---------- *
+   * Produkt, kode, glans og strøk per rom. Den ene opplysningen man blir
+   * ringt om lenge etter at jobben er levert, og som ellers bare finnes på
+   * et spann som er kastet.
+   * ------------------------------------------------------------------- */
+  function newFargeId() {
+    return 'f-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  }
+  function iDag() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function visDato(iso) {
+    if (!iso) return '';
+    var d = new Date(iso + 'T12:00:00');
+    return isNaN(d) ? iso : formatNoteDate(d.getTime());
+  }
+  function fargeDetaljer(f) {
+    var deler = [];
+    if (f.glans) deler.push('Glans ' + f.glans);
+    if (f.strok) deler.push(f.strok + (String(f.strok) === '1' ? ' strøk' : ' strøk'));
+    if (f.dato) deler.push(visDato(f.dato));
+    return deler.join(' · ');
+  }
+
+  function renderFarger(job) {
+    var liste = document.getElementById('jd-farger-liste');
+    var empty = document.getElementById('jd-farger-empty');
+    if (!liste) return;
+    liste.textContent = '';
+    job.farger.slice().sort(function (a, b) { return (a.dato || '').localeCompare(b.dato || ''); })
+      .forEach(function (f) {
+        var rad = el('div', 'farge-rad');
+        var hode = el('div', 'farge-hode');
+        hode.appendChild(el('span', 'farge-rom', f.rom || 'Uten rom'));
+        rad.appendChild(hode);
+
+        var linje = el('div', 'farge-produkt');
+        if (f.produkt) linje.appendChild(el('span', null, f.produkt));
+        if (f.produkt && f.kode) linje.appendChild(el('span', null, ' · '));
+        if (f.kode) linje.appendChild(el('span', 'farge-kode', f.kode));
+        if (f.produkt || f.kode) rad.appendChild(linje);
+
+        var d = fargeDetaljer(f);
+        if (d) rad.appendChild(el('div', 'farge-detaljer', d));
+
+        var knapper = el('div', 'farge-knapper');
+        var endre = el('button', 'del-fjern', '✎ Endre');
+        endre.type = 'button';
+        endre.addEventListener('click', function () { apneFargeDialog(f); });
+        var slett = el('button', 'del-fjern', '✕ Slett');
+        slett.type = 'button';
+        slett.addEventListener('click', function () {
+          if (!window.confirm('Slette fargen for «' + (f.rom || 'uten rom') + '»?')) return;
+          updateJob(currentJobId, function (j) {
+            j.farger = j.farger.filter(function (x) { return x.id !== f.id; });
+            return j;
+          });
+          renderFarger(getJob(currentJobId));
+        });
+        knapper.appendChild(endre);
+        knapper.appendChild(slett);
+        rad.appendChild(knapper);
+        liste.appendChild(rad);
+      });
+    empty.hidden = job.farger.length > 0;
+    setText('jd-farger-teller', job.farger.length
+      ? job.farger.length + (job.farger.length === 1 ? ' rom' : ' rom')
+      : '');
+  }
+
+  var fargeRedigerer = null;
+  function apneFargeDialog(f) {
+    if (!currentJobId) return;
+    fargeRedigerer = f ? f.id : null;
+    setText('farge-tittel', f ? 'Endre farge' : 'Legg til farge');
+    var job = getJob(currentJobId);
+    document.getElementById('farge-rom').value = f ? (f.rom || '') : (job ? job.rom : '');
+    document.getElementById('farge-produkt').value = f ? (f.produkt || '') : '';
+    document.getElementById('farge-kode').value = f ? (f.kode || '') : '';
+    document.getElementById('farge-glans').value = f ? (f.glans || '') : '';
+    document.getElementById('farge-strok').value = f ? (f.strok || '') : '2';
+    document.getElementById('farge-dato').value = f ? (f.dato || '') : iDag();
+    document.getElementById('farge-err').hidden = true;
+    document.getElementById('farge-dialog').showModal();
+  }
+
+  function initFarger() {
+    var dialog = document.getElementById('farge-dialog');
+    document.getElementById('jd-ny-farge').addEventListener('click', function () { apneFargeDialog(null); });
+    document.getElementById('farge-avbryt').addEventListener('click', function () { dialog.close(); });
+    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.close(); });
+
+    document.getElementById('farge-ok').addEventListener('click', function () {
+      if (!currentJobId) { dialog.close(); return; }
+      var data = {
+        rom: document.getElementById('farge-rom').value.trim(),
+        produkt: document.getElementById('farge-produkt').value.trim(),
+        kode: document.getElementById('farge-kode').value.trim(),
+        glans: document.getElementById('farge-glans').value.trim(),
+        strok: document.getElementById('farge-strok').value.trim(),
+        dato: document.getElementById('farge-dato').value
+      };
+      var err = document.getElementById('farge-err');
+      // Uten produkt eller kode er raden ikke til å bruke om et år.
+      if (!data.produkt && !data.kode) {
+        err.textContent = 'Fyll inn produkt eller fargekode — ellers er raden ikke til hjelp senere.';
+        err.hidden = false;
+        return;
+      }
+      var redigerer = fargeRedigerer;
+      updateJob(currentJobId, function (j) {
+        if (redigerer) {
+          j.farger = j.farger.map(function (f) {
+            if (f.id !== redigerer) return f;
+            return { id: f.id, rom: data.rom, produkt: data.produkt, kode: data.kode,
+              glans: data.glans, strok: data.strok, dato: data.dato };
+          });
+        } else {
+          j.farger = j.farger.concat([{ id: newFargeId(), rom: data.rom, produkt: data.produkt,
+            kode: data.kode, glans: data.glans, strok: data.strok, dato: data.dato }]);
+        }
+        return j;
+      });
+      dialog.close();
+      renderFarger(getJob(currentJobId));
+      buildSearchIndex();
+      jobToast(redigerer ? 'Fargen er endret.' : 'Fargen er lagret.');
+      fargeRedigerer = null;
+    });
   }
 
   function renderChecklist(job) {
@@ -4147,6 +4335,7 @@
     document.getElementById('jd-klasse').value = job.klasse;
     renderJobHode(job);
     renderChecklist(job);
+    renderFarger(job);
     renderForbehold(job);
     renderPakkeliste(job);
     renderBilder(job);
@@ -4344,6 +4533,19 @@
     }
 
     if (job.notat.trim()) { linjer.push(''); linjer.push('Notat:'); linjer.push(job.notat.trim()); }
+    if (job.farger.length) {
+      linjer.push('');
+      linjer.push('Fargeprotokoll:');
+      job.farger.slice().sort(function (a, b) { return (a.dato || '').localeCompare(b.dato || ''); })
+        .forEach(function (f) {
+          var rad = '- ' + (f.rom || 'Uten rom') + ': ' +
+            [f.produkt, f.kode].filter(Boolean).join(' · ');
+          var d = fargeDetaljer(f);
+          if (d) rad += ' (' + d + ')';
+          linjer.push(rad);
+        });
+    }
+
     var forbeholdLinjer = job.forbeholdValgt.map(function (id) {
       for (var i = 0; i < FORBEHOLD_VALG.length; i++) { if (FORBEHOLD_VALG[i].id === id) return FORBEHOLD_VALG[i].tekst; }
       return null;
@@ -4406,6 +4608,10 @@
         notat: taNotat ? kilde.notat : '',
         forbehold: taNotat ? kilde.forbehold : '',
         forbeholdValgt: taNotat ? kilde.forbeholdValgt.slice() : [],
+        // Fargene hører til rommene som faktisk ble malt. Skal samme farge
+        // brukes igjen, er den lett å skrive inn — å arve den ville vært å
+        // påstå noe om et rom ingen har vært i.
+        farger: [],
         beregninger: taBeregninger ? kilde.beregninger.map(function (b) {
           // Ny id og nytt tidspunkt: dette er en ny jobbs beregning, og
           // det faktiske forbruket fra forrige jobb gjelder ikke her.
@@ -4510,6 +4716,7 @@
     initPakkeliste();
     initLeggTilArbeid();
     initJobbKontekst();
+    initFarger();
     initBilder();
     addJobSaveButtons();
     renderJobList();
@@ -5004,6 +5211,30 @@
     // uansett rett etterpå, når søkeoppsettet initialiseres.
     if (!panels) return;
     index = [];
+
+    // Jobbene indekseres fra selve dataene, ikke fra kortet i lista: adresse,
+    // telefon og notater står ikke på kortet, og det er nettopp dem man leter
+    // etter når man søker opp en jobb.
+    loadJobs().forEach(function (job) {
+      var biter = [
+        job.kunde.navn, job.rom, job.kunde.adresse, job.kunde.tlf,
+        // Telefon skrives med mellomrom, men søkes uten — ta med begge.
+        job.kunde.tlf.replace(/\D/g, ''),
+        job.notat, job.forbehold, job.klasse,
+        JOB_STATUS_LABEL[job.status]
+      ];
+      job.deler.forEach(function (d) { biter.push(delTittel(d)); });
+      job.utstyr.forEach(function (u) { biter.push(u.tekst); });
+      job.beregninger.forEach(function (bg) { biter.push(bg.sammendrag); });
+      job.forbeholdValgt.forEach(function (id) {
+        FORBEHOLD_VALG.forEach(function (f) { if (f.id === id) biter.push(f.tekst); });
+      });
+      (job.farger || []).forEach(function (f) {
+        biter.push(f.rom, f.produkt, f.kode, f.glans);
+      });
+      index.push({ jobb: job, panel: 'jobber', text: norm(biter.filter(Boolean).join(' ')) });
+    });
+
     panels.forEach(function (panel) {
       var name = panel.dataset.panel;
       var blocks = panel.querySelectorAll('.fact-card, ol.steps > li, .mistake, .card, .callout, .calc, .menu-item, .note-card');
@@ -5014,6 +5245,9 @@
         // Skjema- og backup-boksene er verktøy, ikke innhold å søke i.
         if (node.closest('#note-form') || node.closest('#backup-import')) return;
         if (node.id === 'note-form') return;
+        // Jobbene er indeksert fra data over; kortene ville gitt doble treff
+        // med mindre innhold.
+        if (name === 'jobber') return;
         index.push({ el: node, panel: name, text: norm(searchText(node)) });
       });
     });
@@ -5233,6 +5467,17 @@
       wrap.appendChild(chip);
 
       var clone;
+      if (item.jobb) {
+        // Bygges på nytt fra data, ikke klones: et klonet kort ville vært en
+        // død knapp uten lytteren som åpner jobben.
+        clone = buildJobCard(item.jobb);
+        clone.addEventListener('click', function () { activate('jobber', true); });
+        chip.addEventListener('click', function () { openJob(item.jobb.id); });
+        highlight(clone, q);
+        wrap.appendChild(clone);
+        resultsList.appendChild(wrap);
+        return;
+      }
       if (item.el.tagName === 'LI') {
         // Nummereringen forsvinner utenfor <ol class="steps">, så vis
         // stegene som vanlige kort i stedet.
