@@ -416,6 +416,15 @@
     background: var(--card); overflow: hidden; aspect-ratio: 1 / 1;
   }
   .bilde-rute img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bilde-rute-boks { position: relative; }
+  .bilde-slett {
+    position: absolute; top: 3px; right: 3px;
+    appearance: none; border: none; cursor: pointer; line-height: 1;
+    width: 1.9rem; height: 1.9rem; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff; font-size: 0.85rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bilde-slett:hover { background: var(--bad); }
   .bilde-viser {
     position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.92);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem;
@@ -3046,6 +3055,9 @@
       gruppe.appendChild(el('div', 'bilde-gruppe-tittel', kat.label + ' · ' + iKat.length));
       var rutenett = el('div', 'bilde-rutenett');
       iKat.forEach(function (meta) {
+        // Miniatyren er en knapp, og en knapp kan ikke ligge inni en annen —
+        // derfor en boks rundt, med slett-knappen som egen knapp oppå.
+        var boks = el('div', 'bilde-rute-boks');
         var knapp = el('button', 'bilde-rute');
         knapp.type = 'button';
         var img = document.createElement('img');
@@ -3053,18 +3065,47 @@
         img.loading = 'lazy';
         knapp.appendChild(img);
         knapp.addEventListener('click', function () { visBilde(meta); });
-        rutenett.appendChild(knapp);
+        boks.appendChild(knapp);
+
+        var slett = el('button', 'bilde-slett', '✕');
+        slett.type = 'button';
+        slett.title = 'Slett bildet';
+        slett.setAttribute('aria-label', 'Slett bilde: ' + kat.label + ', ' + formatNoteDate(meta.tatt));
+        slett.addEventListener('click', function (e) {
+          e.stopPropagation(); // ellers åpner miniatyren seg samtidig
+          slettBilde(meta.id);
+        });
+        boks.appendChild(slett);
+        rutenett.appendChild(boks);
 
         hentBildeBlob(meta.id).then(function (blob) {
-          if (!blob) { knapp.remove(); return; }
+          if (!blob) { boks.remove(); return; }
           var url = URL.createObjectURL(blob);
           bildeUrler.push(url);
           img.src = url;
-        }).catch(function () { knapp.remove(); });
+        }).catch(function () { boks.remove(); });
       });
       gruppe.appendChild(rutenett);
       galleri.appendChild(gruppe);
     });
+  }
+
+  // Ett sted for sletting, brukt både fra miniatyren og fra bildevisningen.
+  // Metadataen fjernes fra jobben først, så selve fila i IndexedDB — blir
+  // det siste liggende igjen, er det bortkastet plass, ikke et ødelagt kort.
+  function slettBilde(bildeId) {
+    if (!currentJobId) return;
+    if (!window.confirm('Slette dette bildet for godt?')) return;
+    var jobId = currentJobId;
+    updateJob(jobId, function (j) {
+      j.bilder = j.bilder.filter(function (b) { return b.id !== bildeId; });
+      return j;
+    });
+    if (visesBilde && visesBilde.id === bildeId) lukkBildeViser();
+    slettBildeBlob(bildeId).catch(function () {});
+    renderBilder(getJob(jobId));
+    renderJobList();
+    jobToast('Bildet er slettet.');
   }
 
   var visesBilde = null;
@@ -3117,18 +3158,8 @@
     });
 
     document.getElementById('bilde-viser-slett').addEventListener('click', function () {
-      if (!visesBilde || !currentJobId) return;
-      if (!window.confirm('Slette dette bildet for godt?')) return;
-      var id = visesBilde.id;
-      var jobId = currentJobId;
-      updateJob(jobId, function (j) {
-        j.bilder = j.bilder.filter(function (b) { return b.id !== id; });
-        return j;
-      });
-      lukkBildeViser();
-      slettBildeBlob(id).catch(function () {});
-      renderBilder(getJob(jobId));
-      renderJobList();
+      if (!visesBilde) return;
+      slettBilde(visesBilde.id);
     });
   }
 
