@@ -401,11 +401,21 @@
   }
   .job-picker-item:hover { border-color: var(--accent); }
   .job-picker-item small { display: block; color: var(--ink-soft); font-size: 0.76rem; margin-top: 0.1rem; }
-  .job-picker-newrow { display: flex; gap: 0.5rem; margin-top: 0.7rem; }
-  .job-picker-newrow input {
+  .job-picker-newrow, .pakke-addrow { display: flex; gap: 0.5rem; }
+  .job-picker-newrow { margin-top: 0.7rem; }
+  .pakke-addrow { margin-bottom: 0.6rem; }
+  .job-picker-newrow input, .pakke-addrow input {
     flex: 1 1 auto; min-width: 0; font: inherit; font-size: 0.9rem; padding: 0.55rem 0.7rem;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
   }
+
+  .checklist-item.pakke label { flex: 1 1 auto; min-width: 0; }
+  .checklist-item.pakke.checked label { color: var(--ink-soft); text-decoration: line-through; }
+  .checklist-del {
+    appearance: none; border: none; background: none; cursor: pointer; color: var(--ink-soft);
+    font-size: 1.05rem; padding: 0.3rem 0.5rem; min-height: 2.2rem; flex: none; line-height: 1;
+  }
+  .checklist-del:hover { color: var(--bad); }
 
   .job-toast {
     position: fixed; left: 50%; bottom: calc(var(--bbh) + 0.8rem); transform: translateX(-50%);
@@ -830,6 +840,14 @@
 
       <h3 class="group-heading">Sjekkliste</h3>
       <div class="card" id="jd-sjekkliste"></div>
+
+      <h3 class="group-heading">Ta med neste gang</h3>
+      <div class="pakke-addrow">
+        <input type="text" id="jd-pakke-input" autocomplete="off" maxlength="120" placeholder="F.eks. «ekstra sekk sparkel»">
+        <button type="button" id="jd-pakke-add" class="btn-ghost">+ Legg til</button>
+      </div>
+      <p id="jd-pakke-empty" class="fav-hint">Ingenting lagt til ennå.</p>
+      <div id="jd-pakke-list"></div>
 
       <h3 class="group-heading">Beregninger</h3>
       <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå. Trykk «💾 Lagre til jobb» under resultatet i en kalkulator.</p>
@@ -2131,6 +2149,9 @@
   function newCalcEntryId() {
     return 'b-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
   }
+  function newPakkeId() {
+    return 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  }
 
   // Normaliseres på vei inn — localStorage er en ekstern grense (kan være
   // redigert, gjenopprettet fra en eldre versjon, eller korrupt), så alt
@@ -2149,6 +2170,7 @@
       },
       rom: j.rom ? String(j.rom) : '',
       sjekkliste: (j.sjekkliste && typeof j.sjekkliste === 'object') ? j.sjekkliste : {},
+      utstyr: Array.isArray(j.utstyr) ? j.utstyr.filter(function (u) { return u && u.id && typeof u.tekst === 'string' && u.tekst; }) : [],
       beregninger: Array.isArray(j.beregninger) ? j.beregninger : [],
       notat: j.notat ? String(j.notat) : '',
       forbehold: j.forbehold ? String(j.forbehold) : ''
@@ -2440,6 +2462,74 @@
     });
   }
 
+  /* «Ta med neste gang» — fri, redigerbar liste per jobb, i motsetning til
+     sjekklista over som er fast per fag. Egen id-serie (p-), egen liste på
+     jobben (utstyr), samme rad-stil (.checklist-item) gjenbrukt med en
+     avkrysning + slett-knapp lagt til. */
+  function buildPakkeRow(item) {
+    var row = el('div', 'checklist-item pakke' + (item.checked ? ' checked' : ''));
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'jd-pakke-chk-' + item.id;
+    cb.checked = !!item.checked;
+    cb.addEventListener('change', function () {
+      var jobIdVedTrykk = currentJobId;
+      updateJob(jobIdVedTrykk, function (j) {
+        j.utstyr = j.utstyr.map(function (u) { if (u.id !== item.id) return u; u.checked = cb.checked; return u; });
+        return j;
+      });
+      row.classList.toggle('checked', cb.checked);
+    });
+    var label = document.createElement('label');
+    label.setAttribute('for', cb.id);
+    label.textContent = item.tekst;
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'checklist-del';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', 'Fjern «' + item.tekst + '»');
+    del.addEventListener('click', function () {
+      updateJob(currentJobId, function (j) {
+        j.utstyr = j.utstyr.filter(function (u) { return u.id !== item.id; });
+        return j;
+      });
+      renderPakkeliste(getJob(currentJobId));
+    });
+    row.appendChild(cb);
+    row.appendChild(label);
+    row.appendChild(del);
+    return row;
+  }
+
+  function renderPakkeliste(job) {
+    var list = document.getElementById('jd-pakke-list');
+    var empty = document.getElementById('jd-pakke-empty');
+    list.textContent = '';
+    job.utstyr.slice().sort(function (a, b) { return (a.created || 0) - (b.created || 0); })
+      .forEach(function (item) { list.appendChild(buildPakkeRow(item)); });
+    empty.hidden = job.utstyr.length > 0;
+  }
+
+  function leggTilPakkeItem() {
+    var input = document.getElementById('jd-pakke-input');
+    var tekst = input.value.trim();
+    if (!tekst || !currentJobId) return;
+    var item = { id: newPakkeId(), tekst: tekst, checked: false, created: Date.now() };
+    updateJob(currentJobId, function (j) { j.utstyr = j.utstyr.concat([item]); return j; });
+    input.value = '';
+    renderPakkeliste(getJob(currentJobId));
+    input.focus();
+  }
+
+  function initPakkeliste() {
+    document.getElementById('jd-pakke-add').addEventListener('click', leggTilPakkeItem);
+    document.getElementById('jd-pakke-input').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      leggTilPakkeItem();
+    });
+  }
+
   function buildBeregningRow(entry) {
     var row = el('div', 'job-calc-row');
     var head = el('div', 'job-calc-head');
@@ -2519,10 +2609,12 @@
     document.getElementById('jd-status').value = job.status;
     document.getElementById('jd-notat').value = job.notat;
     document.getElementById('jd-forbehold').value = job.forbehold;
+    document.getElementById('jd-pakke-input').value = '';
 
     updateJobLinksLive('adresse', job.kunde.adresse);
     updateJobLinksLive('tlf', job.kunde.tlf);
     renderChecklist(job);
+    renderPakkeliste(job);
     renderBeregninger(job);
   }
 
@@ -2579,6 +2671,14 @@
     sjekklisteForFag(job.fag).forEach(function (item) {
       linjer.push((job.sjekkliste[item.id] ? '✓ ' : '✗ ') + item.label);
     });
+
+    if (job.utstyr.length) {
+      linjer.push('');
+      linjer.push('Ta med neste gang:');
+      job.utstyr.slice().sort(function (a, b) { return (a.created || 0) - (b.created || 0); }).forEach(function (u) {
+        linjer.push((u.checked ? '✓ ' : '☐ ') + u.tekst);
+      });
+    }
 
     if (job.beregninger.length) {
       linjer.push('');
@@ -2682,6 +2782,7 @@
     initJobFieldAutosave();
     initJobDetailActions();
     initJobPicker();
+    initPakkeliste();
     addJobSaveButtons();
     renderJobList();
   }
