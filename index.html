@@ -2323,7 +2323,7 @@
     sparkling: [
       { id: 'hel', label: 'Helsparkling' },
       { id: 'skjot', label: 'Skjøtsparkling / taping' },
-      { id: 'reparasjon', label: 'Reparasjon', praksis: true },
+      { id: 'reparasjon', label: 'Reparasjon alene', praksis: true },
       { id: 'strimling', label: 'Strimling', praksis: true }
     ],
     fasade: [
@@ -2501,8 +2501,9 @@
         ]},
         { fase: 'Utførelse', items: [
           { id: 'rens', label: 'Løs masse og gammel maling skrapet bort, støvfritt' },
+          { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' },
           { id: 'armering', label: 'Sprekk armert med strimmel eller duk der det er bevegelse' },
-          { id: 'fyll', label: 'Fylt i flere tynne omganger, ikke ett tykt lag' },
+          { id: 'fyll', label: 'Resten fylt i flere tynne omganger, ikke ett tykt lag' },
           { id: 'fintstrok', label: 'Fintstrøk trukket ut i flaten rundt' }
         ]},
         { fase: 'Kontroll', items: [
@@ -2519,7 +2520,15 @@
           { id: 'underlag', label: 'Underlag fast og rent — løs maling og tapet fjernet' },
           { id: 'arsak', label: 'Årsak til sprekkene vurdert' }
         ]},
-        { fase: 'Utførelse', items: [
+        // Reparasjonen er ikke et alternativ til strimling, den kommer alltid
+        // først: strimmelen legges på en flate som allerede er tettet og plan.
+        { fase: 'Reparasjon først', items: [
+          { id: 'rens', label: 'Løs masse skrapet bort, støvfritt' },
+          { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' },
+          { id: 'rep-torket', label: 'Reparasjonen tørket før strimling' },
+          { id: 'rep-slipt', label: 'Slipt plant med flaten rundt' }
+        ]},
+        { fase: 'Strimling', items: [
           { id: 'lim', label: 'Lim eller klister påført jevnt' },
           { id: 'strimmel', label: 'Strimmel lagt uten folder og luftbobler' },
           { id: 'skjot', label: 'Skjøter i strimmelen stusset eller overlappet etter anvisning' },
