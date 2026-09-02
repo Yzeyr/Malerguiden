@@ -340,6 +340,22 @@
   .job-status-pauset { background: var(--warn-bg); color: var(--warn-line); }
   .job-status-ferdig { background: var(--accent-soft); color: var(--accent); }
 
+  .jobb-kontekst {
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 1.1rem;
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; justify-content: space-between;
+  }
+  .jobb-kontekst[hidden] { display: none; }
+  .jobb-kontekst-merke {
+    display: block; font-size: 0.68rem; font-weight: 800;
+    letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent);
+  }
+  .jobb-kontekst-tekst strong { font-size: 0.95rem; }
+  .jobb-kontekst-knapper { display: flex; gap: 0.4rem; }
+  .jobb-kontekst-knapper .btn-ghost {
+    padding: 0.45rem 0.8rem; min-height: 2.4rem; font-size: 0.8rem; background: var(--card);
+  }
+
   /* Neste steg — det ene man skal gjøre nå, med en trykkflate som treffes
      med tommelen mens den andre hånden holder noe. */
   .neste-steg {
@@ -1045,8 +1061,9 @@
 
       <div class="delseksjon">
         <div class="delseksjon-tittel">📐 Beregninger</div>
-        <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå. Trykk «💾 Lagre til jobb» under resultatet i en kalkulator.</p>
+        <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå.</p>
         <div id="jd-beregninger-list"></div>
+        <button type="button" id="jd-ny-beregning" class="note-add-btn">🧮 Regn for denne jobben</button>
       </div>
 
       <div class="delseksjon">
@@ -1086,6 +1103,17 @@
   <section id="kalkulator">
     <h2>🧮 Kalkulator</h2>
     <p class="section-intro">Regnestykkene du faktisk gjør på jobb. Alle tall er estimater — kontroller mot produktets datablad før du bestiller.</p>
+
+    <div class="jobb-kontekst" id="calc-jobb-kontekst" hidden>
+      <div class="jobb-kontekst-tekst">
+        <span class="jobb-kontekst-merke">Regner for</span>
+        <strong id="calc-jobb-navn"></strong>
+      </div>
+      <div class="jobb-kontekst-knapper">
+        <button type="button" class="btn-ghost" id="calc-jobb-tilbake">← Til jobben</button>
+        <button type="button" class="btn-ghost" id="calc-jobb-avbryt">Avbryt</button>
+      </div>
+    </div>
 
     <div class="mini-tabs" role="tablist" aria-label="Kalkulatorgruppe">
       <button type="button" class="mini-tab-btn" data-calcgroup="avretting">🧱 Avretting</button>
@@ -2901,11 +2929,81 @@
       enhet: cfg.enhet, faktiskMengde: null
     };
     var ok = updateJob(jobId, function (j) { j.beregninger = j.beregninger.concat([entry]); return j; });
-    if (ok) jobToast('Lagret til jobb.');
+    if (ok) {
+      var maal = getJob(jobId);
+      jobToast('Lagret til ' + (maal ? jobbKortNavn(maal) : 'jobb') + '.');
+      // Står man i jobben, skal den nye beregningen synes med én gang.
+      if (currentJobId === jobId) renderBeregninger(maal);
+      renderJobList();
+    }
     return ok;
   }
 
+  /* Jobbkontekst — når man går til kalkulatoren FRA en jobb, skal jobben
+     følge med. Da slipper man å finne den igjen i en liste man nettopp
+     kom fra. Holdes bare i minnet: en kontekst som overlevde en omstart
+     ville vært en overraskelse neste gang appen åpnes. */
+  var aktivJobbId = null;
+
+  function jobbKortNavn(job) {
+    var navn = job.kunde.navn || 'Uten navn';
+    return navn + (job.rom ? ' – ' + job.rom : '');
+  }
+
+  function settJobbKontekst(jobId) {
+    aktivJobbId = jobId;
+    oppdaterJobbKontekst();
+  }
+  function fjernJobbKontekst() {
+    aktivJobbId = null;
+    oppdaterJobbKontekst();
+  }
+
+  // Banneret i kalkulatoren og teksten på lagre-knappene skal alltid si det
+  // samme om hvor beregningen havner.
+  function oppdaterJobbKontekst() {
+    var boks = document.getElementById('calc-jobb-kontekst');
+    if (!boks) return;
+    var job = aktivJobbId ? getJob(aktivJobbId) : null;
+    if (!job) aktivJobbId = null; // jobben kan ha blitt slettet i mellomtiden
+
+    boks.hidden = !job;
+    if (job) setText('calc-jobb-navn', jobbKortNavn(job));
+
+    var kort = job ? jobbKortNavn(job) : '';
+    if (kort.length > 22) kort = kort.slice(0, 21) + '…';
+    document.querySelectorAll('.job-save-btn').forEach(function (btn) {
+      btn.textContent = job ? '💾 Lagre til ' + kort : '💾 Lagre til jobb';
+    });
+  }
+
+  function initJobbKontekst() {
+    document.getElementById('calc-jobb-avbryt').addEventListener('click', fjernJobbKontekst);
+    document.getElementById('calc-jobb-tilbake').addEventListener('click', function () {
+      var id = aktivJobbId;
+      if (!id) return;
+      activate('jobber', true);
+      openJob(id);
+    });
+
+    document.getElementById('jd-ny-beregning').addEventListener('click', function () {
+      if (!currentJobId) return;
+      var job = getJob(currentJobId);
+      if (!job) return;
+      settJobbKontekst(job.id);
+      // Åpner den kalkulatorgruppa som hører til arbeidet man står i.
+      var fag = job.deler[0].fag;
+      activate('kalkulator', true);
+      showCalcGroup(fag === 'bad' ? 'avretting' : 'maling');
+    });
+  }
+
   function openJobPicker(calcId) {
+    // Kom man hit fra en jobb, er spørsmålet allerede besvart.
+    if (aktivJobbId && getJob(aktivJobbId)) {
+      attachBeregning(aktivJobbId, calcId);
+      return;
+    }
     pendingCalcId = calcId;
     var cfg = JOB_CALC_CONFIG[calcId];
     document.getElementById('job-picker-sub').textContent = cfg ? cfg.navn : '';
@@ -2968,6 +3066,7 @@
       });
       out.appendChild(btn);
     });
+    oppdaterJobbKontekst();
   }
 
   // Motsatt vei: en lagret beregning fylles tilbake i kalkulatoren og
@@ -3906,6 +4005,7 @@
       // Bildene ligger i sin egen base — uten dette blir de liggende igjen
       // og oppta plass uten at noe peker på dem.
       job.bilder.forEach(function (b) { slettBildeBlob(b.id).catch(function () {}); });
+      if (aktivJobbId === job.id) fjernJobbKontekst();
       closeJobDetail();
     });
 
@@ -4042,6 +4142,7 @@
     initJobPicker();
     initPakkeliste();
     initLeggTilArbeid();
+    initJobbKontekst();
     initBilder();
     addJobSaveButtons();
     renderJobList();
