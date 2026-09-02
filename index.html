@@ -392,6 +392,7 @@
   .del-hode { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
   .del-tittel { font-weight: 800; font-size: 0.95rem; }
   .del-teller { white-space: nowrap; }
+  .del-knapper { display: flex; gap: 0.9rem; }
   .del-fjern {
     appearance: none; border: none; background: none; cursor: pointer;
     font: inherit; font-size: 0.74rem; font-weight: 700; color: var(--ink-soft);
@@ -1872,8 +1873,8 @@
 </dialog>
 
 <dialog id="arbeid-dialog" class="job-picker">
-  <h3>Legg til arbeid</h3>
-  <p class="job-picker-sub">Jobben beholder kunde, adresse, bilder og notater. Det nye arbeidet får sin egen sjekkliste.</p>
+  <h3 id="arbeid-tittel">Legg til arbeid</h3>
+  <p class="job-picker-sub" id="arbeid-sub">Jobben beholder kunde, adresse, bilder og notater. Det nye arbeidet får sin egen sjekkliste.</p>
   <div class="field">
     <label for="arbeid-fag">Fag</label>
     <select id="arbeid-fag">
@@ -2550,9 +2551,9 @@
           { id: 'underlag', label: 'Underlag kontrollert' }
         ]},
         { fase: 'Utførelse', items: [
-          { id: 'taping', label: 'Skjøter og hjørner tapet' },
-          { id: 'fyllstrok', label: 'Fyllstrøk (normalt to)' },
-          { id: 'fintstrok', label: 'Fintstrøk — hele flaten ved K3' }
+          { id: 'taping', label: 'Strimling i skjøter og hjørner — skruehull i samme omgang' },
+          { id: 'fyllstrok', label: 'Fyllstrøk — skruehull i samme omgang. Ett strøk ved K2' },
+          { id: 'fintstrok', label: 'Finstrøk — skruehull i samme omgang. Hele flaten ved K3' }
         ]},
         { fase: 'Kontroll', items: [
           { id: 'torketid', label: 'Tørket fullt før sliping' },
@@ -2562,20 +2563,22 @@
           { id: 'bilder', label: 'Bilder tatt' }
         ]}
       ],
+      // K2 er tre strøk: strimling, ett fyllstrøk, ett finstrøk. Skruehullene
+      // tas i samme omgang som hvert strøk — ikke som en egen runde til slutt,
+      // for da får de færre strøk enn skjøtene og kommer fram i sidelys.
+      // (Id-en «taping» er beholdt fra før så gamle avhukinger står igjen.)
       skjot: [
         { fase: 'Før oppstart', items: [
           { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
           { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' }
         ]},
-        { fase: 'Utførelse', items: [
-          { id: 'taping', label: 'Alle skjøter og hjørner tapet' },
-          { id: 'fyllstrok', label: 'Fyllstrøk over tape — to omganger' },
-          { id: 'skruehoder', label: 'Skruehull sparklet' },
-          { id: 'fintstrok', label: 'Fintstrøk med bred sparkel' }
+        { fase: 'Utførelse — tre strøk ved K2', items: [
+          { id: 'taping', label: '1. Strimling i alle skjøter og hjørner — skruehull i samme omgang' },
+          { id: 'fyllstrok', label: '2. Fyllstrøk over skjøtene — skruehull i samme omgang' },
+          { id: 'fintstrok', label: '3. Finstrøk med bred sparkel — skruehull i samme omgang' }
         ]},
         { fase: 'Kontroll', items: [
-          { id: 'antall-strok', label: 'Minst tre strøk totalt, taping medregnet' },
-          { id: 'torketid', label: 'Tørket fullt før sliping' },
+          { id: 'torketid', label: 'Tørket fullt mellom hvert strøk' },
           { id: 'sliping', label: 'Slipt jevnt med resten av veggen' },
           { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
           { id: 'grunning', label: 'Sparklede flater grunnet før maling' },
@@ -3259,6 +3262,12 @@
     hode.appendChild(el('span', 'checklist-progress del-teller', f.gjort + '/' + f.av));
     blokk.appendChild(hode);
 
+    var knapper = el('div', 'del-knapper');
+    var endre = el('button', 'del-fjern', '✎ Endre arbeidet');
+    endre.type = 'button';
+    endre.addEventListener('click', function () { apneArbeidDialog(del); });
+    knapper.appendChild(endre);
+
     // Bare når det er noe å velge mellom — én arbeidsdel skal ikke ha en
     // fjern-knapp som etterlater jobben uten innhold.
     if (job.deler.length > 1) {
@@ -3274,8 +3283,9 @@
         renderChecklist(oppdatert);
         renderJobHode(oppdatert);
       });
-      blokk.appendChild(fjern);
+      knapper.appendChild(fjern);
     }
+    blokk.appendChild(knapper);
 
     // Reparasjon og strimling er skrevet fra alminnelig praksis, ikke hentet
     // fra fagfanene eller en norm. Det skal stå på lista, ikke bare i hodet
@@ -3905,15 +3915,30 @@
 
   // «Legg til arbeid» — en jobb som begynte som avretting og vokser til
   // belegg og sparkling er fortsatt én jobb på én adresse.
+  // Null når dialogen legger til et nytt arbeid, ellers id-en på det som endres.
+  var arbeidRedigerer = null;
+
+  function apneArbeidDialog(del) {
+    if (!currentJobId) return;
+    var dialog = document.getElementById('arbeid-dialog');
+    var fagSel = document.getElementById('arbeid-fag');
+    arbeidRedigerer = del ? del.id : null;
+    setText('arbeid-tittel', del ? 'Endre arbeidet' : 'Legg til arbeid');
+    setText('arbeid-sub', del
+      ? 'Avhukinger på punkter som finnes i begge listene blir stående.'
+      : 'Jobben beholder kunde, adresse, bilder og notater. Det nye arbeidet får sin egen sjekkliste.');
+    document.getElementById('arbeid-ok').textContent = del ? 'Lagre' : 'Legg til';
+    fagSel.value = del ? del.fag : 'annet';
+    fyllJobbtypeMeny('arbeid-type', 'arbeid-type-felt', fagSel.value, del ? del.jobbtype : '');
+    dialog.showModal();
+  }
+
   function initLeggTilArbeid() {
     var dialog = document.getElementById('arbeid-dialog');
     var fagSel = document.getElementById('arbeid-fag');
 
     document.getElementById('jd-legg-til-arbeid').addEventListener('click', function () {
-      if (!currentJobId) return;
-      fagSel.value = 'annet';
-      fyllJobbtypeMeny('arbeid-type', 'arbeid-type-felt', 'annet', '');
-      dialog.showModal();
+      apneArbeidDialog(null);
     });
     fagSel.addEventListener('change', function () {
       fyllJobbtypeMeny('arbeid-type', 'arbeid-type-felt', fagSel.value, '');
@@ -3923,18 +3948,31 @@
 
     document.getElementById('arbeid-ok').addEventListener('click', function () {
       if (!currentJobId) { dialog.close(); return; }
-      var ny = normaliserDel({
-        fag: fagSel.value,
-        jobbtype: document.getElementById('arbeid-type').value,
-        sjekkliste: {}, lagtTil: Date.now()
+      var fag = fagSel.value;
+      var type = document.getElementById('arbeid-type').value;
+      var redigerer = arbeidRedigerer;
+
+      updateJob(currentJobId, function (j) {
+        if (redigerer) {
+          // Sjekklista beholdes: punkter som heter det samme i den nye lista
+          // står fortsatt avhuket, resten blir liggende ubrukt.
+          j.deler = j.deler.map(function (d) {
+            if (d.id !== redigerer) return d;
+            return normaliserDel({ id: d.id, fag: fag, jobbtype: type, sjekkliste: d.sjekkliste, lagtTil: d.lagtTil });
+          });
+        } else {
+          j.deler = j.deler.concat([normaliserDel({ fag: fag, jobbtype: type, sjekkliste: {}, lagtTil: Date.now() })]);
+        }
+        return j;
       });
-      updateJob(currentJobId, function (j) { j.deler = j.deler.concat([ny]); return j; });
+
       dialog.close();
       var job = getJob(currentJobId);
       renderChecklist(job);
       renderJobHode(job);
       renderJobList();
-      jobToast('Arbeidet er lagt til.');
+      jobToast(redigerer ? 'Arbeidet er endret.' : 'Arbeidet er lagt til.');
+      arbeidRedigerer = null;
     });
   }
 
