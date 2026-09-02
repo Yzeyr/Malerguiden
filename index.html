@@ -358,6 +358,19 @@
 
   /* Neste steg — det ene man skal gjøre nå, med en trykkflate som treffes
      med tommelen mens den andre hånden holder noe. */
+  .forbehold-knapper { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .forbehold-knapp {
+    appearance: none; cursor: pointer; font: inherit; text-align: left;
+    font-size: 0.82rem; font-weight: 600;
+    background: var(--card); color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 0.5rem 0.85rem; min-height: 2.6rem;
+  }
+  .forbehold-knapp.valgt {
+    background: var(--warn-bg); border-color: var(--warn-line);
+    color: var(--ink); font-weight: 700;
+  }
+
   .neste-steg {
     background: var(--accent); color: #fff;
     border-radius: 12px; padding: 1rem 1.1rem 1.1rem; margin-bottom: 1rem;
@@ -432,7 +445,9 @@
   .job-hode-framdrift { font-size: 0.85rem; font-weight: 700; color: var(--ink-soft); margin-top: 0.7rem; }
   .job-hode .job-progress-bar { height: 10px; margin-top: 0.3rem; }
   .job-hode .job-link-row { margin-bottom: 0; }
-  .job-hode .job-link-row:empty { display: none; }
+  /* :empty biter ikke når lenkene ligger der som hidden — skjul raden med
+     en klasse i stedet, ellers står marginen igjen som et hull i hodet. */
+  .job-link-row.tom { display: none; }
 
   h3.group-heading.niva {
     border-bottom: none; padding-bottom: 0; margin: 1.9rem 0 0.6rem;
@@ -517,6 +532,9 @@
 
   .job-customer-card .field:last-child { margin-bottom: 0; }
   .job-link-row { display: flex; gap: 0.6rem; margin: 0.6rem 0; flex-wrap: wrap; }
+  /* display: flex under slår [hidden] fra nettleserens stilark — uten denne
+     linja vises Kart og Ring selv når adresse og telefon er tomme. */
+  .job-link-btn[hidden] { display: none; }
   .job-link-btn {
     flex: 1 1 auto; text-align: center; text-decoration: none;
     background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 0.85rem;
@@ -644,6 +662,18 @@
   .field { margin-bottom: 0.75rem; }
   .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
   .field .hint { display: block; font-weight: 400; font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.1rem; }
+  /* textarea sto uten regel og fikk nettleserens standard: hvit bakgrunn og
+     ~20 tegns bredde. I mørk modus ble det svart tekst på hvitt midt i en
+     mørk app. Notat og Forbehold er textarea. */
+  .field textarea {
+    width: 100%; font: inherit; font-size: 1rem; resize: vertical;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink);
+  }
+  .field textarea:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
   .field input, .field select, .field-helper input, .field-helper select {
     width: 100%; font: inherit; font-size: 1rem;
     padding: 0.55rem 0.7rem; min-height: 2.75rem;
@@ -751,6 +781,10 @@
     background: var(--accent); color: #fff;
     padding: 0.75rem 1rem; font-size: 0.9rem; font-weight: 600;
     box-shadow: 0 -2px 12px rgba(0,0,0,0.18);
+  }
+  #update-banner .update-lukk {
+    background: none; border: none; color: inherit; opacity: 0.75;
+    font-size: 1rem; padding: 0.4rem 0.5rem; min-width: 2.2rem; cursor: pointer;
   }
   #update-banner button {
     font: inherit; font-weight: 700; cursor: pointer;
@@ -893,23 +927,42 @@
     <div id="notes-list"></div>
 
     <h3 class="group-heading">Sikkerhetskopi</h3>
+
+    <div class="callout legal" id="backup-varsel" hidden>
+      <strong id="backup-varsel-tittel"></strong>
+      <span id="backup-varsel-tekst"></span>
+    </div>
+
     <div class="card">
-      <p style="margin-top:0;">Notatene ligger bare i denne nettleseren. Tømmer du nettleserdata, eller bytter telefon, er de borte. Ta en kopi innimellom.</p>
-      <div class="note-form-actions" style="margin-top:0.8rem;">
-        <button type="button" class="btn-primary" id="backup-copy">Kopier alle notater</button>
+      <p style="margin-top:0;">Alt du legger inn — jobber, bilder, notater og favoritter — ligger bare i denne nettleseren. <strong>Safari sletter lagrede data etter sju dager uten besøk</strong> hvis siden ikke er lagt til på hjemskjermen. Da er jobbene borte uten forvarsel. Ta en kopi til fil innimellom, og legg appen på hjemskjermen.</p>
+      <div class="field field-checkbox" style="margin-top:0.8rem;">
+        <label><input type="checkbox" id="backup-med-bilder" checked> Ta med bilder (større fil)</label>
+      </div>
+      <div class="note-form-actions">
+        <button type="button" class="btn-primary" id="backup-fil">💾 Lagre kopi til fil</button>
         <button type="button" class="btn-ghost" id="backup-import-toggle">Gjenopprett …</button>
       </div>
       <p class="out-note" id="backup-status" hidden></p>
+      <p class="out-note" id="backup-sist"></p>
+
       <div id="backup-import" hidden style="margin-top:0.9rem;">
         <div class="field">
-          <label for="backup-paste">Lim inn sikkerhetskopien her
-            <span class="hint">Teksten du kopierte tidligere. Legges til de notatene du alt har.</span>
+          <label for="backup-fil-input">Velg sikkerhetskopien
+            <span class="hint">Filen du lagret tidligere. Legges til det du alt har — ingenting overskrives.</span>
           </label>
-          <textarea id="backup-paste" rows="4" placeholder='[{"title":"…"}]'></textarea>
+          <input type="file" id="backup-fil-input" accept="application/json,.json">
         </div>
+        <details class="fact-src" style="margin-top:0.6rem;">
+          <summary>Eller lim inn tekst</summary>
+          <div class="field" style="margin-top:0.5rem;">
+            <textarea id="backup-paste" rows="4" placeholder='{"malerguiden":1,…}'></textarea>
+          </div>
+          <div class="note-form-actions">
+            <button type="button" class="btn-primary" id="backup-do-import">Legg inn</button>
+          </div>
+        </details>
         <div class="note-form-actions">
-          <button type="button" class="btn-primary" id="backup-do-import">Legg inn</button>
-          <button type="button" class="btn-ghost" id="backup-cancel">Avbryt</button>
+          <button type="button" class="btn-ghost" id="backup-cancel">Lukk</button>
         </div>
       </div>
     </div>
@@ -1043,6 +1096,18 @@
         <div id="jd-bilder-galleri"></div>
       </div>
 
+      <div class="delseksjon" id="jd-klasse-seksjon" hidden>
+        <div class="delseksjon-tittel">📐 Avtalt sparklingsklasse</div>
+        <div class="field" style="margin-bottom:0.3rem;">
+          <select id="jd-klasse">
+            <option value="">Ikke avtalt</option>
+            <option value="K2">K2 — helsparklet i ett strøk</option>
+            <option value="K3">K3 — ekstra finstrøk over hele flaten</option>
+          </select>
+        </div>
+        <p class="out-note" style="margin-top:0.3rem;">Klassen avgjør pris, og om en synlig bulk er reklamasjon eller innenfor avtalen. Står den som «ikke avtalt», er det verdt å avklare den skriftlig før oppstart.</p>
+      </div>
+
       <div class="delseksjon">
         <div class="delseksjon-tittel">📝 Notat</div>
         <div class="field">
@@ -1051,9 +1116,12 @@
       </div>
 
       <div class="delseksjon">
-        <div class="delseksjon-tittel">⚠️ Forbehold</div>
-        <div class="field">
-          <textarea id="jd-forbehold" rows="3" maxlength="800" placeholder="Ett per linje, f.eks. «Sluk ikke kontrollert innvendig»."></textarea>
+        <div class="delseksjon-tittel">⚠️ Forbehold <span class="checklist-progress" id="jd-forbehold-teller"></span></div>
+        <p class="out-note" style="margin-top:0;">Trykk på det som gjelder. Klokka 07:30 skriver man ikke setninger.</p>
+        <div class="forbehold-knapper" id="jd-forbehold-knapper"></div>
+        <div class="field" style="margin-top:0.6rem;">
+          <label for="jd-forbehold">Egne forbehold <span class="hint">Ett per linje</span></label>
+          <textarea id="jd-forbehold" rows="3" maxlength="800" placeholder="F.eks. «Kunden beholder eksisterende listverk»."></textarea>
         </div>
       </div>
 
@@ -2303,74 +2371,248 @@
       renderNotes();
     });
 
-    /* ---------- Sikkerhetskopi ---------- */
+    /* ---------- Sikkerhetskopi ---------- *
+     * Dekker ALT appen eier: jobber (med bilder), notater, favoritter og
+     * kalkulatorverdier. Ikke bare notatene, som før — jobbdata er det som
+     * faktisk gjør vondt å miste.
+     *
+     * Grunnen til at dette må finnes: Safari sletter script-skrevet lagring
+     * etter sju dager uten besøk med mindre siden er lagt til på
+     * hjemskjermen. Et lokalt lager uten en vei ut er et løfte appen ikke
+     * kan holde.
+     * ------------------------------------------------------------------ */
     var statusEl = document.getElementById('backup-status');
     function say(msg) {
       statusEl.textContent = msg;
       statusEl.hidden = false;
-      setTimeout(function () { statusEl.hidden = true; }, 4000);
+      setTimeout(function () { statusEl.hidden = true; }, 6000);
     }
 
-    document.getElementById('backup-copy').addEventListener('click', function () {
-      var notes = loadNotes();
-      if (!notes.length) { say('Ingen notater å kopiere ennå.'); return; }
-      var json = JSON.stringify(notes, null, 2);
-      var done = function () { say('Kopiert — lim inn i notater, e-post eller en melding til deg selv.'); };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(json).then(done, function () { fallbackCopy(json, done); });
-      } else {
-        fallbackCopy(json, done);
+    function blobTilDataUrl(blob) {
+      return new Promise(function (resolve) {
+        var r = new FileReader();
+        r.onload = function () { resolve(r.result); };
+        r.onerror = function () { resolve(null); };
+        r.readAsDataURL(blob);
+      });
+    }
+    function dataUrlTilBlob(url) {
+      return fetch(url).then(function (r) { return r.blob(); });
+    }
+
+    function byggSikkerhetskopi(medBilder) {
+      var kopi = {
+        malerguiden: 1,
+        laget: new Date().toISOString(),
+        jobber: loadJobs(),
+        notater: loadNotes(),
+        favoritter: loadFavorites(),
+        kalkulator: {},
+        bilder: {}
+      };
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf(CALC_STORAGE_PREFIX) === 0) kopi.kalkulator[k] = localStorage.getItem(k);
+        }
+      } catch (e) { /* privat modus */ }
+
+      if (!medBilder) return Promise.resolve(kopi);
+
+      // Bildene ligger i IndexedDB som blobs. En kopi uten dem ville sett
+      // komplett ut og likevel mangle det man har dokumentert jobben med.
+      var ider = [];
+      kopi.jobber.forEach(function (j) { j.bilder.forEach(function (b) { ider.push(b.id); }); });
+      return ider.reduce(function (kjede, id) {
+        return kjede.then(function () {
+          return hentBildeBlob(id).then(function (blob) {
+            if (!blob) return null;
+            return blobTilDataUrl(blob).then(function (url) { if (url) kopi.bilder[id] = url; });
+          }).catch(function () { return null; });
+        });
+      }, Promise.resolve()).then(function () { return kopi; });
+    }
+
+    var SIST_KOPI_KEY = 'malerguiden:sist-sikkerhetskopi';
+    function settSistKopiert() {
+      try { localStorage.setItem(SIST_KOPI_KEY, String(Date.now())); } catch (e) {}
+      visSistKopiert();
+    }
+    function visSistKopiert() {
+      var sist = null;
+      try { sist = Number(localStorage.getItem(SIST_KOPI_KEY)) || null; } catch (e) {}
+      var linje = document.getElementById('backup-sist');
+      var varsel = document.getElementById('backup-varsel');
+      var harData = loadJobs().length || loadNotes().length;
+
+      if (!harData) { linje.textContent = ''; varsel.hidden = true; return; }
+
+      var dager = sist ? Math.floor((Date.now() - sist) / 86400000) : null;
+      linje.textContent = sist
+        ? 'Sist sikkerhetskopiert: ' + (dager === 0 ? 'i dag' : dager === 1 ? 'i går' : 'for ' + dager + ' dager siden') + '.'
+        : 'Aldri sikkerhetskopiert.';
+
+      // Sju dager er ikke tilfeldig valgt — det er Safaris egen frist.
+      var forGammel = sist === null || dager >= 7;
+      varsel.hidden = !forGammel;
+      if (forGammel) {
+        setText('backup-varsel-tittel', sist === null
+          ? 'Du har jobbdata som aldri er sikkerhetskopiert'
+          : 'Sikkerhetskopien er ' + dager + ' dager gammel');
+        setText('backup-varsel-tekst',
+          'Safari sletter lagrede data etter sju dager uten besøk hvis appen ikke ligger på hjemskjermen. Lagre en kopi til fil nå.');
       }
+    }
+
+    document.getElementById('backup-fil').addEventListener('click', function () {
+      var medBilder = document.getElementById('backup-med-bilder').checked;
+      say(medBilder ? 'Samler data og bilder …' : 'Samler data …');
+      byggSikkerhetskopi(medBilder).then(function (kopi) {
+        var tekst = JSON.stringify(kopi);
+        var blob = new Blob([tekst], { type: 'application/json' });
+        var d = new Date();
+        var navn = 'malerguiden-' + d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0') + '.json';
+        var mb = (blob.size / 1048576).toFixed(1);
+
+        // På iPhone gir delearket «Lagre i Filer», som er det man faktisk
+        // vil. Der det ikke finnes, faller vi tilbake til nedlasting.
+        var fil = new File([blob], navn, { type: 'application/json' });
+        if (navigator.canShare && navigator.canShare({ files: [fil] })) {
+          navigator.share({ files: [fil], title: navn }).then(function () {
+            settSistKopiert();
+            say('Kopi delt (' + mb + ' MB).');
+          }, function () { /* avbrutt av bruker — ikke en feil */ });
+          return;
+        }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = navn;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        settSistKopiert();
+        say('Lagret som ' + navn + ' (' + mb + ' MB).');
+      }).catch(function (e) {
+        say('Klarte ikke lage kopien: ' + (e && e.message ? e.message : 'ukjent feil'));
+      });
     });
 
     var importBox = document.getElementById('backup-import');
     document.getElementById('backup-import-toggle').addEventListener('click', function () {
       importBox.hidden = !importBox.hidden;
-      if (!importBox.hidden) document.getElementById('backup-paste').focus();
     });
     document.getElementById('backup-cancel').addEventListener('click', function () {
       importBox.hidden = true;
       document.getElementById('backup-paste').value = '';
     });
 
+    document.getElementById('backup-fil-input').addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () { gjenopprett(String(r.result)); };
+      r.onerror = function () { say('Klarte ikke lese filen.'); };
+      r.readAsText(f);
+      e.target.value = '';
+    });
     document.getElementById('backup-do-import').addEventListener('click', function () {
       var raw = document.getElementById('backup-paste').value.trim();
       if (!raw) { say('Lim inn sikkerhetskopien først.'); return; }
-      var parsed;
-      try { parsed = JSON.parse(raw); }
-      catch (e) { say('Klarte ikke lese teksten — er hele kopien med?'); return; }
-      if (!Array.isArray(parsed)) { say('Teksten ser ikke ut som en sikkerhetskopi.'); return; }
+      gjenopprett(raw);
+    });
 
-      var existing = loadNotes();
-      var haveIds = {};
-      existing.forEach(function (n) { haveIds[n.id] = true; });
+    // Legger til, overskriver aldri. En gjenoppretting som slettet det man
+    // hadde fra før ville vært farligere enn å ikke ha en.
+    function gjenopprett(raw) {
+      var data;
+      try { data = JSON.parse(raw); }
+      catch (e) { say('Klarte ikke lese innholdet — er hele kopien med?'); return; }
 
-      var added = 0;
-      parsed.forEach(function (n) {
-        if (!n || typeof n.title !== 'string' || !n.title.trim()) return;
-        // Behold id-en der den finnes, så samme notat ikke dubleres hvis
-        // kopien legges inn to ganger.
-        var id = (typeof n.id === 'string' && n.id) ? n.id : newNoteId();
-        if (haveIds[id]) return;
-        haveIds[id] = true;
-        existing.push({
-          id: id,
-          title: String(n.title).slice(0, 80),
-          value: n.value ? String(n.value).slice(0, 40) : '',
-          text: n.text ? String(n.text).slice(0, 600) : '',
-          created: Number(n.created) || Date.now(),
-          updated: Number(n.updated) || Number(n.created) || Date.now()
+      // Den gamle kopien var bare en liste med notater.
+      if (Array.isArray(data)) data = { notater: data };
+      if (!data || typeof data !== 'object') { say('Dette ser ikke ut som en sikkerhetskopi.'); return; }
+
+      var lagtTil = [];
+
+      if (Array.isArray(data.notater)) {
+        var notater = loadNotes();
+        var harNotat = {};
+        notater.forEach(function (n) { harNotat[n.id] = true; });
+        var nyeNotater = 0;
+        data.notater.forEach(function (n) {
+          if (!n || typeof n.title !== 'string' || !n.title.trim()) return;
+          var id = (typeof n.id === 'string' && n.id) ? n.id : newNoteId();
+          if (harNotat[id]) return;
+          harNotat[id] = true;
+          notater.push({
+            id: id, title: String(n.title).slice(0, 80),
+            value: n.value ? String(n.value).slice(0, 40) : '',
+            text: n.text ? String(n.text).slice(0, 600) : '',
+            created: Number(n.created) || Date.now(),
+            updated: Number(n.updated) || Number(n.created) || Date.now()
+          });
+          nyeNotater++;
         });
-        added++;
+        if (nyeNotater) { saveNotes(notater); renderNotes(); lagtTil.push(nyeNotater + (nyeNotater === 1 ? ' notat' : ' notater')); }
+      }
+
+      if (Array.isArray(data.jobber)) {
+        var jobber = loadJobs();
+        var harJobb = {};
+        jobber.forEach(function (j) { harJobb[j.id] = true; });
+        var nyeJobber = 0;
+        data.jobber.forEach(function (j) {
+          if (!j || !j.id || harJobb[j.id]) return;
+          harJobb[j.id] = true;
+          jobber.push(migrerDeler(normalizeJob(j)));
+          nyeJobber++;
+        });
+        if (nyeJobber) { saveJobs(jobber); renderJobList(); lagtTil.push(nyeJobber + (nyeJobber === 1 ? ' jobb' : ' jobber')); }
+      }
+
+      if (Array.isArray(data.favoritter)) {
+        var favs = loadFavorites();
+        data.favoritter.forEach(function (id) { if (favs.indexOf(id) === -1) favs.push(id); });
+        saveFavorites(favs);
+        renderFavorites();
+      }
+
+      if (data.kalkulator && typeof data.kalkulator === 'object') {
+        Object.keys(data.kalkulator).forEach(function (k) {
+          if (k.indexOf(CALC_STORAGE_PREFIX) !== 0) return; // ikke skriv utenfor egen bøtte
+          try { localStorage.setItem(k, String(data.kalkulator[k])); } catch (e) {}
+        });
+      }
+
+      var bildeIder = data.bilder ? Object.keys(data.bilder) : [];
+      if (!bildeIder.length) {
+        ferdig();
+        return;
+      }
+      say('Legger inn ' + bildeIder.length + ' bilder …');
+      bildeIder.reduce(function (kjede, id) {
+        return kjede.then(function () {
+          return hentBildeBlob(id).then(function (fins) {
+            if (fins) return null; // finnes alt, ikke skriv over
+            return dataUrlTilBlob(data.bilder[id]).then(function (blob) { return lagreBildeBlob(id, blob); });
+          }).catch(function () { return null; });
+        });
+      }, Promise.resolve()).then(function () {
+        lagtTil.push(bildeIder.length + (bildeIder.length === 1 ? ' bilde' : ' bilder'));
+        ferdig();
       });
 
-      if (!added) { say('Ingen nye notater å legge inn — de fantes allerede.'); return; }
-      saveNotes(existing);
-      renderNotes();
-      importBox.hidden = true;
-      document.getElementById('backup-paste').value = '';
-      say('La inn ' + added + (added === 1 ? ' notat.' : ' notater.'));
-    });
+      function ferdig() {
+        importBox.hidden = true;
+        document.getElementById('backup-paste').value = '';
+        visSistKopiert();
+        say(lagtTil.length ? 'La inn ' + lagtTil.join(', ') + '.' : 'Ingenting nytt — alt fantes allerede.');
+      }
+    }
+
+    document.getElementById('backup-med-bilder').addEventListener('change', function () {});
+    visSistKopiert();
   }
 
   /* ------------------------------------------------------------------- *
@@ -2426,6 +2668,7 @@
   var SJEKKLISTE_BY_FAG = {
     maling: [
       { fase: 'Før oppstart', items: [
+        { id: 'bilde-for', label: '📸 Før-bilde tatt' },
         { id: 'underlag', label: 'Underlag kontrollert' },
         { id: 'produkttype', label: 'Produkttype valgt etter underlag og forhold' },
         { id: 'farge', label: 'Farge og glans avklart med kunde' },
@@ -2445,11 +2688,12 @@
       { fase: 'Kontroll', items: [
         { id: 'slepelys', label: 'Kontrollert med slepelys' },
         { id: 'tape', label: 'Tape og tildekking fjernet' },
-        { id: 'bilder', label: 'Bilder tatt' }
+        { id: 'bilder', label: '📸 Etter-bilder tatt' }
       ]}
     ],
     annet: [
       { fase: 'Før oppstart', items: [
+        { id: 'bilde-for', label: '📸 Før-bilde tatt' },
         { id: 'underlag', label: 'Underlag kontrollert' },
         { id: 'avtalt', label: 'Produkt, farge eller klasse avtalt skriftlig' }
       ]},
@@ -2459,7 +2703,7 @@
       ]},
       { fase: 'Kontroll', items: [
         { id: 'sluttkontroll', label: 'Sluttkontroll i godt lys' },
-        { id: 'bilder', label: 'Bilder tatt' }
+        { id: 'bilder', label: '📸 Etter-bilder tatt' }
       ]}
     ]
   };
@@ -2471,6 +2715,7 @@
     bad: {
       full: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'underlag', label: 'Underlag kontrollert (planhet, skader)' },
           { id: 'fall-mal', label: 'Fall målt opp, høyder satt ut' },
           { id: 'sluk', label: 'Sluk kontrollert — nivå og plassering' },
@@ -2494,11 +2739,12 @@
           { id: 'kontroll-fall', label: 'Fall kontrollert på ferdig gulv' },
           { id: 'kontroll-skjot', label: 'Skjøter kontrollert — 100 mm fra sluk, ikke i ytterhjørne' },
           { id: 'kontroll-oppbrett', label: 'Oppbrett og slukdetalj kontrollert' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ],
       avretting: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'underlag', label: 'Underlag kontrollert (planhet, skader)' },
           { id: 'sluk', label: 'Sluk kontrollert — nivå og plassering' },
           { id: 'fall-mal', label: 'Høyder satt ut mot terskel og oppkant' },
@@ -2519,11 +2765,12 @@
         { fase: 'Kontroll', items: [
           { id: 'kontroll-fall', label: 'Fall kontrollert på herdet flate' },
           { id: 'kontroll-motfall', label: 'Kontrollert for motfall ved sluk og langs vegger' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ],
       belegg: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'underlag', label: 'Avrettet underlag kontrollert — planhet og fall' },
           { id: 'fukt', label: 'Fukt målt i underlaget' },
           { id: 'produkt', label: 'Belegg, lim, sveisetråd og sluk hører til samme dokumenterte system' },
@@ -2540,13 +2787,14 @@
           { id: 'kontroll-fall', label: 'Fall kontrollert på ferdig gulv, belegget medregnet' },
           { id: 'kontroll-skjot', label: 'Skjøter kontrollert — 100 mm fra sluk, ikke i ytterhjørne' },
           { id: 'kontroll-oppbrett', label: 'Oppbrett og slukdetalj kontrollert' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ]
     },
     sparkling: {
       hel: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
           { id: 'underlag', label: 'Underlag kontrollert' }
         ]},
@@ -2560,7 +2808,7 @@
           { id: 'sliping', label: 'Slipt — grovt P80–P120, fint P180–P240' },
           { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
           { id: 'grunning', label: 'Sparklede flater grunnet før maling' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ],
       // K2 er tre strøk: strimling, ett fyllstrøk, ett finstrøk. Skruehullene
@@ -2569,6 +2817,7 @@
       // (Id-en «taping» er beholdt fra før så gamle avhukinger står igjen.)
       skjot: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
           { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' }
         ]},
@@ -2582,14 +2831,14 @@
           { id: 'sliping', label: 'Slipt jevnt med resten av veggen' },
           { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
           { id: 'grunning', label: 'Sparklede flater grunnet før maling' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ],
       reparasjon: [
         { fase: 'Før oppstart', items: [
           { id: 'omfang', label: 'Skadeomfang vurdert og avtalt med kunde' },
           { id: 'arsak', label: 'Årsak vurdert — fukt, bevegelse eller feste' },
-          { id: 'bilder-for', label: 'Bilde av skaden tatt før utbedring' }
+          { id: 'bilde-for', label: '📸 Bilde av skaden tatt før utbedring' }
         ]},
         { fase: 'Utførelse', items: [
           { id: 'rens', label: 'Løs masse og gammel maling skrapet bort, støvfritt' },
@@ -2603,7 +2852,7 @@
           { id: 'sliping', label: 'Slipt jevnt med flaten rundt' },
           { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
           { id: 'grunning', label: 'Flekkgrunnet — sparkel suger annerledes enn veggen' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ],
       strimling: [
@@ -2631,13 +2880,14 @@
           { id: 'sliping', label: 'Slipt uten å slipe gjennom strimmelen' },
           { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
           { id: 'grunning', label: 'Grunnet før maling' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ]
     },
     fasade: {
       mur: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'underlag', label: 'Underlagets tilstand vurdert — puss, sprekker, saltutslag' },
           { id: 'eksisterende', label: 'Eksisterende system sjekket — diffusjonsåpen maling nytter ikke over et tett sjikt' },
           { id: 'fukt', label: 'Fuktvurdering gjort ved tvil om oppbygningen' },
@@ -2657,11 +2907,12 @@
         { fase: 'Kontroll', items: [
           { id: 'dekning', label: 'Dekning kontrollert i dagslys' },
           { id: 'rydding', label: 'Tildekking fjernet og ryddet' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ],
       treverk: [
         { fase: 'Før oppstart', items: [
+          { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'underlag', label: 'Kledningens tilstand vurdert — råte, løs maling' },
           { id: 'lufting', label: 'Lufting bak kledningen vurdert' },
           { id: 'eksisterende', label: 'Eksisterende malingssystem identifisert' },
@@ -2682,7 +2933,7 @@
         { fase: 'Kontroll', items: [
           { id: 'dekning', label: 'Dekning kontrollert i dagslys' },
           { id: 'rydding', label: 'Tildekking fjernet og ryddet' },
-          { id: 'bilder', label: 'Bilder tatt' }
+          { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ]
     }
@@ -2783,6 +3034,8 @@
       utstyr: Array.isArray(j.utstyr) ? j.utstyr.filter(function (u) { return u && u.id && typeof u.tekst === 'string' && u.tekst; }) : [],
       bilder: Array.isArray(j.bilder) ? j.bilder.filter(function (b) { return b && b.id; }) : [],
       beregninger: Array.isArray(j.beregninger) ? j.beregninger : [],
+      klasse: (j.klasse === 'K2' || j.klasse === 'K3') ? j.klasse : '',
+      forbeholdValgt: Array.isArray(j.forbeholdValgt) ? j.forbeholdValgt.filter(function (x) { return typeof x === 'string'; }) : [],
       notat: j.notat ? String(j.notat) : '',
       forbehold: j.forbehold ? String(j.forbehold) : ''
     };
@@ -3232,6 +3485,14 @@
   }
 
   /* ---------- Rendering: jobbdetalj ---------- */
+  function skjulTomLenkerad() {
+    var rad = document.getElementById('jd-link-row');
+    if (!rad) return;
+    var m = document.getElementById('jd-maps-link');
+    var t = document.getElementById('jd-tel-link');
+    rad.classList.toggle('tom', m.hidden && t.hidden);
+  }
+
   function updateJobLinksLive(which, value) {
     var mapsLink = document.getElementById('jd-maps-link');
     var telLink = document.getElementById('jd-tel-link');
@@ -3242,6 +3503,48 @@
       if (value) { telLink.href = 'tel:' + value.replace(/[^\d+]/g, ''); telLink.hidden = false; }
       else telLink.hidden = true;
     }
+    skjulTomLenkerad();
+  }
+
+  // De fem som faktisk gjentar seg. Fritekstfeltet står under for resten.
+  var FORBEHOLD_VALG = [
+    { id: 'sluk', tekst: 'Sluk ikke kontrollert innvendig' },
+    { id: 'fukt', tekst: 'Underlag ikke fuktmålt' },
+    { id: 'sprekker', tekst: 'Eksisterende sprekker i underlaget' },
+    { id: 'glans', tekst: 'Glans ikke avklart' },
+    { id: 'rom', tekst: 'Rom ikke ryddet ved oppstart' }
+  ];
+
+  function renderForbehold(job) {
+    var wrap = document.getElementById('jd-forbehold-knapper');
+    if (!wrap) return;
+    wrap.textContent = '';
+    FORBEHOLD_VALG.forEach(function (f) {
+      var valgt = job.forbeholdValgt.indexOf(f.id) !== -1;
+      var knapp = el('button', 'forbehold-knapp' + (valgt ? ' valgt' : ''), (valgt ? '⚠️ ' : '') + f.tekst);
+      knapp.type = 'button';
+      knapp.setAttribute('aria-pressed', valgt ? 'true' : 'false');
+      knapp.addEventListener('click', function () {
+        updateJob(currentJobId, function (j) {
+          var i = j.forbeholdValgt.indexOf(f.id);
+          if (i === -1) j.forbeholdValgt.push(f.id); else j.forbeholdValgt.splice(i, 1);
+          return j;
+        });
+        renderForbehold(getJob(currentJobId));
+      });
+      wrap.appendChild(knapp);
+    });
+    oppdaterForbeholdTeller(job);
+  }
+
+  // Leser fritekstfeltet direkte: telleren skal stemme mens man skriver, ikke
+  // først når den debouncede lagringen har landet.
+  function oppdaterForbeholdTeller(job) {
+    var felt = document.getElementById('jd-forbehold');
+    var fritekst = felt ? felt.value : job.forbehold;
+    var egne = fritekst.split('\n').filter(function (l) { return l.trim(); }).length;
+    var antall = job.forbeholdValgt.length + egne;
+    setText('jd-forbehold-teller', antall ? antall + ' registrert' : '');
   }
 
   function renderChecklist(job) {
@@ -3837,8 +4140,14 @@
 
     updateJobLinksLive('adresse', job.kunde.adresse);
     updateJobLinksLive('tlf', job.kunde.tlf);
+    // Klassen hører til sparkling og helsparklede malerjobber — ikke til
+    // en fasade eller et badegulv.
+    var visKlasse = job.deler.some(function (d) { return d.fag === 'sparkling' || d.fag === 'maling'; });
+    document.getElementById('jd-klasse-seksjon').hidden = !visKlasse;
+    document.getElementById('jd-klasse').value = job.klasse;
     renderJobHode(job);
     renderChecklist(job);
+    renderForbehold(job);
     renderPakkeliste(job);
     renderBilder(job);
     renderBeregninger(job);
@@ -3884,7 +4193,16 @@
     makeAutosave('jd-adresse', function (j, v) { j.kunde.adresse = v; return j; }, function (v) { updateJobLinksLive('adresse', v); });
     makeAutosave('jd-tlf', function (j, v) { j.kunde.tlf = v; return j; }, function (v) { updateJobLinksLive('tlf', v); });
     makeAutosave('jd-notat', function (j, v) { j.notat = v; return j; });
-    makeAutosave('jd-forbehold', function (j, v) { j.forbehold = v; return j; });
+    makeAutosave('jd-forbehold', function (j, v) { j.forbehold = v; return j; }, function () {
+      var job = getJob(currentJobId);
+      if (job) oppdaterForbeholdTeller(job);
+    });
+
+    document.getElementById('jd-klasse').addEventListener('change', function (e) {
+      if (!currentJobId) return;
+      var v = e.target.value;
+      updateJob(currentJobId, function (j) { j.klasse = v; return j; });
+    });
 
     document.getElementById('jd-status').addEventListener('change', function (e) {
       if (!currentJobId) return;
@@ -3983,6 +4301,7 @@
     if (job.kunde.tlf) linjer.push('Tlf: ' + job.kunde.tlf);
     linjer.push('Arbeid: ' + job.deler.map(delTittel).join(' + '));
     linjer.push('Status: ' + JOB_STATUS_LABEL[job.status]);
+    if (job.klasse) linjer.push('Avtalt sparklingsklasse: ' + job.klasse);
 
     job.deler.forEach(function (del) {
       var df = delFramdrift(del);
@@ -4025,7 +4344,16 @@
     }
 
     if (job.notat.trim()) { linjer.push(''); linjer.push('Notat:'); linjer.push(job.notat.trim()); }
-    if (job.forbehold.trim()) { linjer.push(''); linjer.push('Forbehold:'); linjer.push(job.forbehold.trim()); }
+    var forbeholdLinjer = job.forbeholdValgt.map(function (id) {
+      for (var i = 0; i < FORBEHOLD_VALG.length; i++) { if (FORBEHOLD_VALG[i].id === id) return FORBEHOLD_VALG[i].tekst; }
+      return null;
+    }).filter(Boolean);
+    job.forbehold.split('\n').forEach(function (l) { if (l.trim()) forbeholdLinjer.push(l.trim()); });
+    if (forbeholdLinjer.length) {
+      linjer.push('');
+      linjer.push('Forbehold:');
+      forbeholdLinjer.forEach(function (l) { linjer.push('⚠️ ' + l); });
+    }
 
     linjer.push('');
     linjer.push('Sist oppdatert: ' + formatNoteDate(job.updated));
@@ -4068,7 +4396,7 @@
 
       var ny = normalizeJob({
         id: newJobId(), created: Date.now(), status: 'planlagt',
-        rom: kilde.rom,
+        rom: kilde.rom, klasse: kilde.klasse,
         deler: kilde.deler.map(function (d) {
           return { id: newDelId(), fag: d.fag, jobbtype: d.jobbtype, sjekkliste: {}, lagtTil: Date.now() };
         }),
@@ -4077,6 +4405,7 @@
         bilder: [], utstyr: [],
         notat: taNotat ? kilde.notat : '',
         forbehold: taNotat ? kilde.forbehold : '',
+        forbeholdValgt: taNotat ? kilde.forbeholdValgt.slice() : [],
         beregninger: taBeregninger ? kilde.beregninger.map(function (b) {
           // Ny id og nytt tidspunkt: dette er en ny jobbs beregning, og
           // det faktiske forbruket fra forrige jobb gjelder ikke her.
@@ -4775,7 +5104,7 @@
   }
 
   function apneKalkulator(calcId, gruppe) {
-    activate('kalkulator', false);
+    activate('jobber', false);
     showCalcGroup(gruppe);
     var kort = document.getElementById(calcId);
     if (kort) {
@@ -4981,7 +5310,7 @@
   function routeFromHash(smooth) {
     var h = location.hash.replace('#', '');
     if (HASH_ALIAS[h]) h = HASH_ALIAS[h];
-    if (!h) { activate('kalkulator', false); return; }
+    if (!h) { activate('jobber', false); return; }
     if (panelNames.indexOf(h) !== -1) { activate(h, false); return; }
     if (h.indexOf('f-') === 0) {
       activate('maltall', false);
@@ -4993,7 +5322,7 @@
       }
       return;
     }
-    activate('kalkulator', false);
+    activate('jobber', false);
   }
   window.addEventListener('hashchange', function () { routeFromHash(true); });
   routeFromHash(false);
@@ -5007,12 +5336,26 @@
     if (document.getElementById('update-banner')) return;
     var bar = document.createElement('div');
     bar.id = 'update-banner';
-    bar.innerHTML = '<span>Ny versjon av guiden er klar.</span>';
+    var tekst = document.createElement('span');
+    tekst.textContent = 'Ny versjon av guiden er klar.';
+    bar.appendChild(tekst);
+
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = 'Oppdater';
     btn.addEventListener('click', function () { location.reload(); });
     bar.appendChild(btn);
+
+    // Uten kryss blir baren stående over innholdet til man gir etter og
+    // laster på nytt — også midt i en jobb, der det er feil øyeblikk.
+    var lukk = document.createElement('button');
+    lukk.type = 'button';
+    lukk.className = 'update-lukk';
+    lukk.setAttribute('aria-label', 'Lukk');
+    lukk.textContent = '✕';
+    lukk.addEventListener('click', function () { bar.remove(); });
+    bar.appendChild(lukk);
+
     document.body.appendChild(bar);
   }
 
