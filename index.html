@@ -385,13 +385,13 @@
     display: flex; align-items: baseline; gap: 0.4rem;
   }
 
-  .paaminnelse {
-    display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
-    background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px;
-    padding: 0.7rem 0.9rem; margin-bottom: 0.5rem; color: var(--ink);
+  .jobb-gruppe-tittel {
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em;
+    color: var(--ink-soft); margin: 1.3rem 0 0.1rem;
   }
-  .paaminnelse strong { display: block; font-size: 0.92rem; }
-  .paaminnelse small { color: var(--ink-soft); font-size: 0.8rem; }
+  .jobb-gruppe-tittel:first-child { margin-top: 0.6rem; }
+  .job-card-neste { font-size: 0.87rem; font-weight: 600; margin-top: 0.45rem; }
+  .job-card-ta-med { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.3rem; }
 
   /* ---------- Bilder ---------- */
   .bilder-verktoy { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
@@ -853,7 +853,7 @@
   <div class="panel" data-panel="jobber" hidden>
   <section id="jobber">
     <h2>🧰 Jobber</h2>
-    <p class="section-intro">Ett kort per jobb — kunde, sjekkliste, lagrede beregninger og notater samlet. Lagres lokalt på denne telefonen, som resten av appen.</p>
+    <p class="section-intro">Ett kort per jobb, lagret lokalt på denne telefonen.</p>
 
     <div id="jobber-liste-view">
       <button type="button" id="job-new-btn" class="note-add-btn">+ Ny jobb</button>
@@ -889,8 +889,6 @@
           <button type="button" class="btn-ghost" id="job-new-cancel">Avbryt</button>
         </div>
       </form>
-
-      <div id="jobber-paaminnelse" hidden></div>
 
       <p id="jobber-empty" class="fav-hint">Ingen jobber ennå. Trykk «+ Ny jobb» for å opprette den første.</p>
 
@@ -2656,23 +2654,37 @@
   /* ---------- Rendering: jobbliste ---------- */
   var currentJobId = null;
 
+  // Neste uavhukede punkt i sjekklista — «hva er det neste jeg skal gjøre
+  // på denne jobben» er det man leter etter i lista, ikke hva som er gjort.
+  function nesteSjekkpunkt(job) {
+    var punkter = alleSjekkpunkter(job.fag);
+    for (var i = 0; i < punkter.length; i++) {
+      if (!job.sjekkliste[punkter[i].id]) return punkter[i].label;
+    }
+    return null;
+  }
+
+  var UKE = 7 * 24 * 60 * 60 * 1000;
+
   function buildJobCard(job) {
     var card = document.createElement('button');
     card.type = 'button';
     card.className = 'job-card';
+
+    // Linje 1: hvem og hvor, med status til høyre.
     var head = el('div', 'job-card-head');
-    head.appendChild(el('span', 'job-card-navn', job.kunde.navn || 'Uten navn'));
+    head.appendChild(el('span', 'job-card-navn',
+      (job.kunde.navn || 'Uten navn') + (job.rom ? ' – ' + job.rom : '')));
     head.appendChild(el('span', 'job-status-pill job-status-' + job.status,
       JOB_STATUS_DOT[job.status] + ' ' + JOB_STATUS_LABEL[job.status]));
     card.appendChild(head);
 
-    // Fag · rom · framdrift på én linje: det er dette man skanner lista etter.
+    // Linje 2: fag, og hvor langt det er kommet.
     var f = sjekklisteFramdrift(job);
-    var undertekst = FAG_LABEL[job.fag] + (job.rom ? ' · ' + job.rom : '');
-    if (job.status !== 'planlagt' && f.gjort > 0) undertekst += ' · ' + f.gjort + '/' + f.av + ' ferdig';
+    var undertekst = FAG_LABEL[job.fag];
+    if (job.status !== 'planlagt') undertekst += ' · ' + f.gjort + '/' + f.av + ' ferdig';
     card.appendChild(el('div', 'job-card-fag', undertekst));
 
-    // En påbegynt jobb får framdriftsstripe; en planlagt har ingenting å vise.
     if (job.status === 'pagar' || job.status === 'pauset') {
       var bar = el('div', 'job-progress-bar');
       var fill = el('div', 'job-progress-fill');
@@ -2681,39 +2693,28 @@
       card.appendChild(bar);
     }
 
-    if (job.bilder.length) card.appendChild(el('div', 'job-card-last', '📸 ' + job.bilder.length + (job.bilder.length === 1 ? ' bilde' : ' bilder')));
-    var apne = job.utstyr.filter(function (u) { return !u.checked; }).length;
-    if (apne) card.appendChild(el('div', 'job-card-last', '🧰 ' + apne + (apne === 1 ? ' ting å ta med' : ' ting å ta med')));
-    if (job.beregninger.length) {
-      card.appendChild(el('div', 'job-card-last', job.beregninger[job.beregninger.length - 1].sammendrag));
+    // Linje 3: neste steg. En ferdig jobb har ingen — da skal kortet være stille.
+    if (job.status !== 'ferdig') {
+      var neste = nesteSjekkpunkt(job);
+      if (neste) card.appendChild(el('div', 'job-card-neste', '→ ' + neste));
     }
-    card.appendChild(el('div', 'job-card-meta',
-      (job.updated && job.updated !== job.created ? 'Endret ' : 'Opprettet ') + formatNoteDate(job.updated || job.created)));
+
+    // Linje 4: det som må være med når man drar dit.
+    var apne = job.utstyr.filter(function (u) { return !u.checked; });
+    if (apne.length && job.status !== 'ferdig') {
+      card.appendChild(el('div', 'job-card-ta-med',
+        '🧰 ' + apne.map(function (u) { return u.tekst; }).join(' · ')));
+    }
+
+    // Datoen tar bare plass så lenge jobben er fersk. Har den ligget urørt
+    // en uke, er nettopp det verdt å si.
+    var rort = job.updated || job.created;
+    if (Date.now() - rort > UKE) {
+      card.appendChild(el('div', 'job-card-meta', 'Urørt siden ' + formatNoteDate(rort)));
+    }
+
     card.addEventListener('click', function () { openJob(job.id); });
     return card;
-  }
-
-  // Det man har skrevet ned at man må huske, er verdiløst hvis man må åpne
-  // jobben for å se det. Derfor står det øverst på Jobber-fanen.
-  function renderPaaminnelser(aktive) {
-    var boks = document.getElementById('jobber-paaminnelse');
-    if (!boks) return;
-    boks.textContent = '';
-    var medTing = aktive.filter(function (j) {
-      return j.utstyr.some(function (u) { return !u.checked; });
-    });
-    boks.hidden = !medTing.length;
-    medTing.slice(0, 4).forEach(function (job) {
-      var apne = job.utstyr.filter(function (u) { return !u.checked; });
-      var knapp = el('button', 'paaminnelse');
-      knapp.type = 'button';
-      knapp.appendChild(el('strong', null,
-        '🔔 ' + (job.kunde.navn || 'Uten navn') + ' — ' + apne.length +
-        (apne.length === 1 ? ' ting å huske' : ' ting å huske')));
-      knapp.appendChild(el('small', null, apne.map(function (u) { return u.tekst; }).join(' · ')));
-      knapp.addEventListener('click', function () { openJob(job.id); });
-      boks.appendChild(knapp);
-    });
   }
 
   function renderJobList() {
@@ -2728,10 +2729,19 @@
     var aktive = jobs.filter(function (j) { return j.status !== 'ferdig'; });
     var ferdige = jobs.filter(function (j) { return j.status === 'ferdig'; });
 
+    // Gruppert etter status, i arbeidsgangens rekkefølge: det man holder på
+    // med skal ligge øverst, uansett hva som sist ble rørt. Med ti jobber er
+    // «hva har jeg på gang» et spørsmål lista skal svare på uten at man leser
+    // hvert kort.
     aktiveList.textContent = '';
-    aktive.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
+    ['pagar', 'pauset', 'planlagt'].forEach(function (status) {
+      var iGruppe = aktive.filter(function (j) { return j.status === status; });
+      if (!iGruppe.length) return;
+      aktiveList.appendChild(el('div', 'jobb-gruppe-tittel',
+        JOB_STATUS_DOT[status] + ' ' + JOB_STATUS_LABEL[status].toUpperCase() + ' · ' + iGruppe.length));
+      iGruppe.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
+    });
     empty.hidden = jobs.length > 0;
-    renderPaaminnelser(aktive);
 
     if (ferdige.length) {
       ferdigeWrap.hidden = false;
