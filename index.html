@@ -372,17 +372,12 @@
     outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  /* Liten "regn fra avstand"-snarvei inni et felt — sekundært, ikke et eget
-     kalkulator-kort, siden selve regnestykket (avstand × 10/20) er trivielt
-     og bare trenger å stå der tallet faktisk brukes. */
-  .field-helper {
-    margin-top: 0.5rem; padding: 0.55rem 0.65rem;
-    background: var(--card); border: 1px dashed var(--line); border-radius: 8px;
+  .field-checkbox label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+  .field-checkbox input[type="checkbox"] {
+    width: 1.15rem; height: 1.15rem; min-height: 0; padding: 0; flex: 0 0 auto;
+    border: 1px solid var(--line); border-radius: 4px; background: var(--paper);
+    accent-color: var(--accent);
   }
-  .field-helper-label { display: block; font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 0.4rem; }
-  .field-helper-row { display: flex; gap: 0.5rem; align-items: stretch; }
-  .field-helper-row input { flex: 1 1 auto; min-width: 0; }
-  .field-helper-row select { flex: 0 0 auto; width: auto; }
   .calc-out { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.85rem; }
   .out-row {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -687,6 +682,12 @@
         </label>
         <input type="text" id="fb-sekk" inputmode="decimal" value="20" autocomplete="off">
       </div>
+      <div class="field field-checkbox">
+        <label>
+          <input type="checkbox" id="fb-varmekabel">
+          Varmekabel i gulvet
+        </label>
+      </div>
       <div class="calc-out">
         <div class="out-row primary">
           <span class="out-label">Trenger ca.</span>
@@ -706,12 +707,18 @@
     </div>
     <div class="calc" id="calc-bad">
       <h3>Masse til bad med fall</h3>
-      <p class="calc-sub">Estimerer hvor mye avrettingsmasse som går med når fallet bygges inn.</p>
+      <p class="calc-sub">Estimerer avrettingsmasse for et ekte bad — dusjsonen med 1:50 og resten av gulvet med 1:100, regnet som én kombinert masse. Ikke to separate forsøk du må legge sammen selv.</p>
       <div class="field">
-        <label for="bad-areal">Areal
-          <span class="hint">Gulvareal i m².</span>
+        <label for="bad-areal">Areal totalt
+          <span class="hint">Hele gulvarealet i m², dusjsonen inkludert.</span>
         </label>
         <input type="text" id="bad-areal" inputmode="decimal" value="6" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="bad-areal-dusj">Areal dusjsone
+          <span class="hint">Delen av gulvarealet over som har 1:50-fall, i m². Vanlig størrelse er ca. 0,9–1,5 m².</span>
+        </label>
+        <input type="text" id="bad-areal-dusj" inputmode="decimal" value="1,2" autocomplete="off">
       </div>
       <div class="field">
         <label for="bad-sluk">Høyde fra gulv til sluk
@@ -720,29 +727,31 @@
         <input type="text" id="bad-sluk" inputmode="decimal" value="10" autocomplete="off">
       </div>
       <div class="field">
-        <label for="bad-dor">Høyde til dør fra sluk
-          <span class="hint">Høydeforskjellen mellom sluk og dørterskel/høyeste punkt, i mm. Dette er selve fallet.</span>
+        <label for="bad-avstand-dusj">Avstand sluk → kant dusjsone
+          <span class="hint">Vannrett avstand i meter fra sluket til der dusjsonen slutter. 1:50 gjelder i hele denne sonen.</span>
         </label>
-        <input type="text" id="bad-dor" inputmode="decimal" value="20" autocomplete="off">
-        <div class="field-helper">
-          <span class="field-helper-label">Vet du bare avstanden? Fyller inn mm-feltet over automatisk.</span>
-          <div class="field-helper-row">
-            <input type="text" id="bad-dor-avstand" inputmode="decimal" placeholder="Avstand i m" autocomplete="off" aria-label="Avstand fra sluk i meter">
-            <select id="bad-dor-ratio" aria-label="Fallkrav">
-              <option value="10">1:100 (hele gulvet)</option>
-              <option value="20">1:50 (dusjsone)</option>
-            </select>
-          </div>
-        </div>
+        <input type="text" id="bad-avstand-dusj" inputmode="decimal" value="1" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="bad-avstand-hoyeste">Avstand sluk → dørterskel/høyeste punkt
+          <span class="hint">Vannrett avstand i meter fra sluket til det høyeste punktet på gulvet — normalt dørterskelen. Fallet stiger videre med 1:100 utenfor dusjsonen.</span>
+        </label>
+        <input type="text" id="bad-avstand-hoyeste" inputmode="decimal" value="2,5" autocomplete="off">
       </div>
       <div class="field">
         <label for="bad-form">Fallform
-          <span class="hint">Avgjør hvordan snittykkelsen regnes ut.</span>
+          <span class="hint">Avgjør hvordan snittykkelsen regnes ut i hver sone.</span>
         </label>
         <select id="bad-form">
           <option value="0.6667" selected>Fall fra alle kanter mot punktsluk (snitt = ⅔ av fallet)</option>
           <option value="0.5">Ensidig fall, én retning (snitt = ½ av fallet)</option>
         </select>
+      </div>
+      <div class="field field-checkbox">
+        <label>
+          <input type="checkbox" id="bad-varmekabel">
+          Varmekabel i gulvet
+        </label>
       </div>
       <div class="field-row">
         <div class="field">
@@ -774,15 +783,19 @@
           <span class="out-value" id="bad-kg">—</span>
         </div>
         <div class="out-row">
-          <span class="out-label">Snitt lagtykkelse</span>
-          <span class="out-value" id="bad-snitt">—</span>
+          <span class="out-label">Snitt lagtykkelse, dusjsone</span>
+          <span class="out-value" id="bad-snitt-dusj">—</span>
         </div>
         <div class="out-row">
-          <span class="out-label">Tykkelse ved sluk / høyeste punkt</span>
+          <span class="out-label">Snitt lagtykkelse, resten</span>
+          <span class="out-value" id="bad-snitt-rest">—</span>
+        </div>
+        <div class="out-row">
+          <span class="out-label">Sluk → dusjsonekant → høyeste punkt</span>
           <span class="out-value" id="bad-spenn">—</span>
         </div>
         <div class="calc-warn" id="bad-warn" hidden></div>
-        <p class="out-note">Modellen antar at fallet er en jevn flate fra høyeste punkt ned til sluket. Nedsenket dusjsone, varmekabler, rørgjennomføringer og ujevnt undergulv endrer forbruket — legg på ekstra ved tvil.</p>
+        <p class="out-note">Modellen antar jevnt fall i hver sone: 1:50 fra sluket til dusjsonekanten, deretter 1:100 videre ut til høyeste punkt. Rørgjennomføringer og ujevnt undergulv endrer forbruket utover dette — legg på ekstra ved tvil.</p>
       </div>
     </div>
 
@@ -1383,10 +1396,10 @@
     <li><a href="https://fargemagasinet.no/ingen-hensikt-med-diffusjonsapen-maling-innendors" target="_blank" rel="noopener">Fargemagasinet — Diffusjonsåpen maling innendørs</a> <span class="src-kind">— bransjemedium</span></li>
     <li><a href="https://www.ifi.no/temperatur-og-ventetid-er-viktig-ved-maling" target="_blank" rel="noopener">IFI — Temperatur og ventetid ved maling</a> <span class="src-kind">— tørketid, minstetemperatur</span></li>
     <li><a href="https://inspirasjon.byggebolig.no/men-malingen-er-jo-toerr" target="_blank" rel="noopener">Byggebolig — «Men malingen er jo tørr!»</a> <span class="src-kind">— støvtørr vs. overmalbar</span></li>
-    <li><a href="https://frieord.no/hvor-mye-koster-det-a-sparkle-en-vegg/" target="_blank" rel="noopener">Forbrukstall helsparkling — ca. 1,5 kg/m²</a> <span class="src-kind">— grunnlag for sparkelkalkulatoren</span></li>
+    <li><a href="https://frieord.no/hvor-mye-koster-det-a-sparkle-en-vegg/" target="_blank" rel="noopener">Forbrukstall helsparkling — ca. 1,5 kg/m²</a> <span class="src-kind">— kostnadsblogg, ikke produsentdatablad. Grovt anslag som stemmer omtrent med andre uavhengige kilder (bl.a. gipsplateprodusenters fugemasseforbruk, som gjerne oppgis rundt 1,7 kg/m²), men varierer med produkt og påføringsteknikk — sjekk alltid egen sekk</span></li>
   </ul>
 
-  <p class="updated">Sist researchet: august 2026. Praktisk fagreferanse, ikke juridisk rådgivning eller prosjektering. Der tallene er merket «preakseptert ytelse» stammer de fra veiledningen til TEK17, ikke forskriftsteksten — verifiser mot gjeldende tekst, NS-standard og produktdatablad før bruk som grunnlag for dokumentasjon eller utførelse.</p>
+  <p class="updated">Sist researchet: august 2026. Praktisk fagreferanse, ikke juridisk rådgivning eller prosjektering. Der tallene er merket «preakseptert ytelse» stammer de fra veiledningen til TEK17, ikke forskriftsteksten — verifiser mot gjeldende tekst, NS-standard og produktdatablad før bruk som grunnlag for dokumentasjon eller utførelse. NS 3420-referanser i appen oppgir standardens postgruppe, ikke konkret postnummer — standarden er ikke fritt tilgjengelig og postnumrene er ikke slått opp mot en kjøpt utgave. Sjekk gjeldende utgave eller den faktiske beskrivelsesteksten i kontrakten før bruk som dokumentasjon.</p>
   <p id="offline-status"></p>
 </footer>
 
@@ -1437,15 +1450,15 @@
       { id: 'vinyl-skjot-sluk', label: 'Skjøt til sluk', value: '100 mm',
         note: 'Minste avstand',
         why: 'Skjøter skal ikke plasseres nærmere sluket enn dette. Systemleverandøren kan kreve mer.',
-        src: 'NS 3420-T — kontraktsbestemt i beskrevet arbeid.' },
+        src: 'NS 3420-T, postgruppe for gulvbelegg — kontraktsbestemt. Konkret postnummer er ikke slått opp her (standarden er ikke fritt tilgjengelig); sjekk gjeldende utgave eller beskrivelsestekst før bruk som dokumentasjon.' },
       { id: 'vinyl-skjot-hjorne', label: 'Skjøt i ytterhjørne', value: 'Ikke tillatt',
         note: 'Utvendige hjørner',
         why: 'Skjøter skal ikke legges direkte på et utvendig hjørne.',
-        src: 'NS 3420-T — kontraktsbestemt i beskrevet arbeid.' },
+        src: 'NS 3420-T, postgruppe for gulvbelegg — kontraktsbestemt. Konkret postnummer er ikke slått opp her (standarden er ikke fritt tilgjengelig); sjekk gjeldende utgave eller beskrivelsestekst før bruk som dokumentasjon.' },
       { id: 'vinyl-minste-stykke', label: 'Minste beleggstykke', value: '150×150 mm',
         note: 'Ved innskjøting',
         why: 'Mindre lapper skal ikke skjøtes inn.',
-        src: 'NS 3420-T — kontraktsbestemt i beskrevet arbeid.' },
+        src: 'NS 3420-T, postgruppe for gulvbelegg — kontraktsbestemt. Konkret postnummer er ikke slått opp her (standarden er ikke fritt tilgjengelig); sjekk gjeldende utgave eller beskrivelsestekst før bruk som dokumentasjon.' },
       { id: 'vinyl-akklimatisering', label: 'Akklimatisering', value: '≥ 24 t',
         note: 'Romtemperatur, før legging',
         why: 'Lenger ved store temperatur- eller fuktforskjeller mellom lager og monteringsrom.',
@@ -1489,11 +1502,11 @@
       { id: 'sparkling-k2', label: 'K2-finish', value: '1 strøk',
         note: 'Helsparklet, vanlig standard',
         why: 'Dekker normalt godt for matt/halvblank maling i vanlig rombelysning.',
-        src: 'Estetisk klasse etter NS 3420-T. Hvilken klasse som gjelder avtales i kontrakt.' },
+        src: 'Estetisk klasse etter NS 3420-T, postgruppe for overflatebehandling. Konkret postnummer ikke slått opp her (standarden er ikke fritt tilgjengelig). Hvilken klasse som gjelder avtales uansett i kontrakt.' },
       { id: 'sparkling-k3', label: 'K3-finish', value: '2 strøk',
         note: 'Sterkt sidelys / blank maling',
         why: 'Ekstra finstrøk over hele flaten, ikke bare skjøtene. Klassen avgjør om en synlig bulk er reklamasjon eller innenfor avtalen.',
-        src: 'Estetisk klasse etter NS 3420-T.' },
+        src: 'Estetisk klasse etter NS 3420-T, postgruppe for overflatebehandling. Konkret postnummer ikke slått opp her (standarden er ikke fritt tilgjengelig).' },
       { id: 'sparkling-slip-grov', label: 'Sliping, grovt', value: 'P80–P120',
         note: 'Fjerner overflødig masse',
         why: 'Slipenett (type Mirka Abranet) gir mindre støv med avsug og går sjeldnere tett enn slipepapir.',
@@ -1914,55 +1927,62 @@
     if (msg) { n.textContent = msg; n.hidden = false; } else { n.hidden = true; }
   }
 
-  // "Vet du bare avstanden?"-hjelperen i Masse til bad — regner mm-feltet
-  // ut fra avstand × fallkrav i stedet for å kreve mm regnet ut for hånd.
-  function updateDorFromAvstand() {
-    var avstand = num('bad-dor-avstand');
-    var ratio = parseFloat(document.getElementById('bad-dor-ratio').value);
-    if (!isFinite(avstand) || avstand <= 0 || !isFinite(ratio)) return;
-    var dorEl = document.getElementById('bad-dor');
-    dorEl.value = fmt(avstand * ratio, 0);
-    // Feltet fylles ut med kode, ikke av brukeren — det trigger ikke input-
-    // eventet "husk sist brukte tall" lytter på, så lagre det her direkte.
-    try { localStorage.setItem('malerguiden:calc:bad-dor', dorEl.value); } catch (e) {}
-    calcBad();
-  }
-
   function calcBad() {
-    var areal = num('bad-areal');
+    var arealTotal = num('bad-areal');
+    var arealDusj = num('bad-areal-dusj');
     var hSluk = num('bad-sluk');
-    var hFall = num('bad-dor');
+    var avstandDusj = num('bad-avstand-dusj');
+    var avstandHoyeste = num('bad-avstand-hoyeste');
     var faktor = parseFloat(document.getElementById('bad-form').value);
+    var varmekabel = document.getElementById('bad-varmekabel').checked;
     var forbruk = num('bad-forbruk');
     var svinn = num('bad-svinn');
     var sekk = num('bad-sekk');
 
-    var ok = [areal, hSluk, hFall, forbruk, sekk].every(function (v) { return isFinite(v) && v >= 0; })
-      && areal > 0 && forbruk > 0 && sekk > 0;
+    var ok = [arealTotal, arealDusj, hSluk, avstandDusj, avstandHoyeste, forbruk, sekk]
+        .every(function (v) { return isFinite(v) && v >= 0; })
+      && arealTotal > 0 && forbruk > 0 && sekk > 0;
     if (!ok) {
-      ['bad-sekker', 'bad-kg', 'bad-snitt', 'bad-spenn'].forEach(function (i) { setText(i, '—'); });
-      setWarn('bad-warn', 'Fyll inn areal, høyder, forbruk og sekkestørrelse.');
+      ['bad-sekker', 'bad-kg', 'bad-snitt-dusj', 'bad-snitt-rest', 'bad-spenn'].forEach(function (i) { setText(i, '—'); });
+      setWarn('bad-warn', 'Fyll inn areal, avstander, forbruk og sekkestørrelse.');
       return;
     }
 
-    // Snittykkelse: bunnhøyden ved sluket + gjennomsnittet av selve fallet.
-    // Faller gulvet fra alle kanter mot et punktsluk er snittet 2/3 av
-    // fallhøyden (pyramide/kjegle), ikke halvparten — se valget i skjemaet.
-    var snitt = hSluk + hFall * faktor;
-    var maks = hSluk + hFall;
-    var kgRent = areal * snitt * forbruk;
+    var arealRest = Math.max(arealTotal - arealDusj, 0);
+
+    // Kombinert modell: dusjsonen faller 1:50 (20 mm/m) fra sluket til
+    // sonekanten, resten av gulvet fortsetter derfra med 1:100 (10 mm/m) ut
+    // til høyeste punkt. De to preaksepterte løsningene brukt sammen, slik
+    // et ekte bad faktisk bygges — ikke to separate forsøk å legge sammen
+    // selv.
+    var fallDusj = avstandDusj * 20;
+    var hDusjKant = hSluk + fallDusj;
+    var strekkRest = Math.max(avstandHoyeste - avstandDusj, 0);
+    var fallRest = strekkRest * 10;
+    var hHoyeste = hDusjKant + fallRest;
+
+    // Snittykkelse per sone: bunnhøyden ved sonens laveste punkt + snittet
+    // av fallet innad i sonen (samme pyramide/ensidig-faktor som før).
+    var snittDusj = hSluk + fallDusj * faktor;
+    var snittRest = hDusjKant + fallRest * faktor;
+
+    var kgRent = arealDusj * snittDusj * forbruk + arealRest * snittRest * forbruk;
     var kg = kgRent * (1 + (isFinite(svinn) ? svinn : 0) / 100);
     var sekker = Math.ceil(kg / sekk);
 
-    setText('bad-snitt', fmt(snitt, 1) + ' mm');
-    setText('bad-spenn', fmt(hSluk, 0) + ' → ' + fmt(maks, 0) + ' mm');
+    setText('bad-snitt-dusj', fmt(snittDusj, 1) + ' mm');
+    setText('bad-snitt-rest', fmt(snittRest, 1) + ' mm');
+    setText('bad-spenn', fmt(hSluk, 0) + ' → ' + fmt(hDusjKant, 0) + ' → ' + fmt(hHoyeste, 0) + ' mm');
     setText('bad-kg', fmt(kg, 0) + ' kg');
     setText('bad-sekker', sekker + (sekker === 1 ? ' sekk' : ' sekker'));
 
     var warns = [];
+    if (arealDusj > arealTotal) warns.push('Dusjsonen kan ikke være større enn totalarealet — sjekk arealtallene.');
+    if (avstandHoyeste < avstandDusj) warns.push('Avstanden til høyeste punkt er kortere enn avstanden til dusjsonekanten — sjekk måltallene.');
     if (hSluk > 0 && hSluk < 4) warns.push('Tykkelsen ved sluket (' + fmt(hSluk, 0) + ' mm) er under minste lagtykkelse på 4 mm for weberfloor 120 Reno.');
-    if (maks > 50) warns.push('Høyeste punkt blir ' + fmt(maks, 0) + ' mm — over maks 50 mm i ett sjikt. Bygg opp i flere omganger med priming mellom.');
-    if (hFall === 0) warns.push('Fallhøyden er 0 mm — da regnes flaten som plan, uten fall til sluk.');
+    if (hHoyeste > 50) warns.push('Høyeste punkt blir ' + fmt(hHoyeste, 0) + ' mm — over maks 50 mm i ett sjikt. Bygg opp i flere omganger med priming mellom.');
+    if (fallDusj === 0 && fallRest === 0) warns.push('Fallhøyden er 0 mm i begge soner — da regnes gulvet som plant, uten fall til sluk.');
+    if (varmekabel) warns.push('Varmekabel i gulvet: minste dekktykkelse over kabelen styres ofte av kabelprodusenten, ikke bare av massens eget minstemål på 4 mm — sjekk kabeldatabladet, særlig nær sluket der laget er tynnest.');
     setWarn('bad-warn', warns.join(' '));
   }
 
@@ -2118,6 +2138,7 @@
     var forbruk = num('fb-forbruk');
     var svinn = num('fb-svinn');
     var sekk = num('fb-sekk');
+    var varmekabel = document.getElementById('fb-varmekabel').checked;
 
     var ok = [areal, tykk, forbruk, sekk].every(function (v) { return isFinite(v) && v > 0; });
     if (!ok) {
@@ -2137,6 +2158,7 @@
     var warns = [];
     if (tykk < 4) warns.push('Lagtykkelsen er under minste lagtykkelse på 4 mm for weberfloor 120 Reno.');
     if (tykk > 50) warns.push('Lagtykkelsen er over maks 50 mm i ett sjikt — bygg opp i flere omganger med priming mellom.');
+    if (varmekabel) warns.push('Varmekabel i gulvet: minste dekktykkelse over kabelen styres ofte av kabelprodusenten, ikke bare av massens eget minstemål på 4 mm — sjekk kabeldatabladet.');
     setWarn('fb-warn', warns.join(' '));
   }
 
@@ -2147,32 +2169,30 @@
      tallene, ikke fabrikkverdiene. */
   var CALC_STORAGE_PREFIX = 'malerguiden:calc:';
   var calcDefaults = {};
-  var calcFields = document.querySelectorAll('.calc input[type="text"], .calc select');
+  var calcFields = document.querySelectorAll('.calc input[type="text"], .calc input[type="checkbox"], .calc select');
   calcFields.forEach(function (el) {
     if (!el.id) return;
-    calcDefaults[el.id] = el.value;
+    var isCheck = el.type === 'checkbox';
+    calcDefaults[el.id] = isCheck ? el.checked : el.value;
     try {
       var saved = localStorage.getItem(CALC_STORAGE_PREFIX + el.id);
-      if (saved !== null) el.value = saved;
+      if (saved !== null) { if (isCheck) el.checked = saved === 'true'; else el.value = saved; }
     } catch (e) { /* privat modus / localStorage utilgjengelig — kjør uten hukommelse */ }
   });
-  // Var avstand-hjelperen sist brukt, regn mm-feltet på nytt fra den
-  // gjenopprettede avstanden i stedet for å stole på mm-feltets egen,
-  // potensielt utdaterte lagrede verdi.
-  if (num('bad-dor-avstand') > 0) updateDorFromAvstand();
   calcFields.forEach(function (el) {
     if (!el.id) return;
+    var isCheck = el.type === 'checkbox';
     var evt = el.tagName === 'SELECT' ? 'change' : 'input';
     el.addEventListener(evt, function () {
-      try { localStorage.setItem(CALC_STORAGE_PREFIX + el.id, el.value); } catch (e) {}
+      try { localStorage.setItem(CALC_STORAGE_PREFIX + el.id, isCheck ? el.checked : el.value); } catch (e) {}
     });
   });
 
   function resetCalcToDefaults(calcEl, recalc) {
-    var els = calcEl.querySelectorAll('input[type="text"], select');
+    var els = calcEl.querySelectorAll('input[type="text"], input[type="checkbox"], select');
     els.forEach(function (el) {
       if (!el.id || !(el.id in calcDefaults)) return;
-      el.value = calcDefaults[el.id];
+      if (el.type === 'checkbox') el.checked = calcDefaults[el.id]; else el.value = calcDefaults[el.id];
       try { localStorage.removeItem(CALC_STORAGE_PREFIX + el.id); } catch (e) {}
     });
     recalc();
@@ -2200,16 +2220,16 @@
     (out || calcEl).appendChild(row);
   });
 
-  ['bad-areal', 'bad-sluk', 'bad-dor', 'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form'].forEach(function (id) {
+  ['bad-areal', 'bad-areal-dusj', 'bad-sluk', 'bad-avstand-dusj', 'bad-avstand-hoyeste',
+   'bad-forbruk', 'bad-svinn', 'bad-sekk', 'bad-form', 'bad-varmekabel'].forEach(function (id) {
     var n = document.getElementById(id);
     n.addEventListener('input', calcBad);
     n.addEventListener('change', calcBad);
   });
-  document.getElementById('bad-dor-avstand').addEventListener('input', updateDorFromAvstand);
-  document.getElementById('bad-dor-ratio').addEventListener('change', updateDorFromAvstand);
   ['fb-areal', 'fb-tykk', 'fb-forbruk', 'fb-svinn', 'fb-sekk'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', calcForbruk);
   });
+  document.getElementById('fb-varmekabel').addEventListener('change', calcForbruk);
   ['mal-areal', 'mal-strok', 'mal-forbruk', 'mal-svinn'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', calcMaling);
   });
