@@ -358,6 +358,26 @@
 
   /* Neste steg — det ene man skal gjøre nå, med en trykkflate som treffes
      med tommelen mens den andre hånden holder noe. */
+  .maal-rad {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    padding: 0.45rem 0; border-bottom: 1px solid var(--line);
+  }
+  .maal-rad:last-of-type { border-bottom: none; }
+  .maal-navn { flex: 1 1 auto; font-size: 0.87rem; }
+  .maal-navn small { display: block; color: var(--ink-soft); font-size: 0.76rem; }
+  .maal-rad input {
+    flex: 0 0 6.5rem; width: 6.5rem; font: inherit; font-size: 1rem; text-align: right;
+    padding: 0.45rem 0.55rem; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink);
+  }
+  .maal-rad input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .maal-enhet { flex: 0 0 2.2rem; font-size: 0.8rem; color: var(--ink-soft); }
+  .maal-gruppe-tittel {
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--ink-soft); margin: 0.9rem 0 0.1rem;
+  }
+  .maal-gruppe-tittel:first-child { margin-top: 0; }
+
   .farge-rad {
     background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--tip);
     border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 0.5rem;
@@ -1084,6 +1104,17 @@
         </div>
         <p id="jd-pakke-empty" class="fav-hint">Ingenting lagt til ennå.</p>
         <div id="jd-pakke-list"></div>
+      </div>
+
+      <div class="delseksjon">
+        <div class="delseksjon-tittel">📏 Mål <span class="checklist-progress" id="jd-maal-teller"></span></div>
+        <p class="out-note" style="margin-top:0;">Målene du tar på stedet. De blir liggende på jobben, og kalkulatoren fylles ut fra dem.</p>
+        <div id="jd-maal-felt"></div>
+        <div class="field">
+          <label for="jd-maal-fritekst">Andre mål <span class="hint">Oppkant, terskelhøyde, nisjer — det som ikke har eget felt</span></label>
+          <textarea id="jd-maal-fritekst" rows="2" maxlength="600" placeholder="F.eks. «Oppkant terskel 15 mm», «Nisje 40 × 60»"></textarea>
+        </div>
+        <button type="button" id="jd-maal-regn" class="note-add-btn">🧮 Regn med disse målene</button>
       </div>
 
       <div class="delseksjon">
@@ -3062,6 +3093,8 @@
       bilder: Array.isArray(j.bilder) ? j.bilder.filter(function (b) { return b && b.id; }) : [],
       beregninger: Array.isArray(j.beregninger) ? j.beregninger : [],
       klasse: (j.klasse === 'K2' || j.klasse === 'K3') ? j.klasse : '',
+      maal: (j.maal && typeof j.maal === 'object') ? j.maal : {},
+      maalFritekst: j.maalFritekst ? String(j.maalFritekst) : '',
       farger: Array.isArray(j.farger) ? j.farger.filter(function (f) { return f && f.id; }) : [],
       forbeholdValgt: Array.isArray(j.forbeholdValgt) ? j.forbeholdValgt.filter(function (x) { return typeof x === 'string'; }) : [],
       notat: j.notat ? String(j.notat) : '',
@@ -3274,8 +3307,11 @@
       if (!currentJobId) return;
       var job = getJob(currentJobId);
       if (!job) return;
+      // Har jobben mål, skal de være i feltene — ellers regner man på tallene
+      // fra forrige jobb uten å merke det.
+      var harMaal = Object.keys(job.maal).some(function (k) { return (job.maal[k] || '').trim(); });
+      if (harMaal) { regnMedMaal(job); return; }
       settJobbKontekst(job.id);
-      // Åpner den kalkulatorgruppa som hører til arbeidet man står i.
       var fag = job.deler[0].fag;
       activate('kalkulator', true);
       showCalcGroup(fag === 'bad' ? 'avretting' : 'maling');
@@ -3574,6 +3610,135 @@
     var egne = fritekst.split('\n').filter(function (l) { return l.trim(); }).length;
     var antall = job.forbeholdValgt.length + egne;
     setText('jd-forbehold-teller', antall ? antall + ' registrert' : '');
+  }
+
+  /* ---------- Mål ---------- *
+   * Målene tas på stedet, før man regner på noe. Feltene bruker samme id-er
+   * som kalkulatorene, så et mål skrevet inn her er det samme tallet som
+   * kalkulatoren regner med — ingen oversettelse mellom to vokabularer.
+   *
+   * Dette løser også at kalkulatorfeltene er felles for hele appen: måler du
+   * Hansens bad og så Bergs, ville tallene overskrevet hverandre. På jobben
+   * blir de liggende hver for seg.
+   * ------------------------------------------------------------------- */
+  var MAAL_GRUPPER = [
+    { id: 'bad', tittel: 'Bad og fall', calc: 'calc-bad', gruppe: 'avretting',
+      gjelder: function (job) { return job.deler.some(function (d) { return d.fag === 'bad'; }); },
+      felt: [
+        { id: 'bad-areal', navn: 'Gulvareal', hint: 'hele rommet', enhet: 'm²' },
+        { id: 'bad-areal-dusj', navn: 'Areal dusjsone', enhet: 'm²' },
+        { id: 'bad-sluk', navn: 'Høyde gulv → sluk', hint: 'tykkelsen ved lavpunktet', enhet: 'mm' },
+        { id: 'bad-avstand-dusj', navn: 'Sluk → kant dusjsone', enhet: 'm' },
+        { id: 'bad-avstand-hoyeste', navn: 'Sluk → høyeste punkt', hint: 'normalt dørterskelen', enhet: 'm' }
+      ] },
+    { id: 'rom', tittel: 'Rommet', calc: 'calc-rom', gruppe: 'maling',
+      gjelder: function (job) { return job.deler.some(function (d) { return d.fag !== 'bad'; }); },
+      felt: [
+        { id: 'rom-lengde', navn: 'Lengde', enhet: 'm' },
+        { id: 'rom-bredde', navn: 'Bredde', enhet: 'm' },
+        { id: 'rom-hoyde', navn: 'Takhøyde', enhet: 'm' },
+        { id: 'rom-dorer', navn: 'Antall dører', enhet: 'stk' },
+        { id: 'rom-vinduer', navn: 'Antall vinduer', enhet: 'stk' }
+      ] }
+  ];
+
+  function maalGrupperFor(job) {
+    return MAAL_GRUPPER.filter(function (g) { return g.gjelder(job); });
+  }
+
+  function renderMaal(job) {
+    var wrap = document.getElementById('jd-maal-felt');
+    if (!wrap) return;
+    wrap.textContent = '';
+    var utfylt = 0, totalt = 0;
+
+    maalGrupperFor(job).forEach(function (gruppe) {
+      wrap.appendChild(el('div', 'maal-gruppe-tittel', gruppe.tittel));
+      gruppe.felt.forEach(function (f) {
+        totalt++;
+        var verdi = job.maal[f.id] || '';
+        if (verdi.trim()) utfylt++;
+
+        var rad = el('div', 'maal-rad');
+        var navn = el('div', 'maal-navn');
+        var label = document.createElement('label');
+        label.setAttribute('for', 'jd-maal-' + f.id);
+        label.textContent = f.navn;
+        navn.appendChild(label);
+        if (f.hint) navn.appendChild(el('small', null, f.hint));
+        rad.appendChild(navn);
+
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.inputMode = 'decimal';
+        inp.id = 'jd-maal-' + f.id;
+        inp.autocomplete = 'off';
+        inp.value = verdi;
+        // Samme mønster som de andre feltene: fang jobb-id-en ved tastetrykket,
+        // ikke når den debouncede lagringen løser ut.
+        var pending = null, timer = null;
+        inp.addEventListener('input', function () {
+          pending = { jobId: currentJobId, verdi: inp.value };
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            if (!pending || !pending.jobId) return;
+            var v = pending.verdi;
+            updateJob(pending.jobId, function (j) { j.maal[f.id] = v; return j; });
+            pending = null;
+            var oppdatert = getJob(currentJobId);
+            if (oppdatert) oppdaterMaalTeller(oppdatert);
+          }, 350);
+        });
+        rad.appendChild(inp);
+        rad.appendChild(el('span', 'maal-enhet', f.enhet));
+        wrap.appendChild(rad);
+      });
+    });
+
+    document.getElementById('jd-maal-fritekst').value = job.maalFritekst;
+    oppdaterMaalTeller(job);
+  }
+
+  function oppdaterMaalTeller(job) {
+    var grupper = maalGrupperFor(job);
+    var totalt = 0, utfylt = 0;
+    grupper.forEach(function (g) {
+      g.felt.forEach(function (f) {
+        totalt++;
+        if ((job.maal[f.id] || '').trim()) utfylt++;
+      });
+    });
+    setText('jd-maal-teller', utfylt ? utfylt + ' av ' + totalt + ' målt' : '');
+  }
+
+  // Sender målene inn i kalkulatoren og åpner den med jobben som kontekst.
+  function regnMedMaal(job) {
+    var grupper = maalGrupperFor(job);
+    var brukt = null;
+    grupper.forEach(function (gruppe) {
+      var noeUtfylt = false;
+      gruppe.felt.forEach(function (f) {
+        var v = (job.maal[f.id] || '').trim();
+        if (!v) return;
+        settFelt(f.id, v);
+        noeUtfylt = true;
+      });
+      if (noeUtfylt && !brukt) brukt = gruppe;
+    });
+    calcBad(); calcForbruk(); calcMaling(); calcRom(); calcSparkel();
+    settJobbKontekst(job.id);
+    var maal = brukt || grupper[0];
+    activate('kalkulator', true);
+    if (maal) apneKalkulator(maal.calc, maal.gruppe);
+    jobToast(brukt ? 'Målene er lagt inn.' : 'Ingen mål fylt ut ennå.');
+  }
+
+  function initMaal() {
+    document.getElementById('jd-maal-regn').addEventListener('click', function () {
+      var job = currentJobId ? getJob(currentJobId) : null;
+      if (job) regnMedMaal(job);
+    });
+    makeAutosave('jd-maal-fritekst', function (j, v) { j.maalFritekst = v; return j; });
   }
 
   /* ---------- Fargeprotokoll ---------- *
@@ -4308,6 +4473,7 @@
     document.getElementById('jd-klasse').value = job.klasse;
     renderJobHode(job);
     renderChecklist(job);
+    renderMaal(job);
     renderFarger(job);
     renderForbehold(job);
     renderPakkeliste(job);
@@ -4506,6 +4672,20 @@
     }
 
     if (job.notat.trim()) { linjer.push(''); linjer.push('Notat:'); linjer.push(job.notat.trim()); }
+    var maalLinjer = [];
+    maalGrupperFor(job).forEach(function (g) {
+      g.felt.forEach(function (f) {
+        var v = (job.maal[f.id] || '').trim();
+        if (v) maalLinjer.push('- ' + f.navn + ': ' + v + ' ' + f.enhet);
+      });
+    });
+    job.maalFritekst.split('\n').forEach(function (l) { if (l.trim()) maalLinjer.push('- ' + l.trim()); });
+    if (maalLinjer.length) {
+      linjer.push('');
+      linjer.push('Mål:');
+      maalLinjer.forEach(function (l) { linjer.push(l); });
+    }
+
     if (job.farger.length) {
       linjer.push('');
       linjer.push('Fargeprotokoll:');
@@ -4585,6 +4765,8 @@
         // brukes igjen, er den lett å skrive inn — å arve den ville vært å
         // påstå noe om et rom ingen har vært i.
         farger: [],
+        // Målene hører til rommet som ble målt opp. Et nytt rom har egne.
+        maal: {}, maalFritekst: '',
         beregninger: taBeregninger ? kilde.beregninger.map(function (b) {
           // Ny id og nytt tidspunkt: dette er en ny jobbs beregning, og
           // det faktiske forbruket fra forrige jobb gjelder ikke her.
@@ -4690,6 +4872,7 @@
     initLeggTilArbeid();
     initJobbKontekst();
     initFarger();
+    initMaal();
     initBilder();
     addJobSaveButtons();
     renderJobList();
@@ -5202,6 +5385,7 @@
       job.forbeholdValgt.forEach(function (id) {
         FORBEHOLD_VALG.forEach(function (f) { if (f.id === id) biter.push(f.tekst); });
       });
+      biter.push(job.maalFritekst);
       (job.farger || []).forEach(function (f) {
         biter.push(f.rom, f.produkt, f.kode, f.glans);
       });
@@ -5311,7 +5495,7 @@
   }
 
   function apneKalkulator(calcId, gruppe) {
-    activate('jobber', false);
+    activate('kalkulator', false);
     showCalcGroup(gruppe);
     var kort = document.getElementById(calcId);
     if (kort) {
