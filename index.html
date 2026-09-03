@@ -2709,8 +2709,7 @@
     sparkling: [
       { id: 'hel', label: 'Helsparkling' },
       { id: 'skjot', label: 'Skjøtsparkling / taping' },
-      { id: 'reparasjon', label: 'Reparasjon alene', praksis: true },
-      { id: 'strimling', label: 'Strimling', praksis: true }
+      { id: 'reparasjon', label: 'Reparasjon alene', praksis: true }
     ],
     fasade: [
       { id: 'mur', label: 'Mur og puss' },
@@ -2850,7 +2849,8 @@
         { fase: 'Før oppstart', items: [
           { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
-          { id: 'underlag', label: 'Underlag kontrollert' }
+          { id: 'underlag', label: 'Underlag kontrollert' },
+          { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' }
         ]},
         { fase: 'Utførelse', items: [
           { id: 'taping', label: 'Strimling i skjøter og hjørner — skruehull i samme omgang' },
@@ -2873,7 +2873,8 @@
         { fase: 'Før oppstart', items: [
           { id: 'bilde-for', label: '📸 Før-bilde tatt' },
           { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
-          { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' }
+          { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' },
+          { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' }
         ]},
         { fase: 'Utførelse — tre strøk ved K2', items: [
           { id: 'taping', label: '1. Strimling i alle skjøter og hjørner — skruehull i samme omgang' },
@@ -2906,34 +2907,6 @@
           { id: 'sliping', label: 'Slipt jevnt med flaten rundt' },
           { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
           { id: 'grunning', label: 'Flekkgrunnet — sparkel suger annerledes enn veggen' },
-          { id: 'bilder', label: '📸 Etter-bilder tatt' }
-        ]}
-      ],
-      strimling: [
-        { fase: 'Før oppstart', items: [
-          { id: 'omfang', label: 'Avklart hvilke flater som skal strimles' },
-          { id: 'underlag', label: 'Underlag fast og rent — løs maling og tapet fjernet' },
-          { id: 'arsak', label: 'Årsak til sprekkene vurdert' }
-        ]},
-        // Reparasjonen er ikke et alternativ til strimling, den kommer alltid
-        // først: strimmelen legges på en flate som allerede er tettet og plan.
-        { fase: 'Reparasjon først', items: [
-          { id: 'rens', label: 'Løs masse skrapet bort, støvfritt' },
-          { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' },
-          { id: 'rep-torket', label: 'Reparasjonen tørket før strimling' },
-          { id: 'rep-slipt', label: 'Slipt plant med flaten rundt' }
-        ]},
-        { fase: 'Strimling', items: [
-          { id: 'lim', label: 'Lim eller klister påført jevnt' },
-          { id: 'strimmel', label: 'Strimmel lagt uten folder og luftbobler' },
-          { id: 'skjot', label: 'Skjøter i strimmelen stusset eller overlappet etter anvisning' },
-          { id: 'sparkel', label: 'Sparklet over strimmelen' }
-        ]},
-        { fase: 'Kontroll', items: [
-          { id: 'torketid', label: 'Tørket fullt før sliping' },
-          { id: 'sliping', label: 'Slipt uten å slipe gjennom strimmelen' },
-          { id: 'sidelys', label: 'Kontrollert med strøkende sidelys' },
-          { id: 'grunning', label: 'Grunnet før maling' },
           { id: 'bilder', label: '📸 Etter-bilder tatt' }
         ]}
       ]
@@ -3778,7 +3751,7 @@
     }
     blokk.appendChild(knapper);
 
-    // Reparasjon og strimling er skrevet fra alminnelig praksis, ikke hentet
+    // Reparasjon alene er skrevet fra alminnelig praksis, ikke hentet
     // fra fagfanene eller en norm. Det skal stå på lista, ikke bare i hodet
     // på den som skrev den.
     var typeDef = jobbtypeDef(del.fag, del.jobbtype);
