@@ -497,6 +497,58 @@
     font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem;
     display: flex; align-items: baseline; gap: 0.4rem;
   }
+  /* Foldbart: jobbdetaljen er elleve blokker i én rull, og de fleste er
+     oppslag man gjør av og til. Tallet i tittelraden sier om det ligger noe
+     der, så man slipper å åpne den for å finne ut av det. */
+  button.delseksjon-tittel {
+    appearance: none; width: 100%; text-align: left; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 0.7rem 0.85rem; min-height: 2.75rem; color: var(--ink);
+    font: inherit; font-size: 0.9rem; font-weight: 700;
+    display: flex; align-items: center; gap: 0.45rem;
+  }
+  .delseksjon-pil { margin-left: auto; color: var(--ink-soft); font-size: 0.8rem; }
+  .delseksjon-body[hidden] { display: none; }
+
+  /* Fasene i sjekklista foldes på samme måte: den fasen man står i er åpen,
+     resten ligger sammenslått med telleren sin. Punktene er ikke borte —
+     de er bare ikke i veien for det man gjør nå. */
+  button.checklist-fase {
+    appearance: none; background: none; border: none; cursor: pointer;
+    width: 100%; text-align: left; display: flex; align-items: center; gap: 0.4rem;
+    font: inherit; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--ink-soft);
+    padding: 0.45rem 0; margin: 0.5rem 0 0.15rem;
+  }
+  .fase-pil { margin-left: auto; font-size: 0.7rem; }
+  .fase-body[hidden] { display: none; }
+
+  .kopi-stripe {
+    appearance: none; width: 100%; text-align: left; cursor: pointer;
+    background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px;
+    padding: 0.7rem 0.85rem; margin-bottom: 0.8rem; color: var(--ink);
+    font: inherit; font-size: 0.85rem; font-weight: 700; min-height: 2.75rem;
+  }
+  .kopi-stripe[hidden] { display: none; }
+
+  .job-card-dato { font-size: 0.82rem; font-weight: 700; margin-top: 0.35rem; }
+  .job-card-dato.forfalt { color: var(--bad); }
+  .job-card-dato.idag { color: var(--ok); }
+  .job-hode-dato {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    margin-top: 0.7rem; font-size: 0.85rem; font-weight: 700;
+  }
+  .job-hode-dato input {
+    font: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.45rem 0.55rem; min-height: 2.6rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+  }
+  #jd-dato-etikett { color: var(--ink-soft); }
+
+  .tamed-jobb {
+    font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-soft); margin: 0.8rem 0 0.1rem;
+  }
+  .tamed-jobb:first-child { margin-top: 0; }
 
   .jobb-gruppe-tittel {
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em;
@@ -957,7 +1009,7 @@
     <p id="notes-empty" class="fav-hint">Ingen notater ennå. Trykk «+ Nytt notat» når du kommer på noe som burde stått her.</p>
     <div id="notes-list"></div>
 
-    <h3 class="group-heading">Sikkerhetskopi</h3>
+    <h3 class="group-heading" id="backup-seksjon">Sikkerhetskopi</h3>
 
     <div class="callout legal" id="backup-varsel" hidden>
       <strong id="backup-varsel-tittel"></strong>
@@ -1007,6 +1059,7 @@
     <p class="section-intro">Ett kort per jobb, lagret lokalt på denne telefonen.</p>
 
     <div id="jobber-liste-view">
+      <button type="button" id="jobber-kopi-stripe" class="kopi-stripe" hidden></button>
       <button type="button" id="job-new-btn" class="note-add-btn">+ Ny jobb</button>
 
       <form id="job-new-form" class="note-form" hidden>
@@ -1040,6 +1093,12 @@
           </label>
           <input type="text" id="job-new-adresse" autocomplete="off" maxlength="140">
         </div>
+        <div class="field">
+          <label for="job-new-dato">Dato
+            <span class="hint">Når skal den gjøres? Valgfritt</span>
+          </label>
+          <input type="date" id="job-new-dato">
+        </div>
         <p class="note-form-err" id="job-new-err" hidden></p>
         <div class="note-form-actions">
           <button type="submit" class="btn-primary" id="job-new-save">Opprett jobb</button>
@@ -1048,6 +1107,18 @@
       </form>
 
       <p id="jobber-empty" class="fav-hint">Ingen jobber ennå. Trykk «+ Ny jobb» for å opprette den første.</p>
+
+      <!-- «Ta med» på tvers av jobbene. Lista inne på den enkelte jobben
+           svarer ikke på det man faktisk lurer på før man drar hjemmefra:
+           hva skal i bilen i dag, uansett hvilken jobb det gjelder. -->
+      <div class="delseksjon" id="jobber-utstyr-boks" hidden>
+        <button type="button" class="delseksjon-tittel" id="jobber-utstyr-toggle" aria-expanded="false">
+          <span>🧰 Ta med</span>
+          <span class="checklist-progress" id="jobber-utstyr-teller"></span>
+          <span class="delseksjon-pil">▸</span>
+        </button>
+        <div class="delseksjon-body" id="jobber-utstyr-body" hidden></div>
+      </div>
 
       <div id="jobber-aktive-list"></div>
 
@@ -1071,6 +1142,11 @@
           <option value="pauset">🟡 Pauset</option>
           <option value="ferdig">🔵 Ferdig</option>
         </select>
+        <div class="job-hode-dato">
+          <label for="jd-dato">📅 Dato</label>
+          <input type="date" id="jd-dato">
+          <span id="jd-dato-etikett"></span>
+        </div>
         <div class="job-hode-framdrift" id="jd-hode-framdrift"></div>
         <div class="job-progress-bar"><div class="job-progress-fill" id="jd-sjekkliste-fill" style="width:0%"></div></div>
         <div class="job-link-row" id="jd-link-row">
@@ -1096,7 +1172,7 @@
       <!-- ===== 2. DETTE MÅ DU HUSKE ===== -->
       <h3 class="group-heading niva niva-2">Dette må du huske</h3>
 
-      <div class="delseksjon">
+      <div class="delseksjon" data-fold="pakke">
         <div class="delseksjon-tittel">🧰 Neste besøk <span class="checklist-progress" id="jd-pakke-teller"></span></div>
         <div class="pakke-addrow">
           <input type="text" id="jd-pakke-input" autocomplete="off" maxlength="120" placeholder="F.eks. «ekstra sekk sparkel»">
@@ -1106,7 +1182,7 @@
         <div id="jd-pakke-list"></div>
       </div>
 
-      <div class="delseksjon">
+      <div class="delseksjon" data-fold="maal">
         <div class="delseksjon-tittel">📏 Mål <span class="checklist-progress" id="jd-maal-teller"></span></div>
         <p class="out-note" style="margin-top:0;">Målene du tar på stedet. De blir liggende på jobben, og kalkulatoren fylles ut fra dem.</p>
         <div id="jd-maal-felt"></div>
@@ -1117,7 +1193,7 @@
         <button type="button" id="jd-maal-regn" class="note-add-btn">🧮 Regn med disse målene</button>
       </div>
 
-      <div class="delseksjon">
+      <div class="delseksjon" data-fold="bilder">
         <div class="delseksjon-tittel">📸 Bilder <span class="checklist-progress" id="jd-bilder-teller"></span></div>
         <div class="bilder-verktoy">
           <label class="bilde-knapp">📷 Ta bilde
@@ -1138,7 +1214,7 @@
         <div id="jd-bilder-galleri"></div>
       </div>
 
-      <div class="delseksjon" id="jd-klasse-seksjon" hidden>
+      <div class="delseksjon" id="jd-klasse-seksjon" data-fold="klasse" hidden>
         <div class="delseksjon-tittel">📐 Avtalt sparklingsklasse</div>
         <div class="field" style="margin-bottom:0.3rem;">
           <select id="jd-klasse">
@@ -1150,7 +1226,7 @@
         <p class="out-note" style="margin-top:0.3rem;">Klassen avgjør pris, og om en synlig bulk er reklamasjon eller innenfor avtalen. Står den som «ikke avtalt», er det verdt å avklare den skriftlig før oppstart.</p>
       </div>
 
-      <div class="delseksjon">
+      <div class="delseksjon" data-fold="farger">
         <div class="delseksjon-tittel">🎨 Fargeprotokoll <span class="checklist-progress" id="jd-farger-teller"></span></div>
         <p class="out-note" style="margin-top:0;">Produkt, kode, glans og strøk per rom. Dette er det kunden ringer om et år senere når en flekk skal fikses.</p>
         <p id="jd-farger-empty" class="fav-hint">Ingen farger registrert ennå.</p>
@@ -1158,14 +1234,14 @@
         <button type="button" id="jd-ny-farge" class="note-add-btn">+ Legg til farge</button>
       </div>
 
-      <div class="delseksjon">
-        <div class="delseksjon-tittel">📝 Notat</div>
+      <div class="delseksjon" data-fold="notat">
+        <div class="delseksjon-tittel">📝 Notat <span class="checklist-progress" id="jd-notat-teller"></span></div>
         <div class="field">
           <textarea id="jd-notat" rows="4" maxlength="1500" placeholder="Fritekst — det som ikke passer noe annet sted."></textarea>
         </div>
       </div>
 
-      <div class="delseksjon">
+      <div class="delseksjon" data-fold="forbehold">
         <div class="delseksjon-tittel">⚠️ Forbehold <span class="checklist-progress" id="jd-forbehold-teller"></span></div>
         <p class="out-note" style="margin-top:0;">Trykk på det som gjelder. Klokka 07:30 skriver man ikke setninger.</p>
         <div class="forbehold-knapper" id="jd-forbehold-knapper"></div>
@@ -1178,15 +1254,15 @@
       <!-- ===== 3. INFORMASJON ===== -->
       <h3 class="group-heading niva niva-3">Informasjon</h3>
 
-      <div class="delseksjon">
-        <div class="delseksjon-tittel">📐 Beregninger</div>
+      <div class="delseksjon" data-fold="beregninger">
+        <div class="delseksjon-tittel">📐 Beregninger <span class="checklist-progress" id="jd-beregninger-teller"></span></div>
         <p id="jd-beregninger-empty" class="fav-hint">Ingen beregninger lagret ennå.</p>
         <div id="jd-beregninger-list"></div>
         <button type="button" id="jd-ny-beregning" class="note-add-btn">🧮 Regn for denne jobben</button>
       </div>
 
-      <div class="delseksjon">
-        <div class="delseksjon-tittel">👤 Kunde og sted</div>
+      <div class="delseksjon" data-fold="kunde">
+        <div class="delseksjon-tittel">👤 Kunde og sted <span class="checklist-progress" id="jd-kunde-teller"></span></div>
         <div class="card job-customer-card">
           <div class="field">
             <label for="jd-navn">Kunde <span class="hint">Navn</span></label>
@@ -2342,6 +2418,17 @@
 
   var editingNoteId = null;
 
+  /* Tidspunktet for siste sikkerhetskopi leses to steder: i «Mitt», der
+     kopien tas, og øverst i jobblista, der påminnelsen faktisk må dukke opp
+     for å bli sett. Én nøkkel, ett sted å endre den. */
+  var SIST_KOPI_KEY = 'malerguiden:sist-sikkerhetskopi';
+  function dagerSidenKopi() {
+    var sist = null;
+    try { sist = Number(localStorage.getItem(SIST_KOPI_KEY)) || null; } catch (e) {}
+    if (!sist) return null;
+    return Math.floor((Date.now() - sist) / 86400000);
+  }
+
   function buildNoteCard(note) {
     var card = el('div', 'note-card');
 
@@ -2518,30 +2605,29 @@
       }, Promise.resolve()).then(function () { return kopi; });
     }
 
-    var SIST_KOPI_KEY = 'malerguiden:sist-sikkerhetskopi';
     function settSistKopiert() {
       try { localStorage.setItem(SIST_KOPI_KEY, String(Date.now())); } catch (e) {}
       visSistKopiert();
     }
     function visSistKopiert() {
-      var sist = null;
-      try { sist = Number(localStorage.getItem(SIST_KOPI_KEY)) || null; } catch (e) {}
+      oppdaterKopiStripe();
+      var dager = dagerSidenKopi();
+      var sist = dager !== null;
       var linje = document.getElementById('backup-sist');
       var varsel = document.getElementById('backup-varsel');
       var harData = loadJobs().length || loadNotes().length;
 
       if (!harData) { linje.textContent = ''; varsel.hidden = true; return; }
 
-      var dager = sist ? Math.floor((Date.now() - sist) / 86400000) : null;
       linje.textContent = sist
         ? 'Sist sikkerhetskopiert: ' + (dager === 0 ? 'i dag' : dager === 1 ? 'i går' : 'for ' + dager + ' dager siden') + '.'
         : 'Aldri sikkerhetskopiert.';
 
       // Sju dager er ikke tilfeldig valgt — det er Safaris egen frist.
-      var forGammel = sist === null || dager >= 7;
+      var forGammel = !sist || dager >= 7;
       varsel.hidden = !forGammel;
       if (forGammel) {
-        setText('backup-varsel-tittel', sist === null
+        setText('backup-varsel-tittel', !sist
           ? 'Du har jobbdata som aldri er sikkerhetskopiert'
           : 'Sikkerhetskopien er ' + dager + ' dager gammel');
         setText('backup-varsel-tekst',
@@ -3088,6 +3174,9 @@
         tlf: (j.kunde && j.kunde.tlf) ? String(j.kunde.tlf) : ''
       },
       rom: j.rom ? String(j.rom) : '',
+      // Ren dagsdato (yyyy-mm-dd). Alt annet kastes: feltet er en
+      // <input type="date">, og et halvskrevet tall skal ikke bli liggende.
+      dato: /^\d{4}-\d{2}-\d{2}$/.test(j.dato) ? String(j.dato) : '',
       sjekkliste: (j.sjekkliste && typeof j.sjekkliste === 'object') ? j.sjekkliste : {},
       utstyr: Array.isArray(j.utstyr) ? j.utstyr.filter(function (u) { return u && u.id && typeof u.tekst === 'string' && u.tekst; }) : [],
       bilder: Array.isArray(j.bilder) ? j.bilder.filter(function (b) { return b && b.id; }) : [],
@@ -3427,6 +3516,36 @@
 
   var UKE = 7 * 24 * 60 * 60 * 1000;
 
+  /* En jobbdato er en dagsdato, ikke et klokkeslett — «tirsdag» er så
+     presist som en jobb blir planlagt på en telefon. Alt regnes i hele
+     døgn fra midnatt, ellers ville «i dag» byttet betydning klokka 12. */
+  function isoDag(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+      '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function iDagIso() { return isoDag(new Date()); }
+  function tilDato(iso) {
+    var b = String(iso).split('-');
+    return new Date(Number(b[0]), Number(b[1]) - 1, Number(b[2]));
+  }
+  // Antall døgn fra i dag til datoen. Negativt betyr forfalt.
+  function dagerTil(iso) {
+    var naa = new Date();
+    return Math.round((tilDato(iso) - new Date(naa.getFullYear(), naa.getMonth(), naa.getDate())) / 86400000);
+  }
+  var UKEDAG = ['søn', 'man', 'tir', 'ons', 'tor', 'fre', 'lør'];
+  var MND = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+  function datoEtikett(iso) {
+    if (!iso) return '';
+    var n = dagerTil(iso);
+    if (n === 0) return 'I dag';
+    if (n === 1) return 'I morgen';
+    if (n === -1) return 'I går';
+    var d = tilDato(iso);
+    var tekst = UKEDAG[d.getDay()] + ' ' + d.getDate() + '. ' + MND[d.getMonth()];
+    return n < 0 ? tekst + ' — forfalt' : tekst;
+  }
+
   // Fyller en jobbtype-meny ut fra faget, og skjuler den for fag som ikke
   // har typer. Returnerer valgt type.
   function fyllJobbtypeMeny(selectId, feltId, fag, valgt) {
@@ -3465,6 +3584,15 @@
     var undertekst = job.deler.map(delTittel).join(' + ');
     if (job.status !== 'planlagt') undertekst += ' · ' + f.gjort + '/' + f.av + ' ferdig';
     card.appendChild(el('div', 'job-card-fag', undertekst));
+
+    // Datoen er det man skanner etter når man skal finne ut hva dagen består
+    // av. En ferdig jobb har ingen dag igjen, så da tar den ikke plass.
+    if (job.dato && job.status !== 'ferdig') {
+      var dagerIgjen = dagerTil(job.dato);
+      card.appendChild(el('div',
+        'job-card-dato' + (dagerIgjen < 0 ? ' forfalt' : dagerIgjen === 0 ? ' idag' : ''),
+        '📅 ' + datoEtikett(job.dato)));
+    }
 
     if (job.status === 'pagar' || job.status === 'pauset') {
       var bar = el('div', 'job-progress-bar');
@@ -3515,14 +3643,30 @@
     // «hva har jeg på gang» et spørsmål lista skal svare på uten at man leser
     // hvert kort.
     aktiveList.textContent = '';
+
+    // Dagens jobber ligger øverst, uansett status — «hva skal jeg gjøre i
+    // dag» er spørsmålet appen åpnes med om morgenen. Forfalte datoer havner
+    // i samme bunke: en jobb som skulle vært gjort i går er dagens problem.
+    var idag = iDagIso();
+    var naa = aktive.filter(function (j) { return j.dato && j.dato <= idag; })
+      .sort(function (a, b) { return a.dato < b.dato ? -1 : a.dato > b.dato ? 1 : 0; });
+    var resten = aktive.filter(function (j) { return naa.indexOf(j) === -1; });
+
+    if (naa.length) {
+      aktiveList.appendChild(el('div', 'jobb-gruppe-tittel', '📅 I DAG · ' + naa.length));
+      naa.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
+    }
+
     ['pagar', 'pauset', 'planlagt'].forEach(function (status) {
-      var iGruppe = aktive.filter(function (j) { return j.status === status; });
+      var iGruppe = resten.filter(function (j) { return j.status === status; });
       if (!iGruppe.length) return;
       aktiveList.appendChild(el('div', 'jobb-gruppe-tittel',
         JOB_STATUS_DOT[status] + ' ' + JOB_STATUS_LABEL[status].toUpperCase() + ' · ' + iGruppe.length));
       iGruppe.forEach(function (j) { aktiveList.appendChild(buildJobCard(j)); });
     });
     empty.hidden = jobs.length > 0;
+    renderTaMed(jobs);
+    oppdaterKopiStripe();
     buildSearchIndex(); // jobbene er søkbare, og de endrer seg hele tiden
 
     if (ferdige.length) {
@@ -3536,17 +3680,126 @@
     }
   }
 
-  function openJob(id) {
+  /* «Ta med» samlet på tvers av jobbene. Lista inne på den enkelte jobben
+     svarer på «hva mangler her», men ikke på det man faktisk lurer på før
+     man drar hjemmefra: hva skal i bilen i dag, uansett hvilken jobb. */
+  var TAMED_KEY = 'malerguiden:ui:tamed';
+  function renderTaMed(jobs) {
+    var boks = document.getElementById('jobber-utstyr-boks');
+    if (!boks) return;
+    var body = document.getElementById('jobber-utstyr-body');
+    var med = jobs.filter(function (j) { return j.status !== 'ferdig'; })
+      .map(function (j) { return { job: j, ting: j.utstyr.filter(function (u) { return !u.checked; }) }; })
+      .filter(function (x) { return x.ting.length; });
+
+    if (!med.length) { boks.hidden = true; return; }
+    boks.hidden = false;
+
+    var antall = med.reduce(function (n, x) { return n + x.ting.length; }, 0);
+    setText('jobber-utstyr-teller', antall + ' ting fra ' + med.length + (med.length === 1 ? ' jobb' : ' jobber'));
+
+    body.textContent = '';
+    med.forEach(function (x) {
+      body.appendChild(el('div', 'tamed-jobb',
+        (x.job.kunde.navn || 'Uten navn') + (x.job.rom ? ' – ' + x.job.rom : '')));
+      x.ting.forEach(function (item) {
+        var row = el('div', 'checklist-item');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'tamed-' + x.job.id + '-' + item.id;
+        cb.addEventListener('change', function () {
+          updateJob(x.job.id, function (j) {
+            j.utstyr = j.utstyr.map(function (u) { if (u.id === item.id) u.checked = cb.checked; return u; });
+            return j;
+          });
+          renderJobList(); // huket av her skal også forsvinne fra kortet under
+        });
+        var lab = document.createElement('label');
+        lab.setAttribute('for', cb.id);
+        lab.textContent = item.tekst;
+        row.appendChild(cb);
+        row.appendChild(lab);
+        body.appendChild(row);
+      });
+    });
+  }
+  function initTaMed() {
+    var knapp = document.getElementById('jobber-utstyr-toggle');
+    var body = document.getElementById('jobber-utstyr-body');
+    var pil = knapp.querySelector('.delseksjon-pil');
+    function sett(open) {
+      body.hidden = !open;
+      knapp.setAttribute('aria-expanded', open ? 'true' : 'false');
+      pil.textContent = open ? '▾' : '▸';
+      try { localStorage.setItem(TAMED_KEY, open ? '1' : '0'); } catch (e) {}
+    }
+    var lagret = null;
+    try { lagret = localStorage.getItem(TAMED_KEY); } catch (e) {}
+    sett(lagret === '1');
+    knapp.addEventListener('click', function () { sett(body.hidden); });
+  }
+
+  // Påminnelsen om sikkerhetskopi hørte bare hjemme inne i «Mitt», der man
+  // aldri går. Den står nå der jobbene er. Den lar seg ikke lukke — den
+  // forsvinner når kopien er tatt, som er hele poenget.
+  function oppdaterKopiStripe() {
+    var stripe = document.getElementById('jobber-kopi-stripe');
+    if (!stripe) return;
+    var harData = loadJobs().length || loadNotes().length;
+    var dager = dagerSidenKopi();
+    if (!harData || (dager !== null && dager < 7)) { stripe.hidden = true; return; }
+    stripe.hidden = false;
+    stripe.textContent = dager === null
+      ? '⚠️ Ingen sikkerhetskopi ennå — trykk her for å lagre en'
+      : '⚠️ Sist sikkerhetskopiert for ' + dager + ' dager siden — trykk her';
+  }
+  function initKopiStripe() {
+    document.getElementById('jobber-kopi-stripe').addEventListener('click', function () {
+      activate('mitt', false);
+      var m = document.getElementById('backup-seksjon');
+      if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  /* Åpning og lukking av en jobb er delt i to: visningen, og historikken
+     rundt den. Uten pushState betyr sveip-tilbake på en hjemskjerm-PWA at
+     man hopper UT av appen i stedet for tilbake til jobblista. */
+  function visJobbDetalj(id) {
     currentJobId = id;
     document.getElementById('jobber-liste-view').hidden = true;
     document.getElementById('jobber-detalj-view').hidden = false;
     renderJobDetail();
   }
-  function closeJobDetail() {
+  function visJobbListe() {
     currentJobId = null;
     document.getElementById('jobber-detalj-view').hidden = true;
     document.getElementById('jobber-liste-view').hidden = false;
     renderJobList();
+  }
+  function openJob(id) {
+    activate('jobber', false);
+    // Adressen blir samtidig en lenke rett til jobben.
+    try { history.pushState({ jobb: id }, '', '#jobb-' + id); } catch (e) {}
+    visJobbDetalj(id);
+  }
+  function closeJobDetail() {
+    // Kom vi hit via pushState, skal «tilbake» gå gjennom historikken —
+    // ellers ville nettleserens egen tilbake sendt oss inn i jobben igjen.
+    if (history.state && history.state.jobb) { history.back(); return; }
+    visJobbListe();
+  }
+  window.addEventListener('popstate', function (e) {
+    var id = e.state && e.state.jobb;
+    if (id && getJob(id)) { activate('jobber', false); visJobbDetalj(id); }
+    else if (currentJobId) visJobbListe();
+  });
+  // Deep-link: #jobb-<id> åpner jobben direkte. Lista legges under i
+  // historikken først, ellers går «tilbake» ut av appen.
+  function apneJobbFraHash() {
+    var m = /^#jobb-(.+)$/.exec(location.hash || '');
+    if (!m) return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (getJob(m[1])) openJob(m[1]);
   }
 
   /* ---------- Rendering: jobbdetalj ---------- */
@@ -3929,13 +4182,31 @@
       blokk.appendChild(merke);
     }
 
-    sjekklisteFor(del).forEach(function (gruppe) {
+    sjekklisteFor(del).forEach(function (gruppe, gi) {
       var gjortIFasen = gruppe.items.filter(function (i) { return del.sjekkliste[i.id]; }).length;
       var heleFasen = gjortIFasen === gruppe.items.length;
-      var fase = el('div', 'checklist-fase' + (heleFasen ? ' ferdig-fase' : ''), gruppe.fase + ' ');
+
+      var fase = document.createElement('button');
+      fase.type = 'button';
+      fase.className = 'checklist-fase' + (heleFasen ? ' ferdig-fase' : '');
+      fase.dataset.fase = String(gi);
+      fase.appendChild(el('span', null, gruppe.fase));
       fase.appendChild(el('span', 'checklist-progress',
         (heleFasen ? '✓ ' : '') + gjortIFasen + '/' + gruppe.items.length));
+      fase.appendChild(el('span', 'fase-pil', '▸'));
       blokk.appendChild(fase);
+
+      var faseBody = el('div', 'fase-body');
+      faseBody.dataset.fase = String(gi);
+      blokk.appendChild(faseBody);
+
+      // Åpner man en fase selv, slås automatikken av for dette arbeidet:
+      // har man bladd tilbake til en ferdig fase, skal ikke neste avhuking
+      // lukke den igjen under fingeren.
+      fase.addEventListener('click', function () {
+        blokk.dataset.manuell = '1';
+        settFase(blokk, gi, faseBody.hidden);
+      });
 
       gruppe.items.forEach(function (item) {
         var row = el('div', 'checklist-item');
@@ -3959,11 +4230,34 @@
         label.textContent = item.label;
         row.appendChild(cb);
         row.appendChild(label);
-        blokk.appendChild(row);
+        faseBody.appendChild(row);
       });
     });
 
+    autoApneFase(blokk, del);
     return blokk;
+  }
+
+  function settFase(blokk, index, open) {
+    var knapp = blokk.querySelector('.checklist-fase[data-fase="' + index + '"]');
+    var body = blokk.querySelector('.fase-body[data-fase="' + index + '"]');
+    if (!knapp || !body) return;
+    body.hidden = !open;
+    knapp.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var pil = knapp.querySelector('.fase-pil');
+    if (pil) pil.textContent = open ? '▾' : '▸';
+  }
+  // Åpner fasen man står i, lukker resten. Et arbeid har 12–19 punkter, og
+  // hele lista på én gang leses som noe man aldri blir ferdig med. Punktene
+  // er ikke borte — de ligger slått sammen med telleren sin, ett trykk unna.
+  function autoApneFase(blokk, del) {
+    var grupper = sjekklisteFor(del);
+    var aktiv = -1;
+    for (var i = 0; i < grupper.length; i++) {
+      var alleGjort = grupper[i].items.every(function (it) { return del.sjekkliste[it.id]; });
+      if (!alleGjort) { aktiv = i; break; }
+    }
+    grupper.forEach(function (g, i) { settFase(blokk, i, i === aktiv); });
   }
 
   // Kortet som svarer på «hva gjør jeg nå». Én stor trykkflate huker av og
@@ -4048,6 +4342,8 @@
         var t = node.querySelector('.checklist-progress');
         if (t) t.textContent = (hel ? '✓ ' : '') + gjort + '/' + gruppe.items.length;
       });
+      // Blir en fase ferdig, flytter den åpne fasen seg videre av seg selv.
+      if (!blokk.dataset.manuell) autoApneFase(blokk, del);
     });
   }
 
@@ -4449,6 +4745,7 @@
     job.beregninger.slice().sort(function (a, b) { return b.tidspunkt - a.tidspunkt; })
       .forEach(function (entry) { list.appendChild(buildBeregningRow(entry)); });
     empty.hidden = job.beregninger.length > 0;
+    setText('jd-beregninger-teller', job.beregninger.length ? String(job.beregninger.length) : '');
   }
 
   function renderJobDetail() {
@@ -4460,6 +4757,8 @@
     document.getElementById('jd-adresse').value = job.kunde.adresse;
     document.getElementById('jd-tlf').value = job.kunde.tlf;
     document.getElementById('jd-status').value = job.status;
+    document.getElementById('jd-dato').value = job.dato;
+    setText('jd-dato-etikett', datoEtikett(job.dato));
     document.getElementById('jd-notat').value = job.notat;
     document.getElementById('jd-forbehold').value = job.forbehold;
     document.getElementById('jd-pakke-input').value = '';
@@ -4479,6 +4778,16 @@
     renderPakkeliste(job);
     renderBilder(job);
     renderBeregninger(job);
+    oppdaterFoldTellere(job);
+  }
+
+  // Tellerne i de sammenslåtte tittelradene: uten dem må man åpne en
+  // seksjon for å se om det står noe i den.
+  function oppdaterFoldTellere(job) {
+    setText('jd-notat-teller', job.notat.trim() ? 'skrevet' : '');
+    setText('jd-beregninger-teller', job.beregninger.length ? String(job.beregninger.length) : '');
+    setText('jd-kunde-teller',
+      !job.kunde.tlf ? 'ingen telefon' : !job.kunde.adresse ? 'ingen adresse' : '');
   }
 
   // Jobbhodet svarer på «hva er dette, og hvor langt er det kommet» før
@@ -4518,9 +4827,29 @@
   function initJobFieldAutosave() {
     makeAutosave('jd-navn', function (j, v) { j.kunde.navn = v; return j; });
     makeAutosave('jd-rom', function (j, v) { j.rom = v; return j; });
-    makeAutosave('jd-adresse', function (j, v) { j.kunde.adresse = v; return j; }, function (v) { updateJobLinksLive('adresse', v); });
-    makeAutosave('jd-tlf', function (j, v) { j.kunde.tlf = v; return j; }, function (v) { updateJobLinksLive('tlf', v); });
-    makeAutosave('jd-notat', function (j, v) { j.notat = v; return j; });
+    makeAutosave('jd-adresse', function (j, v) { j.kunde.adresse = v; return j; }, function (v) {
+      updateJobLinksLive('adresse', v);
+      var job = getJob(currentJobId);
+      if (job) { job.kunde.adresse = v; oppdaterFoldTellere(job); }
+    });
+    makeAutosave('jd-tlf', function (j, v) { j.kunde.tlf = v; return j; }, function (v) {
+      updateJobLinksLive('tlf', v);
+      var job = getJob(currentJobId);
+      if (job) { job.kunde.tlf = v; oppdaterFoldTellere(job); }
+    });
+
+    document.getElementById('jd-dato').addEventListener('change', function (e) {
+      if (!currentJobId) return;
+      var v = e.target.value;
+      updateJob(currentJobId, function (j) {
+        j.dato = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+        return j;
+      });
+      setText('jd-dato-etikett', datoEtikett(v));
+    });
+    makeAutosave('jd-notat', function (j, v) { j.notat = v; return j; }, function (v) {
+      setText('jd-notat-teller', v.trim() ? 'skrevet' : '');
+    });
     makeAutosave('jd-forbehold', function (j, v) { j.forbehold = v; return j; }, function () {
       var job = getJob(currentJobId);
       if (job) oppdaterForbeholdTeller(job);
@@ -4629,6 +4958,7 @@
     if (job.kunde.tlf) linjer.push('Tlf: ' + job.kunde.tlf);
     linjer.push('Arbeid: ' + job.deler.map(delTittel).join(' + '));
     linjer.push('Status: ' + JOB_STATUS_LABEL[job.status]);
+    if (job.dato) linjer.push('Dato: ' + job.dato + ' (' + datoEtikett(job.dato) + ')');
     if (job.klasse) linjer.push('Avtalt sparklingsklasse: ' + job.klasse);
 
     job.deler.forEach(function (del) {
@@ -4837,6 +5167,7 @@
       }
       var job = migrerDeler(normalizeJob({
         id: newJobId(), created: Date.now(), kunde: { navn: navn, adresse: adresse },
+        dato: document.getElementById('job-new-dato').value,
         deler: [{ fag: fag, jobbtype: document.getElementById('job-new-type').value, sjekkliste: {} }]
       }));
       var jobs = loadJobs();
@@ -4855,6 +5186,45 @@
     });
   }
 
+  /* Gjør en delseksjon foldbar uten å skrive om HTML-en: tittelraden blir
+     en knapp, og alt som står under den flyttes inn i en kropp som kan
+     skjules. Tallet i tittelen sier om det ligger noe der, så man slipper å
+     åpne seksjonen for å finne det ut. */
+  function gjorFoldbar(seksjon) {
+    var tittel = seksjon.querySelector('.delseksjon-tittel');
+    if (!tittel || tittel.tagName === 'BUTTON') return;
+
+    var body = el('div', 'delseksjon-body');
+    while (tittel.nextSibling) body.appendChild(tittel.nextSibling);
+    seksjon.appendChild(body);
+
+    var knapp = document.createElement('button');
+    knapp.type = 'button';
+    knapp.className = 'delseksjon-tittel';
+    while (tittel.firstChild) knapp.appendChild(tittel.firstChild);
+    var pil = el('span', 'delseksjon-pil', '▸');
+    knapp.appendChild(pil);
+    seksjon.replaceChild(knapp, tittel);
+
+    // Åpen/lukket huskes på tvers av jobber: bruker man bilder hele tiden,
+    // skal man slippe å åpne den seksjonen på hver eneste jobb.
+    var nokkel = 'malerguiden:ui:fold:' + seksjon.dataset.fold;
+    function sett(open) {
+      body.hidden = !open;
+      knapp.setAttribute('aria-expanded', open ? 'true' : 'false');
+      pil.textContent = open ? '▾' : '▸';
+      try { localStorage.setItem(nokkel, open ? '1' : '0'); } catch (e) {}
+    }
+    var lagret = null;
+    try { lagret = localStorage.getItem(nokkel); } catch (e) {}
+    sett(lagret === '1');
+    knapp.addEventListener('click', function () { sett(body.hidden); });
+  }
+  function initFoldSeksjoner() {
+    var noder = document.querySelectorAll('#jobber-detalj-view .delseksjon[data-fold]');
+    Array.prototype.forEach.call(noder, gjorFoldbar);
+  }
+
   function initFerdigeToggle() {
     document.getElementById('jobber-ferdige-toggle').addEventListener('click', function () {
       document.getElementById('jobber-ferdige-list').hidden = !document.getElementById('jobber-ferdige-list').hidden;
@@ -4865,6 +5235,9 @@
   function initJobber() {
     initJobNewForm();
     initFerdigeToggle();
+    initFoldSeksjoner();
+    initTaMed();
+    initKopiStripe();
     initJobFieldAutosave();
     initJobDetailActions();
     initJobPicker();
@@ -5714,6 +6087,19 @@
     if (HASH_ALIAS[h]) h = HASH_ALIAS[h];
     if (!h) { activate('jobber', false); return; }
     if (panelNames.indexOf(h) !== -1) { activate(h, false); return; }
+    // #jobb-<id> når hash-en endres uten omlasting — f.eks. en delt lenke
+    // åpnet mens appen alt står oppe. Ved kald oppstart tar
+    // apneJobbFraHash() denne, og da er jobben alt åpen når vi kommer hit.
+    if (h.indexOf('jobb-') === 0) {
+      var jobbId = h.slice(5);
+      if (currentJobId === jobbId) return;
+      activate('jobber', false);
+      if (getJob(jobbId)) {
+        try { history.replaceState({ jobb: jobbId }, '', location.hash); } catch (e) {}
+        visJobbDetalj(jobbId);
+      }
+      return;
+    }
     if (h.indexOf('f-') === 0) {
       activate('maltall', false);
       var card = document.getElementById(h);
@@ -5727,6 +6113,9 @@
     activate('jobber', false);
   }
   window.addEventListener('hashchange', function () { routeFromHash(true); });
+  // Kjøres helt til slutt: å åpne en jobb tegner hele jobbskjermen, og
+  // den er avhengig av oppsett lenger nede i denne filen.
+  apneJobbFraHash();
   routeFromHash(false);
 
   /* ------------------------------ Offline ------------------------------ */
