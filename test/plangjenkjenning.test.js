@@ -76,3 +76,23 @@ test('forenkling og oppretting gir et rent rektangel', () => {
   assert.equal(p.length, 4);
   assert.ok(Math.abs(arealPx(p) - 6000) < 200);
 });
+
+test('bred døråpning (ca. 8 veggtykkelser) skiller to rom', () => {
+  // To rom ved siden av hverandre, skillevegg 6 px med en 50 px døråpning
+  const g = tegning(500, 300, [
+    [40, 40, 460, 46], [40, 254, 460, 260], [40, 40, 46, 260], [454, 40, 460, 260],
+    [250, 40, 256, 130], [250, 180, 256, 260],
+  ]);
+  const { rom } = finnRom(g, 500, 300);
+  assert.equal(rom.length, 2, 'antall rom: ' + rom.map((r) => Math.round(r.areal)).join(', '));
+  for (const r of rom) assert.equal(r.polygon.length, 4, 'rektangel: ' + JSON.stringify(r.polygon));
+});
+
+test('grå strek i ytterveggen er et vindu', () => {
+  const g = tegning(400, 300, [[40, 40, 360, 48], [40, 252, 360, 260], [40, 40, 48, 260], [352, 40, 360, 120], [352, 200, 360, 260]]);
+  for (let y = 120; y < 200; y++) for (let x = 352; x < 360; x++) g[y * 400 + x] = 185; // grått vindu
+  const { rom } = finnRom(g, 400, 300);
+  assert.equal(rom.length, 1);
+  assert.equal(rom[0].vinduer.length, 1, 'vinduer: ' + JSON.stringify(rom[0].vinduer) + ' dører: ' + JSON.stringify(rom[0].dorer));
+  assert.equal(rom[0].dorer.length, 0);
+});

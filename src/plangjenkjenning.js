@@ -313,7 +313,7 @@ export function skarpeHjorner(poly, maksLengde) {
  * Sammenhengende biter lengre enn ca. 2,5 veggtykkelser regnes med.
  * Returnerer { dorer: [{a,b}], vinduer: [{a,b}] } i bildets piksler.
  */
-export function apninger(poly, vegger, mork, w, h, tykk) {
+export function apninger(poly, vegger, mork, w, h, tykk, gra = null) {
   const dorer = [], vinduer = [];
   const sign = signertAreal(poly) > 0 ? 1 : -1;
   const minst = Math.max(4, tykk * 2.5);
@@ -333,7 +333,7 @@ export function apninger(poly, vegger, mork, w, h, tykk) {
       for (let d = 0; d <= dybde; d += 1) {
         const x = px + nx * d, y = py + ny * d;
         if (hent(vegger, x, y)) { vegg = true; break; }
-        if (hent(mork, x, y)) tynn = true;
+        if (hent(mork, x, y) || (gra && hent(gra, x, y))) tynn = true; // vinduer: tynne eller grå streker
       }
       klasse.push(vegg ? 'v' : tynn ? 't' : 'o');
     }
@@ -374,7 +374,7 @@ export function arealPx(p) {
  * @param g gråtoner, w × h
  * @returns { rom: [{ polygon: [[x,y],…], areal, midt }], veggtykkelse }
  */
-export function finnRom(g, w, h, { minsteAndel = 0.004 } = {}) {
+export function finnRom(g, w, h, { minsteAndel = 0.004, dorFaktor = 4 } = {}) {
   const t = otsu(g);
   const mork = new Uint8Array(w * h);
   for (let i = 0; i < mork.length; i++) mork[i] = g[i] <= t ? 1 : 0;
@@ -419,29 +419,80 @@ export function finnRom(g, w, h, { minsteAndel = 0.004 } = {}) {
   const { etikett, liste } = omrader(fri, w, h);
   const minst = w * h * minsteAndel;
 
+  // 4b. En dør (0,8–1 m) er ofte bredere enn tettingen over, så rom som henger sammen gjennom
+  //     en dør blir ett. Med en bredere tetting skilles de. Hvert område fra den smale tettingen
+  //     får da én kjerne per rom fra den brede; små rom som forsvinner med den brede, beholdes hele.
+  const lukkDor = Math.max(lukk, tykk * dorFaktor);
+  const friDor = new Uint8Array(w * h);
+  if (lukkDor > lukk) {
+    const tetteDor = utvid(vegger, w, h, lukkDor);
+    for (let i = 0; i < friDor.length; i++) friDor[i] = tetteDor[i] || utenfor[i] ? 0 : 1;
+  }
+  const { etikett: eDor, liste: lDor } = omrader(friDor, w, h);
+  const storKjerne = new Set(lDor.filter((o) => !o.kant && o.antall >= minst * 0.2).map((o) => o.id));
+  const harKjerne = new Set();
+  for (let i = 0; i < etikett.length; i++) if (etikett[i] >= 0 && storKjerne.has(eDor[i])) harKjerne.add(etikett[i]);
+
   // 5. Alle rommene (og området utenfor) vokser samtidig tilbake ut til veggene.
   //    En døråpning deles da omtrent midt mellom de to rommene på hver side.
-  const kilder = liste.filter((o) => o.kant || o.antall >= minst);
+  const DOR_ID = 1 << 20; // kjerner fra den brede tettingen får egne id-er
+  const info = new Map(liste.map((o) => [o.id, o]));
+  const kilder = [];
+  for (const o of liste) {
+    if (o.kant) kilder.push(o);
+    else if (o.antall >= minst && !harKjerne.has(o.id)) kilder.push(o);
+  }
   const UTE = -2; // utsiden av bygget, vokser ikke, men sperrer
   const eier = new Int32Array(w * h).fill(-1);
   const steg = new Float32Array(w * h);
   const ko = new Int32Array(w * h);
   let les = 0, skriv = 0;
   const erKilde = new Set(kilder.map((o) => o.id));
+  const dorSum = new Map(); // midtpunkt for kjernene fra den brede tettingen
   for (let i = 0; i < etikett.length; i++) {
-    if (etikett[i] >= 0 && erKilde.has(etikett[i])) { eier[i] = etikett[i]; ko[skriv++] = i; }
-    else if (utenfor[i] && !vegger[i]) eier[i] = UTE;
+    const e = etikett[i];
+    if (e >= 0 && erKilde.has(e)) { eier[i] = e; ko[skriv++] = i; }
+    else if (e >= 0 && harKjerne.has(e) && info.get(e).antall >= minst * 0.2 && storKjerne.has(eDor[i])) {
+      const id = DOR_ID + eDor[i];
+      eier[i] = id; ko[skriv++] = i;
+      const s = dorSum.get(id) || [0, 0, 0]; s[0] += i % w; s[1] += (i - (i % w)) / w; s[2]++; dorSum.set(id, s);
+    } else if (utenfor[i] && !vegger[i]) eier[i] = UTE;
   }
-  const maksSteg = lukk * 1.6 + 2;
-  while (les < skriv) {
-    const i = ko[les++];
-    if (steg[i] >= maksSteg) continue;
-    const x = i % w, y = (i - x) / w;
-    for (const n of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+  for (const [id, [sx, sy, n]] of dorSum) kilder.push({ id, kant: false, antall: n, midt: [sx / n, sy / n] });
+  // Vannskille: rommene fylles ut fra kjernene, de åpneste stedene (lengst fra vegg) først.
+  // Der to rom møtes i en døråpning, går grensen da i det trangeste punktet: i selve døra.
+  const fraVegg = avstand(Uint8Array.from(vegger, (v) => (v ? 0 : 1)), w, h);
+  let L = 1;
+  for (let i = 0; i < fraVegg.length; i++) if (!vegger[i]) L = Math.max(L, Math.round(fraVegg[i] * 2) + 1);
+  // Hver bøtte er en kø (først inn, først ut), så rommene vokser like fort langs et nivå.
+  const botter = Array.from({ length: L }, () => []);
+  const lest = new Int32Array(L);
+  let topp = L - 1;
+  const naboer = (i) => { const x = i % w, y = (i - x) / w; return [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]; };
+  const skyv = (i, niva) => {
+    for (const n of naboer(i)) {
       if (n < 0 || vegger[n] || eier[n] !== -1) continue;
-      eier[n] = eier[i]; steg[n] = steg[i] + 1; ko[skriv++] = n;
+      botter[Math.min(niva, Math.round(fraVegg[n] * 2))].push(n, i);
     }
+  };
+  for (let k = 0; k < skriv; k++) skyv(ko[k], L - 1);
+  while (topp >= 0) {
+    const b = botter[topp];
+    if (lest[topp] >= b.length) { botter[topp] = []; lest[topp] = 0; topp--; continue; }
+    const n = b[lest[topp]++], fra = b[lest[topp]++];
+    if (eier[n] !== -1) continue;
+    eier[n] = eier[fra];
+    skyv(n, topp);
   }
+
+  // Mange tegninger viser vinduer som grå streker i veggen. Grått er alt som er tydelig mørkere
+  // enn papiret (90-persentilen av lysheten), men lysere enn strekene.
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < g.length; i++) hist[g[i]]++;
+  let papir = 255;
+  for (let v = 0, sum = 0; v < 256; v++) { sum += hist[v]; if (sum >= g.length * 0.9) { papir = v; break; } }
+  const gra = new Uint8Array(w * h);
+  for (let i = 0; i < gra.length; i++) gra[i] = !mork[i] && g[i] < papir - 25 ? 1 : 0;
 
   const rom = [];
   for (const o of kilder) {
@@ -456,7 +507,7 @@ export function finnRom(g, w, h, { minsteAndel = 0.004 } = {}) {
     // Hakk mindre enn ca. 2,5 veggtykkelser (typisk restene av en døråpning) forenkles bort.
     const poly = ortogonaliser(rettOpp(skarpeHjorner(rettOpp(forenkle(kontur, Math.max(2, tykk * 0.4))), tykk * 3)), { kortest: tykk * 1.4 });
     if (poly.length < 3) continue;
-    rom.push({ polygon: poly, areal: arealPx(poly), midt: o.midt, ...apninger(poly, vegger, mork, w, h, tykk) });
+    rom.push({ polygon: poly, areal: arealPx(poly), midt: o.midt, ...apninger(poly, vegger, mork, w, h, tykk, gra) });
   }
   rom.sort((a, b) => b.areal - a.areal);
   return { rom, veggtykkelse: tykk };
