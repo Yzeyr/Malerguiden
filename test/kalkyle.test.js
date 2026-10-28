@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -180,4 +180,14 @@ test('pris per rom: rommene pluss det felles blir summen', () => {
   assert.ok(rader[1].sum.timer > 0 && rader[0].sum.timer > 0);
   assert.equal(rader.reduce((s, r) => s + r.sum.eksMva, 0) + felles.eksMva, alt.sum.eksMva);
   assert.ok(felles.timer >= 3 - 0.2, 'oppstart 1 t + tillegg 2 t');
+});
+
+test('sparkel trenger et døgn tørk per runde', () => {
+  const uten = beregn({ ...tomKalkyle(''), rom: [rom({ id: 'a' })] }, {});
+  assert.equal(dagerMedTork(uten).runder, 0);
+  assert.equal(dagerMedTork(uten).dager, dagerMedTork(uten).arbeidsdager);
+  const k3 = beregn({ ...tomKalkyle('K3'), rom: [rom({ id: 'a' })] }, {});
+  const d = dagerMedTork(k3);
+  assert.equal(d.runder, 3);
+  assert.ok(d.dager >= 3.5 && d.dager > d.arbeidsdager, JSON.stringify(d));
 });

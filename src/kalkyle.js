@@ -318,6 +318,31 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
   return Math.ceil((timer / timerPerDag) * 2) / 2;
 }
 
+/** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
+export const SPARKEL_RUNDER = { skjot: 2, k2: 2, k3: 3, listefritt: 2 };
+
+/**
+ * Hvor mange dager jobben tar med tørketid for sparkel. Hver sparkelrunde tar minst
+ * en dag, fordi sparkelen må tørke et døgn før neste runde, sliping og maling.
+ * Resten av arbeidet (grunning, maling, rigging) kommer i tillegg.
+ */
+export function dagerMedTork(resultat, timerPerDag = 7.5) {
+  const b = resultat || { linjer: [], sum: { timer: 0 } };
+  let runder = 0, sparkel = 0;
+  for (const l of b.linjer) {
+    const m = /-sparkling-(skjot|k2|k3)$/.exec(l.id);
+    const r = m ? SPARKEL_RUNDER[m[1]] : l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0;
+    if (!r || !(l.timer > 0)) continue;
+    runder = Math.max(runder, r);
+    sparkel += l.timer;
+  }
+  const uten = arbeidsdager(b.sum.timer, timerPerDag);
+  if (!runder) return { dager: uten, arbeidsdager: uten, runder: 0 };
+  const perRunde = Math.max(1, Math.ceil(sparkel / runder / timerPerDag));
+  const dager = runder * perRunde + arbeidsdager(Math.max(0, b.sum.timer - sparkel), timerPerDag);
+  return { dager: Math.max(dager, uten), arbeidsdager: uten, runder };
+}
+
 /** Leser eksporten fra Romskanner-appen. Returnerer rom uten id, eller kaster med norsk melding. */
 export function fraSkanning(tekst) {
   let d;

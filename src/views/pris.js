@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
 import { endreJobb, hentJobb } from '../jobs.js';
-import { tomKalkyle, romMengder, beregn, perRom, arbeidsdager, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { tomKalkyle, romMengder, beregn, perRom, arbeidsdager, dagerMedTork, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -148,6 +148,7 @@ export function prisPanel(j) {
   const ut = h('div');
   const k = j.kalkyle || tomKalkyle(j.klasse);
   const r = beregn(k, egnePriser());
+  const tork = dagerMedTork(r);
 
   if (!k.rom.length) {
     ut.append(h('div.tom', h('b', 'Ingen rom ennå'), 'Legg inn rommene under Mål, så regnes pris og timer ut her.'),
@@ -160,9 +161,11 @@ export function prisPanel(j) {
     h('div.overtittel', 'Overslag · eks. mva'),
     h('div', { style: { fontFamily: 'var(--serif)', fontSize: '38px', fontWeight: '700', lineHeight: '1.1', margin: '4px 0 6px', position: 'relative', zIndex: '1' } }, fmt(r.sum.eksMva, 0), h('small', { style: { fontSize: '18px', opacity: '.8', marginLeft: '6px' } }, 'kr')),
     h('div', { style: { display: 'flex', gap: '16px', fontSize: '13.5px', position: 'relative', zIndex: '1', flexWrap: 'wrap' } },
-      ...[['Timer', fmt(r.sum.timer, 1) + ' t'], ['Dager', fmt(arbeidsdager(r.sum.timer), 1)], ['Arbeid', fmt(r.sum.arbeid, 0)], ['Materialer', fmt(r.sum.materialer, 0)]]
-        .map(([a, b]) => h('div', { style: { opacity: '.9' } }, a, h('b', { style: { display: 'block', fontFamily: 'var(--serif)', fontSize: '19px' } }, b)))),
-    h('div', { style: { marginTop: '10px', fontSize: '13.5px', opacity: '.75', position: 'relative', zIndex: '1' } }, 'Inkl. mva ' + kr(r.sum.inklMva))));
+      ...[['Timer', fmt(r.sum.timer, 1) + ' t'], ['Arbeidsdager', fmt(tork.arbeidsdager, 1)], tork.dager > tork.arbeidsdager && ['Med tørk', 'ca. ' + fmt(tork.dager, 1)], ['Arbeid', fmt(r.sum.arbeid, 0)], ['Materialer', fmt(r.sum.materialer, 0)]]
+        .filter(Boolean).map(([a, b]) => h('div', { style: { opacity: '.9' } }, a, h('b', { style: { display: 'block', fontFamily: 'var(--serif)', fontSize: '19px' } }, b)))),
+    h('div', { style: { marginTop: '10px', fontSize: '13.5px', opacity: '.75', position: 'relative', zIndex: '1' } }, 'Inkl. mva ' + kr(r.sum.inklMva)),
+    tork.runder > 0 && h('div', { style: { marginTop: '4px', fontSize: '13.5px', opacity: '.75', position: 'relative', zIndex: '1' } },
+      tork.runder + ' runder sparkel med et døgn tørk mellom hver')));
 
   if (r.manglerMal) ut.append(h('p.advarsel', ikon('advarsel'), h('span', flertall(r.manglerMal, 'rom mangler', 'rom mangler') + ' mål og er ikke regnet med.')));
 
