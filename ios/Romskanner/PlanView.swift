@@ -50,12 +50,24 @@ struct PlanView: View {
                 ctx.stroke(slag.bue, with: .color(terrakotta.opacity(0.6)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             }
 
-            // Mål på hver vegg, utenfor rommet
+            // Mål på hver vegg utenfor rommet, og på vinduer og dører innenfor
             if visMal {
                 for (v, meter) in zip(p.vegger, p.veggLengder) where meter >= 0.3 {
-                    let tekst = Text(meter.formatted(.number.precision(.fractionLength(2))) + " m")
-                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                    ctx.draw(tekst, at: p.utenfor(v, avstand: 16))
+                    let tekst = ctx.resolve(Text(meter.formatted(.number.precision(.fractionLength(2))) + " m")
+                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary))
+                    ctx.draw(tekst, at: p.utenfor(v, avstand: 12, tekst: tekst.measure(in: size)))
+                }
+                for (w, l) in zip(p.vinduer, plan.vinduer) {
+                    if let s = Tilpasning.storrelse(l) {
+                        let tekst = ctx.resolve(Text(s).font(.system(size: 10, weight: .semibold)).foregroundStyle(vindusblaa))
+                        ctx.draw(tekst, at: p.utenfor(w, avstand: -10, tekst: tekst.measure(in: size)))
+                    }
+                }
+                for (d, l) in zip(p.dorer, plan.dorer) {
+                    if let s = Tilpasning.storrelse(l) {
+                        let tekst = ctx.resolve(Text(s).font(.system(size: 10, weight: .semibold)).foregroundStyle(terrakotta))
+                        ctx.draw(tekst, at: p.utenfor(d, avstand: -10, tekst: tekst.measure(in: size)))
+                    }
                 }
             }
         }
@@ -64,7 +76,14 @@ struct PlanView: View {
 }
 
 /// Roterer planen så den lengste veggen ligger vannrett, og skalerer den til rammen.
-private struct Tilpasning {
+struct Tilpasning {
+    /// «1,20 × 1,40» (bredde × høyde i meter), eller nil når målene mangler.
+    static func storrelse(_ l: Plan.Linje) -> String? {
+        guard let b = l.bredde, let h = l.hoyde, b > 0, h > 0 else { return nil }
+        let f = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2))
+        return b.formatted(f) + " × " + h.formatted(f)
+    }
+
     var gulv: [CGPoint] = []
     var vegger: [(CGPoint, CGPoint)] = []
     var dorer: [(CGPoint, CGPoint)] = []
@@ -102,14 +121,17 @@ private struct Tilpasning {
         }
     }
 
-    /// Et punkt ved midten av veggen, på motsatt side av rommets midte.
-    func utenfor(_ v: (CGPoint, CGPoint), avstand: CGFloat) -> CGPoint {
+    /// Et punkt ved midten av veggen, på motsatt side av rommets midte (negativ avstand: innenfor).
+    /// Teksten står vannrett, så den flyttes en halv tekstbredde ekstra fra loddrette vegger.
+    func utenfor(_ v: (CGPoint, CGPoint), avstand: CGFloat, tekst: CGSize) -> CGPoint {
         let m = CGPoint(x: (v.0.x + v.1.x) / 2, y: (v.0.y + v.1.y) / 2)
         let dx = v.1.x - v.0.x, dy = v.1.y - v.0.y
         let l = max(hypot(dx, dy), 0.001)
         var n = CGPoint(x: -dy / l, y: dx / l)
         if (senter.x - m.x) * n.x + (senter.y - m.y) * n.y > 0 { n = CGPoint(x: -n.x, y: -n.y) }
-        return CGPoint(x: m.x + n.x * avstand, y: m.y + n.y * avstand)
+        let ekstra = abs(n.x) * tekst.width / 2 + abs(n.y) * tekst.height / 2
+        let d = avstand < 0 ? avstand - ekstra : avstand + ekstra
+        return CGPoint(x: m.x + n.x * d, y: m.y + n.y * d)
     }
 
     /// Dørbladet står vinkelrett på veggen, og slaget er en kvartsirkel inn i rommet.
@@ -156,6 +178,16 @@ struct RomDetalj: View {
                 } footer: {
                     if let plan = rom.plan {
                         Text("\(plan.vegger.count) vegger · \(plan.dorer.count) dører · \(plan.vinduer.count) vinduer" + (plan.apninger.isEmpty ? "" : " · \(plan.apninger.count) åpninger"))
+                    }
+                }
+                if let plan = rom.plan, !(plan.vinduer.isEmpty && plan.dorer.isEmpty) {
+                    Section("Vinduer og dører") {
+                        ForEach(Array(plan.vinduer.enumerated()), id: \.offset) { i, v in
+                            LabeledContent("Vindu \(i + 1)", value: Tilpasning.storrelse(v).map { $0 + " m" } ?? "–")
+                        }
+                        ForEach(Array(plan.dorer.enumerated()), id: \.offset) { i, d in
+                            LabeledContent("Dør \(i + 1)", value: Tilpasning.storrelse(d).map { $0 + " m" } ?? "–")
+                        }
                     }
                 }
                 Section("Mål") {

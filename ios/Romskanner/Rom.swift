@@ -22,7 +22,13 @@ struct SkannetRom: Codable, Identifiable, Hashable {
 /// Plantegning i meter, sett ovenfra (x mot høyre, y nedover på skjermen).
 struct Plan: Codable, Hashable {
     struct Punkt: Codable, Hashable { var x: Double; var y: Double }
-    struct Linje: Codable, Hashable { var a: Punkt; var b: Punkt }
+    struct Linje: Codable, Hashable {
+        var a: Punkt
+        var b: Punkt
+        /// Bredde og høyde i meter (vinduer, dører og åpninger). Mangler på eldre skanninger.
+        var bredde: Double?
+        var hoyde: Double?
+    }
     var gulv: [Punkt]
     var vegger: [Linje]
     var dorer: [Linje]
@@ -57,7 +63,8 @@ enum Maling {
         if lengde > 0 { retning /= lengde }
         let halv = Double(s.dimensions.x) / 2
         let a = senter - retning * halv, b = senter + retning * halv
-        return Plan.Linje(a: .init(x: a.x, y: a.y), b: .init(x: b.x, y: b.y))
+        return Plan.Linje(a: .init(x: a.x, y: a.y), b: .init(x: b.x, y: b.y),
+                          bredde: Double(s.dimensions.x), hoyde: Double(s.dimensions.y))
     }
 
     static func plan(_ r: CapturedRoom) -> Plan {
@@ -187,7 +194,8 @@ struct Eksport: Codable {
     /// Centimeter holder, og fila blir mye mindre.
     static func avrundPlan(_ p: Plan) -> Plan {
         func r(_ q: Plan.Punkt) -> Plan.Punkt { .init(x: (q.x * 100).rounded() / 100, y: (q.y * 100).rounded() / 100) }
-        func l(_ x: Plan.Linje) -> Plan.Linje { .init(a: r(x.a), b: r(x.b)) }
+        func m(_ v: Double?) -> Double? { v.map { ($0 * 100).rounded() / 100 } }
+        func l(_ x: Plan.Linje) -> Plan.Linje { .init(a: r(x.a), b: r(x.b), bredde: m(x.bredde), hoyde: m(x.hoyde)) }
         return Plan(gulv: p.gulv.map(r), vegger: p.vegger.map(l), dorer: p.dorer.map(l), vinduer: p.vinduer.map(l), apninger: p.apninger.map(l))
     }
 

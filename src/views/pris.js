@@ -100,7 +100,11 @@ export function romArk(jobId, romId, forslag = null) {
       },
     },
       h('h2', finnes ? 'Endre rom' : 'Nytt rom'),
-      verdi.skannplan && h('div.kort', { style: { padding: '6px', marginBottom: '12px' } }, planSvg(verdi.skannplan, { bredde: 320, hoyde: 220, mal: true })),
+      verdi.skannplan && h('div.kort', { style: { padding: '6px', marginBottom: '12px' } },
+        planSvg(verdi.skannplan, { bredde: 320, hoyde: 240, mal: true }),
+        (verdi.skannplan.vinduer.length > 0 || verdi.skannplan.dorer.length > 0) && h('div.merker', { style: { padding: '6px 4px 2px' } },
+          verdi.skannplan.vinduer.map((l, i) => h('span.merke', 'Vindu ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : ''))),
+          verdi.skannplan.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : ''))))),
       h('label.felt', h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
       fraPlan
         ? h('p.dempet.liten', { style: { margin: '0 2px 10px' } }, verdi.kilde === 'skann'
@@ -370,17 +374,23 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
   if (mal) {
     const pts = plan.gulv.length >= 3 ? plan.gulv.map(til) : plan.vegger.flatMap((l) => [til(l.a), til(l.b)]);
     const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
-    for (const l of plan.vegger) {
-      const m = lengde(l);
-      if (m < 0.3) continue;
+    // Positiv avstand: utenfor rommet (veggmål). Negativ: innenfor (vinduer og dører).
+    const etikett = (l, tekst, avstand, farge, storrelse) => {
       const [x1, y1] = til(l.a), [x2, y2] = til(l.b);
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
       const d = Math.hypot(x2 - x1, y2 - y1) || 1;
       let nx = -(y2 - y1) / d, ny_ = (x2 - x1) / d;
       if ((cx - mx) * nx + (cy - my) * ny_ > 0) { nx = -nx; ny_ = -ny_; }
-      const t = ny('text', { x: mx + nx * 13, y: my + ny_ * 13 + 4, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 650, fill: 'var(--blekk2)', 'font-family': 'var(--sans)' });
-      t.textContent = fmt(m, 2) + ' m';
-    }
+      // Teksten står vannrett: på loddrette vegger må den flyttes en halv tekstbredde ekstra.
+      const halvBredde = tekst.length * storrelse * 0.29;
+      avstand = Math.sign(avstand) * (Math.abs(avstand) + Math.abs(nx) * halvBredde);
+      const t = ny('text', { x: mx + nx * avstand, y: my + ny_ * avstand + 4, 'text-anchor': 'middle', 'font-size': storrelse, 'font-weight': 650, fill: farge, 'font-family': 'var(--sans)' });
+      t.textContent = tekst;
+    };
+    for (const l of plan.vegger) if (lengde(l) >= 0.3) etikett(l, fmt(lengde(l), 2) + ' m', 13, 'var(--blekk2)', 10.5);
+    const bxh = (l) => (l.bredde && l.hoyde ? fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) : null);
+    for (const l of plan.vinduer) { const t = bxh(l); if (t) etikett(l, t, -12, '#3F7FB8', 9.5); }
+    for (const l of plan.dorer) { const t = bxh(l); if (t) etikett(l, t, -12, 'var(--terrakotta)', 9.5); }
   }
   return svg;
 }

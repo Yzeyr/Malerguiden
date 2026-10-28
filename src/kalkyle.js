@@ -118,7 +118,9 @@ export function rensKalkyle(k, klasse = '') {
 /* ---------- Plan fra LiDAR-skanning ---------- */
 
 const punkt = (p) => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null);
-const linjer = (a) => (Array.isArray(a) ? a.map((l) => (l && punkt(l.a) && punkt(l.b) ? { a: punkt(l.a), b: punkt(l.b) } : null)).filter(Boolean) : []);
+const malEllerNull = (v) => (Number.isFinite(v) && v > 0 ? v : null);
+const linjer = (a) => (Array.isArray(a) ? a.map((l) => (l && punkt(l.a) && punkt(l.b)
+  ? { a: punkt(l.a), b: punkt(l.b), bredde: malEllerNull(l.bredde), hoyde: malEllerNull(l.hoyde) } : null)).filter(Boolean) : []);
 
 /** Plantegningen fra Romskanner, i meter: gulv (punkter), vegger, dører, vinduer, åpninger (linjer). */
 export function rensPlan(p) {
