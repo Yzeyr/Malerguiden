@@ -170,6 +170,8 @@ struct RomDetalj: View {
     @State private var endrer = false
     @State private var visModell: URL?
     @State private var visning: VistModell?
+    @State private var sletter = false
+    @Environment(\.dismiss) private var lukk
 
     private var rom: SkannetRom? { lager.rom.first { $0.id == id } }
     private func m(_ v: Double, _ d: Int = 1) -> String { v.formatted(.number.precision(.fractionLength(d))) }
@@ -247,8 +249,23 @@ struct RomDetalj: View {
                     LabeledContent("Vinduer", value: "\(rom.vinduer)")
                     LabeledContent("Dører", value: "\(rom.dorer)")
                 }
+                Section {
+                    Button(role: .destructive) { sletter = true } label: {
+                        Label("Slett rommet", systemImage: "trash")
+                    }
+                }
             }
             .navigationTitle(rom.navn)
+            .confirmationDialog("Slette «\(rom.navn)»?", isPresented: $sletter, titleVisibility: .visible) {
+                Button("Slett rommet", role: .destructive) {
+                    Modell.slett(id)
+                    lager.rom.removeAll { $0.id == id }
+                    lukk()
+                }
+                Button("Avbryt", role: .cancel) {}
+            } message: {
+                Text("Plantegningen, målene og 3D-modellen blir borte.")
+            }
             .quickLookPreview($visModell)
             .fullScreenCover(item: $visning) { ModellVisning(modell: $0) }
             .toolbar {

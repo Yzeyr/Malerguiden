@@ -41,6 +41,12 @@ struct ContentView: View {
                     Section {
                         ForEach(lager.rom) { rom in
                             NavigationLink(value: rom.id) { RomRad(rom: rom) }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Modell.slett(rom.id)
+                                        lager.rom.removeAll { $0.id == rom.id }
+                                    } label: { Label("Slett rommet", systemImage: "trash") }
+                                }
                         }
                         .onDelete { indekser in
                             for i in indekser { Modell.slett(lager.rom[i].id) }
@@ -49,7 +55,7 @@ struct ContentView: View {
                     } header: {
                         Text("Skannede rom")
                     } footer: {
-                        Text("Trykk på et rom for å se plantegningen. Sveip til venstre for å slette.")
+                        Text("Trykk på et rom for å se plantegningen. Sveip til venstre, hold inne eller trykk «Rediger» for å slette.")
                     }
                 }
             }
@@ -57,6 +63,7 @@ struct ContentView: View {
             .navigationDestination(for: UUID.self) { id in RomDetalj(lager: lager, id: id) }
             .toolbar {
                 if !lager.rom.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) { EditButton() }
                     ToolbarItem(placement: .topBarTrailing) {
                         ShareLink(item: lager.fil()) { Image(systemName: "square.and.arrow.up") }
                     }
