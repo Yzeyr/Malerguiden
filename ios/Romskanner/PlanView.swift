@@ -1,4 +1,5 @@
 import SwiftUI
+import QuickLook
 
 /// 2D-plantegning av ett rom: gulv, vegger med mål, dører med slag og vinduer.
 struct PlanView: View {
@@ -167,6 +168,7 @@ struct RomDetalj: View {
     let id: UUID
     @State private var navn = ""
     @State private var endrer = false
+    @State private var visModell: URL?
 
     private var rom: SkannetRom? { lager.rom.first { $0.id == id } }
     private func m(_ v: Double, _ d: Int = 1) -> String { v.formatted(.number.precision(.fractionLength(d))) }
@@ -210,6 +212,18 @@ struct RomDetalj: View {
                         }
                     }
                 }
+                if Modell.finnes(rom.id) {
+                    Section {
+                        Button { visModell = Modell.url(rom.id) } label: {
+                            Label("Vis rommet i 3D", systemImage: "cube.transparent")
+                        }
+                        ShareLink(item: Modell.delbar(rom)) {
+                            Label("Del 3D-modellen", systemImage: "square.and.arrow.up")
+                        }
+                    } footer: {
+                        Text("Snu og zoom med fingrene. Trykk AR for å sette rommet ut i virkeligheten.")
+                    }
+                }
                 Section("Mål") {
                     LabeledContent("Gulv", value: "\(m(rom.gulv)) m²")
                     LabeledContent("Omkrets", value: "\(m(rom.omkrets)) m")
@@ -221,6 +235,7 @@ struct RomDetalj: View {
                 }
             }
             .navigationTitle(rom.navn)
+            .quickLookPreview($visModell)
             .toolbar {
                 Button("Endre navn") { navn = rom.navn; endrer = true }
             }

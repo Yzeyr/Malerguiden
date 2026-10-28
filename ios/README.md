@@ -42,6 +42,13 @@ blir liggende.
 Rommene får gulv, omkrets, takhøyde, veggareal (med vinduer og dører trukket
 fra) og antall vinduer og dører. Pris og timer regnes ut under **Pris**.
 
+Trykk på et rom i Romskanner for å se 2D-planen med mål, og **Vis rommet i 3D**
+for 3D-modellen (vegger, vinduer, dører og møbler som klosser). Fra 3D-visningen
+kan rommet settes ut i AR. **Del 3D-modellen** gir en USDZ-fil.
+
+Lukk dørene til andre rom når du skanner. Vegger appen ser gjennom en åpen dør,
+regnes ikke med og vises stiplet.
+
 ## Utvikling
 
 Prosjektfila lages av XcodeGen fra `project.yml`, så den ligger ikke i git.

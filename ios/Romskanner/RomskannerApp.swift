@@ -42,7 +42,10 @@ struct ContentView: View {
                         ForEach(lager.rom) { rom in
                             NavigationLink(value: rom.id) { RomRad(rom: rom) }
                         }
-                        .onDelete { lager.rom.remove(atOffsets: $0) }
+                        .onDelete { indekser in
+                            for i in indekser { Modell.slett(lager.rom[i].id) }
+                            lager.rom.remove(atOffsets: indekser)
+                        }
                     } header: {
                         Text("Skannede rom")
                     } footer: {
@@ -87,7 +90,9 @@ struct ContentView: View {
                     DispatchQueue.main.async {
                         skanner = false
                         guard let rom else { return }
-                        ventende = Maling.rom(fra: rom, navn: "")
+                        let nytt = Maling.rom(fra: rom, navn: "")
+                        Modell.lagre(rom, id: nytt.id)
+                        ventende = nytt
                         navn = "Rom \(lager.rom.count + 1)"
                         // Vent til skanneskjermen er borte før spørsmålet vises.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { sporNavn = true }
@@ -104,7 +109,10 @@ struct ContentView: View {
                     }
                     ventende = nil
                 }
-                Button("Forkast", role: .cancel) { ventende = nil }
+                Button("Forkast", role: .cancel) {
+                    if let v = ventende { Modell.slett(v.id) }
+                    ventende = nil
+                }
             } message: { r in
                 Text(Self.melding(r))
             }
