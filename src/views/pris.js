@@ -167,7 +167,9 @@ export function prisPanel(j) {
         .filter(Boolean).map(([a, b]) => h('div', { style: { opacity: '.9' } }, a, h('b', { style: { display: 'block', fontFamily: 'var(--serif)', fontSize: '19px' } }, b)))),
     h('div', { style: { marginTop: '10px', fontSize: '13.5px', opacity: '.75', position: 'relative', zIndex: '1' } }, 'Inkl. mva ' + kr(r.sum.inklMva)),
     tork.runder > 0 && h('div', { style: { marginTop: '4px', fontSize: '13.5px', opacity: '.75', position: 'relative', zIndex: '1' } },
-      tork.runder + ' runder sparkel med et døgn tørk mellom hver')));
+      tork.dager > tork.arbeidsdager
+        ? tork.runder + ' runder sparkel med et døgn tørk mellom hver'
+        : tork.runder + ' runder sparkel. Tørketiden fylles med arbeid i andre rom')));
 
   if (r.manglerMal) ut.append(h('p.advarsel', ikon('advarsel'), h('span', flertall(r.manglerMal, 'rom mangler', 'rom mangler') + ' mål og er ikke regnet med.')));
 

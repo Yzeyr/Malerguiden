@@ -210,3 +210,12 @@ test('møbelflytting regnes bare når det er huket av', () => {
   assert.equal(rensKalkyle({ rom: [{ id: 'x', mobler: true }] }).rom[0].mobler, true);
   assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].mobler, false);
 });
+
+test('tørketid gir ikke ekstra dager når det er nok arbeid å fylle den med', () => {
+  const store = Array.from({ length: 8 }, (_, i) => rom({ id: 'r' + i, lengde: '5', bredde: '4' }));
+  const b = beregn({ ...tomKalkyle('K2'), rom: store }, {});
+  const d = dagerMedTork(b);
+  assert.equal(d.runder, 2);
+  assert.ok(d.arbeidsdager >= 5, JSON.stringify(d));
+  assert.ok(d.dager - d.arbeidsdager <= 0.5, JSON.stringify(d));
+});

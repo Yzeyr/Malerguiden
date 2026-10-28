@@ -326,9 +326,10 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 export const SPARKEL_RUNDER = { skjot: 2, k2: 2, k3: 3, listefritt: 2, 'listefritt-vindu': 3 };
 
 /**
- * Hvor mange dager jobben tar med tørketid for sparkel. Hver sparkelrunde tar minst
- * en dag, fordi sparkelen må tørke et døgn før neste runde, sliping og maling.
- * Resten av arbeidet (grunning, maling, rigging) kommer i tillegg.
+ * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn
+ * før neste runde, så hver runde tar minst en dag. Mens det tørker, gjøres annet
+ * arbeid (andre rom, rigging, tak). Tørketiden gir derfor bare ekstra dager når det
+ * ikke er nok annet arbeid å fylle ventetiden med; store jobber får ingen ekstra.
  */
 export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const b = resultat || { linjer: [], sum: { timer: 0 } };
@@ -343,8 +344,10 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   }
   const uten = arbeidsdager(b.sum.timer, timerPerDag);
   if (!runder) return { dager: uten, arbeidsdager: uten, runder: 0 };
-  const perRunde = Math.max(1, Math.ceil(sparkel / runder / timerPerDag));
-  const dager = runder * perRunde + arbeidsdager(Math.max(0, b.sum.timer - sparkel), timerPerDag);
+  const perRunde = sparkel / runder / timerPerDag;            // dager arbeid per runde
+  const ledig = runder * Math.max(0, 1 - perRunde) * timerPerDag; // timer som kan fylles mens det tørker
+  const etter = Math.max(0, b.sum.timer - sparkel - ledig);    // arbeid som må vente til sparkelen er tørr
+  const dager = Math.ceil((runder * Math.max(1, perRunde) + Math.max(0.5, etter / timerPerDag)) * 2) / 2;
   return { dager: Math.max(dager, uten), arbeidsdager: uten, runder };
 }
 
