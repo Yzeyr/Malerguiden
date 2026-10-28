@@ -238,7 +238,7 @@ async function verktoy(jobId, bildeId) {
     if (modus === 'skala') {
       // Trykk på et funnet rom: målestokken kan settes fra arealet
       const f = !punkter.length && forslag.find((r) => inni([x, y], r.polygon));
-      if (f) { spørAreal(f); return; }
+      if (f) { spørAreal([f]); return; }
       punkter.push([x, y]);
       if (punkter.length === 2) { spørAvstand(); return; }
       tegn();
@@ -292,10 +292,8 @@ async function verktoy(jobId, bildeId) {
           if (m > 100) m = m / 1000; // skrevet i millimeter, slik tegninger ofte gjør
           skala = m / px;
           endreKalkyle(jobId, (k) => { k.plan = { bilde: bildeId, skala }; });
-          modus = 'rom'; punkter = [];
           lukkArk();
-          toast('Målestokken er satt.');
-          tegn();
+          skalaSatt('Målestokken er satt.');
         },
       },
         h('h2', 'Hvor langt er det?'),
@@ -307,9 +305,21 @@ async function verktoy(jobId, bildeId) {
     });
   }
 
-  /** Målestokk fra arealet til et rom som er funnet automatisk. */
-  function spørAreal(f) {
-    const px = arealPx(f.polygon);
+  /** Målestokken er satt: lagre rommene hvis brukeren trykket «Lagre rommene». */
+  let lagreEtterSkala = false;
+  function skalaSatt(melding) {
+    modus = 'rom'; punkter = [];
+    forslag = forslag.filter((r) => malFor(r.polygon).gulv >= 1);
+    if (lagreEtterSkala && forslag.length) { lagreEtterSkala = false; leggTilAlle(); return; }
+    lagreEtterSkala = false;
+    toast(melding, { ms: 4000 });
+    tegn();
+  }
+
+  /** Målestokk fra arealet til ett eller flere rom som er funnet automatisk. */
+  function spørAreal(liste) {
+    const px = liste.reduce((s, f) => s + arealPx(f.polygon), 0);
+    const ett = liste.length === 1;
     ark((lukkArk) => {
       const inn = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'F.eks. 12,5', autocomplete: 'off' });
       setTimeout(() => inn.focus(), 250);
@@ -320,20 +330,33 @@ async function verktoy(jobId, bildeId) {
           if (!(m2 > 0) || !(px > 0)) return;
           skala = Math.sqrt(m2 / px);
           endreKalkyle(jobId, (k) => { k.plan = { bilde: bildeId, skala }; });
-          modus = 'rom'; punkter = [];
-          forslag = forslag.filter((r) => malFor(r.polygon).gulv >= 1);
           lukkArk();
-          toast('Målestokken er satt. Sjekk et annet rom mot tegningen.', { ms: 4000 });
-          tegn();
+          skalaSatt('Målestokken er satt. Sjekk et rom mot tegningen.');
         },
       },
-        h('h2', 'Hvor stort er rommet?'),
-        h('p.dempet', { style: { marginTop: '-6px' } }, 'Gulvarealet til rommet du trykket på, slik det står på tegningen. Resten av rommene regnes ut fra det.'),
+        h('h2', ett ? 'Hvor stort er rommet?' : 'Hvor store er rommene til sammen?'),
+        h('p.dempet', { style: { marginTop: '-6px' } }, ett
+          ? 'Gulvarealet til det blå rommet, slik det står på tegningen. Målene regnes ut fra det.'
+          : 'Gulvarealet til alle de blå rommene til sammen. Målene regnes ut fra det.'),
         h('label.felt', h('span', 'Kvadratmeter'), inn),
         h('div.knapprad',
-          h('button.knapp.sekundar', { type: 'button', onclick: () => lukkArk() }, 'Avbryt'),
-          h('button.knapp', { type: 'submit' }, 'Bruk')));
+          h('button.knapp.sekundar', { type: 'button', onclick: () => { lagreEtterSkala = false; lukkArk(); } }, 'Avbryt'),
+          h('button.knapp', { type: 'submit' }, lagreEtterSkala ? 'Lagre' : 'Bruk')));
     });
+  }
+
+  /** «Lagre rommene» før målestokken er satt: spør hvordan den skal settes, og lagre etterpå. */
+  function lagreUtenSkala() {
+    lagreEtterSkala = true;
+    ark((lukkArk) => h('div',
+      h('h2', 'Først trengs målestokken'),
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Så vet appen hvor store rommene er. Velg det du kan lese på tegningen.'),
+      h('div.valgliste',
+        h('button', { type: 'button', onclick: () => { lukkArk(); spørAreal(forslag); } },
+          h('span', 'Jeg vet arealet', h('small', forslag.length === 1 ? 'Gulvarealet til det blå rommet' : 'Gulvarealet til de blå rommene til sammen'))),
+        h('button', { type: 'button', onclick: () => { lukkArk(); toast('Trykk på to punkter med kjent avstand, f.eks. endene av et mål.', { ms: 4000 }); tegn(); } },
+          h('span', 'Jeg vet en lengde', h('small', 'Trykk på to punkter, f.eks. endene av et mål på tegningen')))),
+      h('button.lenkeknapp', { type: 'button', style: { marginTop: '10px' }, onclick: () => { lagreEtterSkala = false; lukkArk(); } }, 'Avbryt')));
   }
 
   function malFor(poly) {
@@ -469,8 +492,9 @@ async function verktoy(jobId, bildeId) {
             ? h('button.knapp.sekundar', { type: 'button', onclick: () => { punkter = []; tegn(); } }, 'Start på nytt')
             : h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Lukk'),
           !punkter.length && (forslag.length
-            ? h('button.knapp.sekundar', { type: 'button', onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag')
-            : h('button.knapp', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom'))));
+            ? h('button.knapp', { type: 'button', onclick: lagreUtenSkala }, ikon('hake'), forslag.length === 1 ? 'Lagre rommet' : 'Lagre ' + forslag.length + ' rom')
+            : h('button.knapp', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom'))),
+        !punkter.length && forslag.length > 0 && h('button.lenkeknapp', { type: 'button', style: { marginTop: '4px' }, onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'));
       return;
     }
     const nyMalestokk = h('button.lenkeknapp', { type: 'button', style: { padding: '0' }, onclick: () => { modus = 'skala'; forslag = []; nullstill(); } }, 'Ny målestokk');
@@ -483,7 +507,7 @@ async function verktoy(jobId, bildeId) {
         h('h2', { style: { margin: '3px 0 8px', fontSize: '20px' } }, forslag.length ? 'Trykk på et forslag for å justere det' : 'Finn rommene, eller trykk på hjørnene selv'),
         forslag.length
           ? h('div.knapprad', { style: { marginTop: '0' } },
-              h('button.knapp', { type: 'button', onclick: leggTilAlle }, ikon('hake'), 'Legg til alle ' + forslag.length),
+              h('button.knapp', { type: 'button', onclick: leggTilAlle }, ikon('hake'), forslag.length === 1 ? 'Lagre rommet' : 'Lagre alle ' + forslag.length + ' rom'),
               h('button.knapp.sekundar', { type: 'button', onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'))
           : h('button.knapp.hel', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom automatisk'),
         h('p.dempet.liten', { style: { margin: '8px 0 0' } }, 'Trykk på et lagret rom for å endre eller slette det. Dra i hjørnene for å justere.'));
