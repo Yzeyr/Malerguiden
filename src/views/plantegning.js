@@ -83,7 +83,8 @@ async function verktoy(jobId, bildeId) {
   const flate = h('div', { style: { position: 'absolute', left: '0', top: '0', width: W + 'px', height: H + 'px', transformOrigin: '0 0', touchAction: 'none' } },
     h('img', { src: url, alt: 'Plantegning', draggable: 'false', style: { width: W + 'px', height: H + 'px', display: 'block', userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'none', background: '#fff' } }), svg);
   const vindu = h('div', { style: { position: 'relative', flex: '1', overflow: 'hidden', background: '#0d0b09', touchAction: 'none' } }, flate);
-  const panel = h('div', { style: { background: 'var(--lerret)', color: 'var(--blekk)', borderRadius: '22px 22px 0 0', padding: '14px 16px calc(14px + var(--bunn))' } });
+  // Panelet kan rulles om det blir høyere enn plassen, så knappene alltid kan nås
+  const panel = h('div', { style: { background: 'var(--lerret)', color: 'var(--blekk)', borderRadius: '22px 22px 0 0', padding: '14px 16px calc(14px + var(--bunn))', maxHeight: '55%', overflowY: 'auto', overscrollBehavior: 'contain', touchAction: 'pan-y', flexShrink: '0' } });
   const el = h('div.planverktoy', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Måling på plantegning' },
     h('div.plinje',
       h('button', { type: 'button', onclick: () => lukk() }, 'Lukk'),
@@ -94,9 +95,35 @@ async function verktoy(jobId, bildeId) {
     vindu, panel);
   document.body.append(el);
 
+  // iPhone: to fingre på tegningen skal zoome tegningen, ikke hele siden. Zoomes siden,
+  // havner knappene utenfor skjermen, og verktøyet ligger fast så det ikke kan rulles tilbake.
+  const stopp = (e) => e.preventDefault();
+  el.addEventListener('gesturestart', stopp);
+  el.addEventListener('gesturechange', stopp);
+  vindu.addEventListener('touchmove', stopp, { passive: false });
+  el.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  // Er siden zoomet fra før (eller tastaturet er oppe), legges verktøyet over det som faktisk vises.
+  const vv = window.visualViewport;
+  let forrige = '';
+  const passInn = () => {
+    if (!vv) return;
+    const zoomet = vv.scale > 1.01 || vv.height < innerHeight - 1;
+    Object.assign(el.style, zoomet
+      ? { inset: 'auto', left: vv.offsetLeft + 'px', top: vv.offsetTop + 'px', width: vv.width + 'px', height: vv.height + 'px' }
+      : { inset: '0', left: '', top: '', width: '', height: '' });
+    const str = Math.round(vv.width) + 'x' + Math.round(vv.height);
+    if (str !== forrige) { forrige = str; if (s !== 1 || tx || ty) tilpass(); }
+  };
+  vv?.addEventListener('resize', passInn);
+  vv?.addEventListener('scroll', passInn);
+
   // Rom som lagres fra arket, tegnes inn med en gang.
   const av = vedEndring((id) => { if (id === jobId) tegn(); });
-  const lukk = () => { av(); window.removeEventListener('resize', tilpass); URL.revokeObjectURL(url); el.remove(); };
+  const lukk = () => {
+    av(); window.removeEventListener('resize', tilpass);
+    vv?.removeEventListener('resize', passInn); vv?.removeEventListener('scroll', passInn);
+    URL.revokeObjectURL(url); el.remove();
+  };
 
   /* ---------- Zoom og flytting ---------- */
   let s = 1, tx = 0, ty = 0;
@@ -440,6 +467,7 @@ async function verktoy(jobId, bildeId) {
   }
 
   // Rett etter at visningen er lagt inn, er størrelsen kjent. Snus telefonen, tilpasses den på nytt.
+  passInn();
   tilpass();
   window.addEventListener('resize', tilpass);
 }
