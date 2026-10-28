@@ -279,3 +279,14 @@ test('linjer kan tas ut eller justeres for jobben', () => {
   // Rensing
   assert.deepEqual(rensKalkyle({ justering: { a: { av: true, mengde: 5 }, b: {}, c: 'x' } }).justering, { a: { av: true, mengde: '5', timer: '', kr: '' } });
 });
+
+test('per rom: tildekking kan slås av, og gulvbelegg hukes på', () => {
+  const k = { ...tomKalkyle(''), rom: [rom({ id: 'a' }), rom({ id: 'b', med: { dekking: false, gulvbelegg: true } })] };
+  const b = beregn(k, {});
+  const gulv = romMengder(rom({ id: 'a' })).gulv;
+  assert.ok(Math.abs(b.linjer.find((l) => l.id === 'dekking-gulv').mengde - gulv) < 0.01, 'bare rom a dekkes');
+  assert.ok(Math.abs(b.linjer.find((l) => l.id === 'gulvbelegg').mengde - gulv) < 0.01, 'bare rom b får belegg');
+  assert.ok(materialer(b).some((m) => m.navn === 'Gulvbelegg'));
+  assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.gulvbelegg, false);
+  assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.dekking, true);
+});

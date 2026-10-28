@@ -14,7 +14,7 @@
              vinduer, dorer,                          // antall (tekst)
              trapp: bool,                             // trappehull: høye flater, stillas
              mobler: bool,                            // møbler må flyttes og dekkes til
-             med: { vegg, tak, lister, vinduer, dorer, sparkling }, // av/på per rom (sparkling av: bare maling)
+             med: { vegg, tak, lister, vinduer, dorer, sparkling, dekking, gulvbelegg }, // av/på per rom
              kilde: 'manuell'|'plan'|'ki'|'skann', polygon? }],
      tillegg: [{ id, tekst, timer, kr }],
    }
@@ -51,7 +51,7 @@ export function standardArbeid(klasse = '') {
   };
 }
 
-export const MED_ALT = { vegg: true, tak: true, lister: true, vinduer: true, dorer: true, sparkling: true };
+export const MED_ALT = { vegg: true, tak: true, lister: true, vinduer: true, dorer: true, sparkling: true, dekking: true, gulvbelegg: false };
 
 export function tomKalkyle(klasse = '') {
   return { modus: 'timer', arbeid: standardArbeid(klasse), rom: [], tillegg: [], planer: [], justering: {} };
@@ -234,7 +234,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
   const linjer = [];
-  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0 };
+  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0, dekking: 0, gulvbelegg: 0 };
   // Trappehull tar lengre tid per m²: samme mengde, men timene ganges med faktoren.
   const flater = { vegg: [], tak: [], taklinje: [], hjorner: [], veggSparkles: [], takSparkles: [] };
   let manglerMal = 0;
@@ -245,6 +245,9 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     const med = { ...MED_ALT, ...(rom.med || {}) };
     mengder.rom++;
     mengder.gulv += m.gulv;
+    // Tildekking kan slås av per rom (betonggulv, eller gulvet skal byttes). Gulvbelegg hukes på per rom.
+    if (med.dekking) mengder.dekking += m.gulv;
+    if (med.gulvbelegg) mengder.gulvbelegg += m.gulv;
     const faktor = rom.trapp ? P.trappFaktor : 1;
     if (med.vegg) { mengder.vegg += m.vegg; flater.vegg.push({ m2: m.vegg, faktor }); }
     // Rom der sparkling er huket av (står det av, males rommet bare)
@@ -290,7 +293,8 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   // Oppstart per jobb, rigging per rom, tildekking av gulvet og stige/stillas per trappehull.
   if (medFelles && mengder.rom > 0) leggTil('jobb-oppstart', 1, { detalj: 'Per jobb' });
   leggTil('rigging-rom', mengder.rom, { detalj: mengder.rom + ' rom' });
-  leggTil('dekking-gulv', mengder.gulv);
+  leggTil('dekking-gulv', mengder.dekking);
+  leggTil('gulvbelegg', mengder.gulvbelegg);
   const trapper = (k.rom || []).filter((r) => r.trapp && romMengder(r).ok).length;
   leggTil('rigging-trapp', trapper, { detalj: trapper + ' trappehull' });
   const mobler = (k.rom || []).filter((r) => r.mobler && romMengder(r).ok).length;
@@ -373,6 +377,7 @@ const MATERIALGRUPPER = [
   { navn: 'Sparkel', test: (id) => id.includes('-sparkling-') || id.startsWith('listefritt-') },
   { navn: 'Snekkermaling (lister, vinduer, dører)', test: (id) => id === 'lister-strok' || id === 'vindu-strok' || id === 'dor-strok' },
   { navn: 'Dekkpapp', test: (id) => id === 'dekking-gulv' },
+  { navn: 'Gulvbelegg', test: (id) => id === 'gulvbelegg' },
   { navn: 'Tape og plast', test: (id) => id === 'rigging-rom' || id === 'mobler-rom', enhet: 'rom' },
 ];
 

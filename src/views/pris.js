@@ -50,7 +50,7 @@ export function romPanel(j) {
     const brikker = m.ok ? [etasje[r.tegning],
       r.med.vegg && 'Vegg ' + m2(m.vegg), r.med.tak && 'Tak ' + m2(m.tak), r.med.lister && 'Lister ' + fmt(m.lister, 1) + ' m',
       m.vinduer > 0 && r.med.vinduer && flertall(m.vinduer, 'vindu', 'vinduer'), m.dorer > 0 && r.med.dorer && flertall(m.dorer, 'dør', 'dører'),
-      r.trapp && 'Trappehull', r.mobler && 'Møbler', r.med.sparkling === false && 'Bare maling',
+      r.trapp && 'Trappehull', r.mobler && 'Møbler', r.med.sparkling === false && 'Bare maling', r.med.gulvbelegg && 'Gulvbelegg', r.med.dekking === false && 'Ikke dekk gulv',
     ].filter(Boolean) : ['Mangler mål'];
     const under = r.kilde === 'skann' ? 'LiDAR-skanning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 2) + ' m'
       : r.kilde === 'plan' ? 'Fra plantegning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 1) + ' m'
@@ -88,7 +88,8 @@ export function romArk(jobId, romId, forslag = null) {
     };
     const felt = (navn, label, attrs = {}) => h('label.felt', { style: { flex: '1', marginBottom: '10px' } }, h('span', label),
       h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: verdi[navn] || '', ...attrs, oninput: (e) => { verdi[navn] = e.target.value; oppdater(); } }));
-    const bryter = (navn, label) => h('label.tallfelt', h('span', label), h('input.bryter', { type: 'checkbox', checked: !!verdi.med[navn], onchange: (e) => { verdi.med[navn] = e.target.checked; } }));
+    const bryter = (navn, label, under) => h('label.tallfelt', h('span', label, under && h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, under)),
+      h('input.bryter', { type: 'checkbox', checked: !!verdi.med[navn], onchange: (e) => { verdi.med[navn] = e.target.checked; } }));
     oppdater();
     return h('form', {
       onsubmit: (e) => {
@@ -124,8 +125,11 @@ export function romArk(jobId, romId, forslag = null) {
         h('input.bryter', { type: 'checkbox', checked: verdi.trapp, onchange: (e) => { verdi.trapp = e.target.checked; } })),
       h('label.tallfelt', h('span', 'Flytte møbler', h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Flytte og dekke til møbler i rommet')),
         h('input.bryter', { type: 'checkbox', checked: !!verdi.mobler, onchange: (e) => { verdi.mobler = e.target.checked; } })),
-      h('details.flere', h('summary', 'Hva skal gjøres i dette rommet'),
-        bryter('vegg', 'Vegger'), bryter('tak', 'Tak'), bryter('sparkling', 'Sparkling (av: bare maling)'), bryter('lister', 'Lister'), bryter('vinduer', 'Vinduer'), bryter('dorer', 'Dører')),
+      h('div.overtittel', { style: { margin: '14px 2px 2px' } }, 'Hva skal gjøres i dette rommet'),
+      bryter('vegg', 'Vegger'), bryter('tak', 'Tak'), bryter('sparkling', 'Sparkling', 'Av: bare maling'),
+      bryter('lister', 'Lister'), bryter('vinduer', 'Vinduer'), bryter('dorer', 'Dører'),
+      bryter('dekking', 'Dekke til gulvet', 'Av: betonggulv, eller gulvet skal byttes'),
+      bryter('gulvbelegg', 'Gulvbelegg', 'Legge nytt belegg på gulvet'),
       h('div.knapprad',
         finnes && h('button.knapp.fare', {
           type: 'button',

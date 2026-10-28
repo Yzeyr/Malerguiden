@@ -48,6 +48,10 @@ export const NORMER = [
   { id: 'listefritt-vindu', gruppe: 'Listefritt', navn: 'Listefritt vindu (PVC-hjørnelist i smyg, 3 strøk sparkel, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
   { id: 'listefritt-dor', gruppe: 'Listefritt', navn: 'Listefri dør, én side (overgang karm og vegg)', enhet: 'stk', timer: 0.6, pris: 420, forbruk: 0.2, materialpris: 50, materialenhet: 'L' },
 
+  // Gulvbelegg (vinyl, linoleum) lagt på ferdig undergulv. Skjønn: ingen norsk norm funnet.
+  // Forbruket har 10 % til kapp. Våtrom med sveis og oppbrett tar lengre tid.
+  { id: 'gulvbelegg', gruppe: 'Gulv', navn: 'Gulvbelegg (vinyl/linoleum), legging på ferdig undergulv', enhet: 'm²', timer: 0.25, pris: 250, forbruk: 1.1, materialpris: 350, materialenhet: 'm²' },
+
   { id: 'lister-strok', gruppe: 'Lister, vinduer og dører', navn: 'Gulv- og taklister, per strøk', enhet: 'lm', timer: 0.031, pris: 35, forbruk: 0.01, materialpris: 180, materialenhet: 'L' },
   { id: 'vindu-strok', gruppe: 'Lister, vinduer og dører', navn: 'Vindu med karm og foring, per strøk', enhet: 'stk', timer: 0.50, pris: 400, forbruk: 0.08, materialpris: 180, materialenhet: 'L' },
   // Én side av døra (dørblad + karm og gerikt). En dør mellom to rom telles i begge rommene, én side hver.
