@@ -440,7 +440,7 @@ export function erTrapp(egen, boks, mork, vegger, w, tykk) {
     }
     return ut;
   };
-  const trinn = (rader) => {
+  const trinn = (rader, bredde) => {
     const pos = [];
     for (let i = 0; i < rader.length; i++) {
       if (rader[i] < minLengde) continue;
@@ -460,7 +460,8 @@ export function erTrapp(egen, boks, mork, vegger, w, tykk) {
       for (let b = a + 1; b < pos.length; b++) {
         const d = pos[b][0] - pos[b - 1][0];
         const likLengde = Math.abs(pos[b][1] - pos[b - 1][1]) <= Math.max(pos[b][1], pos[b - 1][1]) * 0.3;
-        if (d < 3 || !likLengde) break;
+        // Trinn er kortere enn rommet er bredt. Flis- og parkettstreker går tvers over.
+        if (d < 3 || !likLengde || pos[b][1] > bredde * 0.75) break;
         if (gap == null) { gap = d; n++; continue; }
         if (Math.abs(d - gap) <= Math.max(2, gap * 0.3)) n++; else break;
       }
@@ -468,7 +469,10 @@ export function erTrapp(egen, boks, mork, vegger, w, tykk) {
     }
     return best;
   };
-  return Math.max(trinn(lengst(true)), trinn(lengst(false))) >= 4;
+  // Streker begge veier er et rutenett (fliser, parkett), ikke en trapp
+  const vannrett = trinn(lengst(true), x1 - x0 + 1), loddrett = trinn(lengst(false), y1 - y0 + 1);
+  if (vannrett >= 4 && loddrett >= 4) return false;
+  return Math.max(vannrett, loddrett) >= 4;
 }
 
 /** Hvor stor del av omkretsen som har en vegg rett utenfor. */
@@ -515,11 +519,19 @@ export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok =
   for (let i = 0; i < mork.length; i++) mork[i] = g[i] <= t ? 1 : 0;
 
   // 2. Bare tykke streker: krymp så tynne streker forsvinner, utvid tilbake.
-  const tykk = veggtykkelse(mork, w, h);
+  let tykk = veggtykkelse(mork, w, h);
+  // Hule vegger: noen tegninger viser veggene som to tynne parallelle streker. Da er ingen streker
+  // tykke, og mellomrommet mellom de doble strekene fylles først, så veggene blir hele.
+  let veggKilde = mork;
+  if (tykk <= 3) {
+    const lukket = krymp(utvid(mork, w, h, 3), w, h, 3);
+    const ny = veggtykkelse(lukket, w, h);
+    if (ny > tykk + 1) { veggKilde = lukket; tykk = ny; }
+  }
   // Tekst og møbler er 1–3 px tykke. Innervegger kan være mye tynnere enn ytterveggene,
   // så grensen holdes lav.
   const tynnGrense = Math.max(1, Math.min(tykk * 0.3, 4));
-  const vegger = utvid(krymp(mork, w, h, tynnGrense), w, h, tynnGrense + 0.5);
+  const vegger = utvid(krymp(veggKilde, w, h, tynnGrense), w, h, tynnGrense + 0.5);
 
   const lukk = Math.max(3, tykk * 2.5);
 
@@ -605,6 +617,13 @@ export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok =
   for (let v = 0, sum = 0; v < 256; v++) { sum += hist[v]; if (sum >= g.length * 0.9) { papir = v; break; } }
   const gra = new Uint8Array(w * h);
   for (let i = 0; i < gra.length; i++) gra[i] = !mork[i] && g[i] < papir - 25 ? 1 : 0;
+  // Bare tynne grå streker teller. Fargede gulv og grå fyll er flater, ikke streker.
+  {
+    // Grå vinduer er omtrent like tykke som veggen; et gulv er mye bredere.
+    const r = Math.max(3, tykk * 1.5);
+    const flate = utvid(krymp(gra, w, h, r), w, h, r + 1);
+    for (let i = 0; i < gra.length; i++) if (flate[i]) gra[i] = 0;
+  }
 
   const uteAndel = {};
   // Deler som for en stor del grenser rett mot utsiden (ikke mot en vegg) er utenfor bygget:
@@ -698,23 +717,29 @@ export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok =
       liste.push({ a, b, px, sadel, x0, x1, y0, y1 });
     }
     liste.sort((p, q) => q.sadel - p.sadel);
-    for (const { a, b, px, sadel, x0, x1, y0, y1 } of liste) {
+    // Endene av grensen er der hengslene sitter, hvis det er en dør
+    const dorInfo = (px, x0, x1, y0, y1) => {
+      const langsX = x1 - x0 >= y1 - y0;
+      let e1 = null, e2 = null;
+      for (const i of px) {
+        const p = [i % w, (i - (i % w)) / w], k = langsX ? p[0] : p[1];
+        if (!e1 || k < (langsX ? e1[0] : e1[1])) e1 = p;
+        if (!e2 || k > (langsX ? e2[0] : e2[1])) e2 = p;
+      }
+      const L = Math.hypot(e2[0] - e1[0], e2[1] - e1[1]) + 1;
+      return { e1, e2, L, dor: dorslag(px, langsX, L) };
+    };
+    // Tegninger uten dørslag (dørene vises bare som åpninger): da sier et manglende dørslag ingenting
+    for (const p of liste) p.info = dorInfo(p.px, p.x0, p.x1, p.y0, p.y1);
+    const harDorslag = liste.some((p) => p.info.dor);
+    for (const { a, b, sadel, info } of liste) {
       const ra = rot(a), rb = rot(b);
       if (ra === rb || vedKant[ra] || vedKant[rb]) continue;
       const forhold = sadel / Math.max(1, Math.min(topp[ra], topp[rb]));
       if (forhold < 0.5) continue; // smal som en dør: under halvparten av bredden på det minste rommet
       let samme = forhold >= 0.9;
-      if (!samme) {
-        // Endene av grensen er der hengslene sitter, hvis det er en dør
-        const langsX = x1 - x0 >= y1 - y0;
-        let e1 = null, e2 = null;
-        for (const i of px) {
-          const p = [i % w, (i - (i % w)) / w], k = langsX ? p[0] : p[1];
-          if (!e1 || k < (langsX ? e1[0] : e1[1])) e1 = p;
-          if (!e2 || k > (langsX ? e2[0] : e2[1])) e2 = p;
-        }
-        const L = Math.hypot(e2[0] - e1[0], e2[1] - e1[1]) + 1;
-        const dor = dorslag(px, langsX, L);
+      if (!samme && harDorslag) {
+        const { e1, e2, L, dor } = info;
         if (feilsok) grenseInfo.push({ a, b, e1, e2, L: Math.round(L), forhold: +forhold.toFixed(2), dor });
         samme = L >= tykk * 2 && !dor;
       }
