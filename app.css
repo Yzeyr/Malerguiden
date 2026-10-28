@@ -421,3 +421,8 @@ mark { background: color-mix(in srgb, var(--oker) 45%, transparent); color: inhe
   .meny, .fab, .bannere, .faner, .hode .handlinger, .toast { display: none !important; }
   body { background: #fff; }
 }
+
+/* Inne i Forbrukskalkulator (iframe): ingen meny nederst */
+.innebygd .meny, .innebygd .statusflate { display: none; }
+.innebygd .visning { padding-bottom: calc(var(--bunn) + 40px); }
+.innebygd body.farget-topp .hode { padding-top: 14px; }

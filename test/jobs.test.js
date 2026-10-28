@@ -109,3 +109,34 @@ test('duplikat får ny id, blank sjekkliste og ingen bilder', () => {
   assert.equal(d.notat, 'hei');
   assert.equal(d.kunde.tlf, '1');
 });
+
+test('hurtigprisen lagres for seg og kan kopieres til en ny eller eksisterende jobb', () => {
+  jobs.lastJobber();
+  const K = jobs.KLADD_ID;
+  // Kladden står ikke i jobblista, og lagres under egen nøkkel
+  assert.equal(jobs.alleJobber().length, 0);
+  jobs.endreJobb(K, (j) => {
+    j.kalkyle = { modus: 'timer', rom: [{ id: 'r-1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {} }], tillegg: [], planer: [{ bilde: 'img-1', navn: '1. etasje', skala: 0.01 }], justering: {} };
+    j.bilder.push({ id: 'img-1', kategori: 'tegning', tatt: 1 });
+  });
+  assert.ok(lager.has('malerguiden:hurtigpris'));
+  assert.equal(jobs.alleJobber().length, 0);
+  assert.ok(!lager.has(KEY) || lagret().length === 0);
+  // Ny jobb
+  const id = jobs.kladdTilJobb(null, 'Hansen');
+  const ny = jobs.hentJobb(id);
+  assert.equal(ny.kunde.navn, 'Hansen');
+  assert.equal(ny.kalkyle.rom.length, 1);
+  assert.notEqual(ny.kalkyle.rom[0].id, 'r-1', 'nye rom-id-er');
+  assert.equal(ny.kalkyle.planer[0].bilde, 'img-1');
+  assert.equal(ny.bilder[0].id, 'img-1');
+  // Til en jobb med rom fra før: rommene legges til
+  jobs.kladdTilJobb(id);
+  assert.equal(jobs.hentJobb(id).kalkyle.rom.length, 2);
+  assert.equal(jobs.hentJobb(id).kalkyle.planer.length, 1, 'samme tegning bare én gang');
+  // Tømming
+  const bilder = jobs.tomKladd();
+  assert.equal(bilder[0].id, 'img-1');
+  assert.equal(jobs.hentJobb(K).kalkyle?.rom?.length || 0, 0);
+  assert.equal(jobs.alleJobber().length, 1);
+});

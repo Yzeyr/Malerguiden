@@ -113,6 +113,7 @@ function varsle(id) { for (const fn of lyttere) { try { fn(id); } catch (e) { co
 
 /** Leser jobbene fra lagringen. Kalles ved oppstart og når en annen fane endrer dem. */
 export function lastJobber() {
+  lastKladd();
   const r = lesJson(NOKLER.jobber);
   ulesbare = [];
   sperret = null;
@@ -144,8 +145,65 @@ function lagreNa() {
   return skrivJson(NOKLER.jobber, [...jobber, ...ulesbare]);
 }
 
+/* ---------- Hurtigpris: en kladd for en rask pris uten å lage en jobb ----------
+   Lagres for seg, så den ikke står i jobblista, sikkerhetskopien eller «ta med».
+   Ellers oppfører den seg som en jobb, så rom, plantegning og pris virker som før. */
+export const KLADD_ID = 'hurtigpris';
+let kladd = null;
+function nyKladd() {
+  return normaliserJobb({
+    id: KLADD_ID, created: Date.now(), status: 'planlagt', kunde: { navn: 'Hurtigpris' },
+    deler: [{ id: 'd-hurtigpris', fag: 'maling', jobbtype: '', sjekkliste: {}, lagtTil: Date.now() }],
+  });
+}
+function lastKladd() {
+  const r = lesJson(NOKLER.hurtigpris);
+  try { kladd = r.status === 'ok' && r.verdi && typeof r.verdi === 'object' ? normaliserJobb({ ...r.verdi, id: KLADD_ID }) : nyKladd(); }
+  catch { kladd = nyKladd(); }
+}
+function lagreKladd() { return skrivJson(NOKLER.hurtigpris, kladd); }
+/** Tømmer kladden. Returnerer bildene den hadde, så UI kan slette dem som ingen jobb bruker. */
+export function tomKladd() {
+  const gamle = (kladd || nyKladd()).bilder;
+  kladd = nyKladd();
+  lagreKladd();
+  varsle(KLADD_ID);
+  return gamle;
+}
+
+/**
+ * Kopierer hurtigprisen over til en jobb: rom, tegninger og prisvalg følger med.
+ * tilId = null lager en ny jobb med navnet. Har jobben rom fra før, legges rommene til,
+ * og jobbens egne prisvalg beholdes. Returnerer jobbens id, eller null.
+ */
+export function kladdTilJobb(tilId, navn = '') {
+  const k = hentJobb(KLADD_ID);
+  if (!k?.kalkyle?.rom.length) return null;
+  const kopi = JSON.parse(JSON.stringify(k.kalkyle));
+  for (const r of kopi.rom) r.id = nyId('r-');
+  const tegninger = k.bilder.filter((b) => kopi.planer.some((p) => p.bilde === b.id)).map((b) => ({ ...b }));
+  if (!tilId) {
+    const j = nyJobb({ navn: navn || 'Ny jobb', fag: 'maling' });
+    j.kalkyle = kopi; j.klasse = k.klasse; j.bilder = tegninger;
+    return leggTilJobb(normaliserJobb(j)) ? j.id : null;
+  }
+  const ok = endreJobb(tilId, (j) => {
+    if (!j.kalkyle || !j.kalkyle.rom.length) { j.kalkyle = kopi; if (k.klasse) j.klasse = k.klasse; }
+    else {
+      j.kalkyle.rom.push(...kopi.rom);
+      for (const p of kopi.planer) if (!j.kalkyle.planer.some((x) => x.bilde === p.bilde)) j.kalkyle.planer.push(p);
+      j.kalkyle.tillegg.push(...kopi.tillegg.map((t) => ({ ...t, id: nyId('t-') })));
+    }
+    for (const b of tegninger) if (!j.bilder.some((x) => x.id === b.id)) j.bilder.push(b);
+  });
+  return ok ? tilId : null;
+}
+
 export function alleJobber() { return jobber; }
-export function hentJobb(id) { return jobber.find((j) => j.id === id) || null; }
+export function hentJobb(id) {
+  if (id === KLADD_ID) { if (!kladd) lastKladd(); return kladd; }
+  return jobber.find((j) => j.id === id) || null;
+}
 
 /**
  * Endrer en jobb. fn(job) endrer objektet direkte.
@@ -157,6 +215,11 @@ export function endreJobb(id, fn, { utsatt = false, stille = false } = {}) {
   if (!job) return false;
   fn(job);
   job.updated = Date.now();
+  if (id === KLADD_ID) {
+    if (utsatt) senere('hurtigpris', lagreKladd, 350); else if (!lagreKladd()) return false;
+    if (!stille) varsle(id);
+    return true;
+  }
   if (utsatt) {
     senere('jobber', lagreNa, 350);
     if (!stille) varsle(id);

@@ -78,6 +78,14 @@ export function visRegn(rot, sti) {
       h('button.ikonknapp', { type: 'button', 'aria-label': 'Regn uten jobb', onclick: () => gaTil('regn/' + calcId, { erstatt: true }) }, ikon('kryss'))));
   }
 
+  // Rask pris for rom, plantegning og skanning, uten å lage en jobb først
+  if (!job) {
+    side.append(h('a.kort', { href: '#hurtigpris', style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', textDecoration: 'none', color: 'inherit' } },
+      h('span.farge-prove.k-terrakotta', { style: { background: 'var(--c)', color: 'var(--pa)' } }, ikon('regn')),
+      h('span', { style: { flex: '1' } }, h('b', { style: { display: 'block' } }, 'Hurtigpris'), h('small.dempet', 'Pris og timer for rommene, uten å lage en jobb')),
+      ikon('pil')));
+  }
+
   side.append(h('div.kalk-valg', KALKULATORER.map((k) => h('button.k-' + k.farge, {
     type: 'button', 'aria-pressed': String(k.id === calcId),
     onclick: () => { if (k.id !== calcId) gaTil(adresse(k.id, job?.id), { erstatt: true }); },

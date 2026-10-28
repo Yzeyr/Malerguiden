@@ -14,6 +14,7 @@ import { visJobb } from './views/jobb.js';
 import { visRegn } from './views/regn.js';
 import { visOppslag } from './views/oppslag.js';
 import { visMitt } from './views/mitt.js';
+import { visHurtigpris, innebygd } from './views/hurtigpris.js';
 
 const FANER = [
   { id: 'jobber', navn: 'Jobber', ikon: 'jobber' },
@@ -30,6 +31,8 @@ export function tolkHash(hash) {
   try { raa = decodeURIComponent(raa); } catch { /* behold rå */ }
   const [hode, ...rest] = raa.split('/');
   if (!hode || hode === 'jobber') return { fane: 'jobber', sti: [] };
+  // Hurtigprisen er en kladd som ser ut som en jobb; lenker til den går hit
+  if (hode === 'hurtigpris' || hode === 'jobb-hurtigpris') return { fane: 'regn', hurtigpris: true, sti: rest };
   if (hode.startsWith('jobb-')) return { fane: 'jobber', jobb: hode.slice(5), sti: rest };
   if (hode === 'regn' || hode === 'kalkulator') return { fane: 'regn', sti: rest };
   if (hode === 'oppslag' || hode === 'fagstoff') return { fane: 'oppslag', sti: rest };
@@ -66,7 +69,8 @@ function rute() {
   tom(visningEl);
   byggMeny(r.fane);
   try {
-    if (r.jobb) rydd = visJobb(visningEl, r.jobb, r.sti[0]);
+    if (r.hurtigpris) rydd = visHurtigpris(visningEl, r.sti[0]);
+    else if (r.jobb) rydd = visJobb(visningEl, r.jobb, r.sti[0]);
     else if (r.fane === 'jobber') rydd = visJobber(visningEl);
     else if (r.fane === 'regn') rydd = visRegn(visningEl, r.sti[0]);
     else if (r.fane === 'oppslag') rydd = visOppslag(visningEl, r.sti, { fakta: r.fakta });
@@ -110,6 +114,8 @@ function registrerSW() {
 }
 
 /* ---------- Oppstart ---------- */
+// Vist inne i Forbrukskalkulator: uten menyen nederst
+if (innebygd) document.documentElement.classList.add('innebygd');
 lastPriser();
 lastJobber();
 lastNotater();

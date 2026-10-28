@@ -2,7 +2,7 @@
 //   node tools/serve.mjs   →   http://localhost:5175/Malerguiden/
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rot = fileURLToPath(new URL('..', import.meta.url));
@@ -12,11 +12,16 @@ const PREFIKS = '/Malerguiden/';
 
 createServer(async (req, res) => {
   const sti = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (sti === '/Forbrukskalkulator') { res.writeHead(302, { location: '/Forbrukskalkulator/' }).end(); return; }
   if (sti === '/' || sti === '/Malerguiden') { res.writeHead(302, { location: PREFIKS }).end(); return; }
-  if (!sti.startsWith(PREFIKS)) { res.writeHead(404).end('Fant ikke fila'); return; }
-  const rel = sti.slice(PREFIKS.length) || 'index.html';
-  const fil = normalize(join(rot, rel));
-  if (!fil.startsWith(rot)) { res.writeHead(403).end(); return; }
+  // Søsterappen Forbrukskalkulator ligger på samme nettsted på GitHub Pages (samme lagring),
+  // og serveres her fra mappa ved siden av, hvis den finnes.
+  const sos = '/Forbrukskalkulator/';
+  const [prefiks, base] = sti.startsWith(sos) ? [sos, normalize(join(rot, '..', 'Forbrukskalkulator')) + sep] : [PREFIKS, rot];
+  if (!sti.startsWith(prefiks)) { res.writeHead(404).end('Fant ikke fila'); return; }
+  const rel = sti.slice(prefiks.length) || 'index.html';
+  const fil = normalize(join(base, rel));
+  if (!fil.startsWith(base)) { res.writeHead(403).end(); return; }
   try {
     const innhold = await readFile(fil);
     res.writeHead(200, { 'content-type': typer[extname(fil)] ?? 'application/octet-stream', 'cache-control': 'no-cache' });

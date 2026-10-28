@@ -15,6 +15,7 @@ export const NOKLER = {
   sistKopiBilder: 'malerguiden:sist-sikkerhetskopi-bilder',
   calcPrefiks: 'malerguiden:calc:',
   ui: 'malerguiden:ui:',
+  hurtigpris: 'malerguiden:hurtigpris', // kladden for en rask pris uten jobb
 };
 
 const feilLyttere = new Set();
