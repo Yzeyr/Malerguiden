@@ -13,7 +13,7 @@ import { hentJobb, endreJobb, vedEndring } from '../jobs.js';
 import { lagreNyttBilde, hentBilde } from '../photos.js';
 import { polygonMal, STANDARD_HOYDE, tall } from '../kalkyle.js';
 import { endreKalkyle, romArk } from './pris.js';
-import { finnRom, graatoner } from '../plangjenkjenning.js';
+import { finnRom, graatoner, arealPx } from '../plangjenkjenning.js';
 
 const TEGNING_MAKS = 2600; // høyere enn vanlige bilder, så små mål på tegningen kan leses
 
@@ -119,8 +119,9 @@ async function verktoy(jobId, bildeId) {
 
   // Rom som lagres fra arket, tegnes inn med en gang.
   const av = vedEndring((id) => { if (id === jobId) tegn(); });
+  let stoppObs = () => {};
   const lukk = () => {
-    av(); window.removeEventListener('resize', tilpass);
+    av(); stoppObs(); window.removeEventListener('resize', tilpass);
     vv?.removeEventListener('resize', passInn); vv?.removeEventListener('scroll', passInn);
     URL.revokeObjectURL(url); el.remove();
   };
@@ -235,6 +236,9 @@ async function verktoy(jobId, bildeId) {
   function trykk(x, y) {
     if (x < -W * 0.05 || y < -H * 0.05 || x > W * 1.05 || y > H * 1.05) return;
     if (modus === 'skala') {
+      // Trykk på et funnet rom: målestokken kan settes fra arealet
+      const f = !punkter.length && forslag.find((r) => inni([x, y], r.polygon));
+      if (f) { spørAreal(f); return; }
       punkter.push([x, y]);
       if (punkter.length === 2) { spørAvstand(); return; }
       tegn();
@@ -303,6 +307,35 @@ async function verktoy(jobId, bildeId) {
     });
   }
 
+  /** Målestokk fra arealet til et rom som er funnet automatisk. */
+  function spørAreal(f) {
+    const px = arealPx(f.polygon);
+    ark((lukkArk) => {
+      const inn = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'F.eks. 12,5', autocomplete: 'off' });
+      setTimeout(() => inn.focus(), 250);
+      return h('form', {
+        onsubmit: (e) => {
+          e.preventDefault();
+          const m2 = tall(inn.value);
+          if (!(m2 > 0) || !(px > 0)) return;
+          skala = Math.sqrt(m2 / px);
+          endreKalkyle(jobId, (k) => { k.plan = { bilde: bildeId, skala }; });
+          modus = 'rom'; punkter = [];
+          forslag = forslag.filter((r) => malFor(r.polygon).gulv >= 1);
+          lukkArk();
+          toast('Målestokken er satt. Sjekk et annet rom mot tegningen.', { ms: 4000 });
+          tegn();
+        },
+      },
+        h('h2', 'Hvor stort er rommet?'),
+        h('p.dempet', { style: { marginTop: '-6px' } }, 'Gulvarealet til rommet du trykket på, slik det står på tegningen. Resten av rommene regnes ut fra det.'),
+        h('label.felt', h('span', 'Kvadratmeter'), inn),
+        h('div.knapprad',
+          h('button.knapp.sekundar', { type: 'button', onclick: () => lukkArk() }, 'Avbryt'),
+          h('button.knapp', { type: 'submit' }, 'Bruk')));
+    });
+  }
+
   function malFor(poly) {
     const { areal, omkrets } = polygonMal(poly.map(([x, y]) => [x * skala, y * skala]));
     return { gulv: Math.round(areal * 100) / 100, omkrets: Math.round(omkrets * 100) / 100 };
@@ -363,9 +396,10 @@ async function verktoy(jobId, bildeId) {
         const m = r.polygon.reduce(([a, b], [x, y]) => [a + x / r.polygon.length, b + y / r.polygon.length], [0, 0]);
         return !lagrede.some((l) => inni(m, l.polygon));
       })
-      // Bort med «rom» under 1 m² (skap, sjakter, symboler)
-      .filter((r) => malFor(r.polygon).gulv >= 1);
-    toast(forslag.length ? 'Fant ' + flertall(forslag.length, 'rom', 'rom') + '. Trykk på et rom for å justere det.' : 'Fant ingen rom. Tegn dem selv ved å trykke på hjørnene.', { ms: 4000 });
+      // Bort med «rom» under 1 m² (skap, sjakter, symboler). Uten målestokk: når den settes.
+      .filter((r) => modus === 'skala' || malFor(r.polygon).gulv >= 1);
+    const hva = modus === 'skala' ? ' Trykk på et rom du vet arealet på.' : ' Trykk på et rom for å justere det.';
+    toast(forslag.length ? 'Fant ' + flertall(forslag.length, 'rom', 'rom') + '.' + hva : 'Fant ingen rom. Tegn dem selv ved å trykke på hjørnene.', { ms: 4000 });
     tegn();
   }
 
@@ -421,10 +455,22 @@ async function verktoy(jobId, bildeId) {
 
   function tegnPanel() {
     if (modus === 'skala') {
+      const tittel = punkter.length ? 'Trykk på det andre punktet'
+        : forslag.length ? 'Trykk på et rom du vet arealet på' : 'Trykk på to punkter med kjent avstand';
+      const tekst = punkter.length ? 'Zoom inn med to fingre for å treffe nøyaktig.'
+        : forslag.length ? 'Skriv inn gulvarealet som står på tegningen. Eller trykk på to punkter med kjent avstand.'
+        : 'For eksempel endene av et målsatt mål. Eller finn rommene først, og bruk arealet til ett av dem.';
       tom(panel,
         h('div.overtittel', { style: { color: 'var(--ultramarin)' } }, 'Trinn 1 · Målestokk'),
-        h('h2', { style: { margin: '3px 0 4px', fontSize: '20px' } }, punkter.length ? 'Trykk på det andre punktet' : 'Trykk på to punkter med kjent avstand'),
-        h('p.dempet.liten', { style: { margin: '0' } }, 'For eksempel endene av et målsatt mål, eller en vegg du kjenner lengden på. Zoom inn med to fingre for å treffe nøyaktig.'));
+        h('h2', { style: { margin: '3px 0 4px', fontSize: '20px' } }, tittel),
+        h('p.dempet.liten', { style: { margin: '0' } }, tekst),
+        h('div.knapprad', { style: { marginTop: '10px' } },
+          punkter.length
+            ? h('button.knapp.sekundar', { type: 'button', onclick: () => { punkter = []; tegn(); } }, 'Start på nytt')
+            : h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Lukk'),
+          !punkter.length && (forslag.length
+            ? h('button.knapp.sekundar', { type: 'button', onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag')
+            : h('button.knapp', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom'))));
       return;
     }
     const nyMalestokk = h('button.lenkeknapp', { type: 'button', style: { padding: '0' }, onclick: () => { modus = 'skala'; forslag = []; nullstill(); } }, 'Ny målestokk');
@@ -467,7 +513,20 @@ async function verktoy(jobId, bildeId) {
   }
 
   // Rett etter at visningen er lagt inn, er størrelsen kjent. Snus telefonen, tilpasses den på nytt.
+  // Panelet fylles før tegningen tilpasses, så den havner midt i plassen som er igjen.
+  tegnPanel();
   passInn();
   tilpass();
   window.addEventListener('resize', tilpass);
+  // Endres høyden på panelet (nytt trinn, flere knapper), holdes tegningen på samme sted midt i vinduet.
+  if (window.ResizeObserver) {
+    let forrigeStr = null;
+    const ro = new ResizeObserver(() => {
+      const r = vindu.getBoundingClientRect();
+      if (forrigeStr) { tx += (r.width - forrigeStr.w) / 2; ty += (r.height - forrigeStr.h) / 2; bruk(); }
+      forrigeStr = { w: r.width, h: r.height };
+    });
+    ro.observe(vindu);
+    stoppObs = () => ro.disconnect();
+  }
 }
