@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg, kopierTekst } from '../dom.js';
 import { nyId, datoEtikett, iDagIso, visDato, visTidspunkt, fmt, flertall, erIsoDag, avkort } from '../util.js';
 import {
-  hentJobb, endreJobb, leggTilJobb, slettJobb, vedEndring, framdrift, delFramdrift, nesteSteg,
+  hentJobb, endreJobb, leggTilJobb, slettJobb, vedEndring, framdrift, delFramdrift, nesteSteg, alleJobber, KLADD_ID,
   hovedfag, maalGrupperFor, eksportTekst, dupliserJobb, fargeDetaljer, STATUS, STATUS_LABEL, jobbNavn,
 } from '../jobs.js';
 import { FAG_BY_ID, JOBBTYPER, sjekklisteFor, delTittel, PRAKSIS_MERKE } from '../data/checklists.js';
@@ -611,7 +611,9 @@ async function slettJobbSporsmal(j) {
   })) return;
   const borte = slettJobb(j.id);
   if (!borte) return;
-  for (const b of borte.bilder) slettBilde(b.id).catch(() => {});
+  // Bilder som også brukes av en annen jobb eller hurtigprisen (en kopiert plantegning) blir liggende
+  const brukt = new Set([...alleJobber(), hentJobb(KLADD_ID)].flatMap((x) => (x?.bilder || []).map((y) => y.id)));
+  for (const b of borte.bilder) if (!brukt.has(b.id)) slettBilde(b.id).catch(() => {});
   toast('Jobben er slettet.');
   gaTil('jobber', { erstatt: true });
 }
