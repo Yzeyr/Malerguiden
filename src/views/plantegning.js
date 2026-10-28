@@ -313,13 +313,16 @@ async function verktoy(jobId, bildeId) {
         tegn();
         return;
       }
-      const lagret = (job().kalkyle?.rom || []).find((r) => r.tegning === bildeId && r.polygon && inni([x, y], r.polygon));
+      const lagret = lagredeRom().find((r) => inni([x, y], r.polygon));
       if (lagret) {
         redigerer = lagret.id;
         punkter = lagret.polygon.map((p) => p.slice()); lukket = true;
         tegn();
         return;
       }
+      // Trykk i et rom som ikke er lagt til: finn rommet der. Ellers blir trykket første hjørne.
+      romVed(x, y);
+      return;
     }
     if (lukket) return;
     // Trykk på første hjørne lukker rommet
@@ -332,7 +335,7 @@ async function verktoy(jobId, bildeId) {
   }
 
   function nullstill({ leggTilbake = false } = {}) {
-    if (leggTilbake && fraForslag) forslag.push(fraForslag);
+    if (leggTilbake && fraForslag && !fraForslag.fraTrykk) forslag.push(fraForslag);
     punkter = []; lukket = false; redigerer = null; fraForslag = null; apnRom = null;
     tegn();
   }
@@ -449,8 +452,10 @@ async function verktoy(jobId, bildeId) {
   }
 
   /* ---------- Finn rom automatisk ---------- */
-  async function finnAutomatisk() {
-    toast('Leter etter rom …', { ms: 20000 });
+  // Rommene på tegningen, funnet én gang og husket (i tegningens egne punkter).
+  let oppdaget = null;
+  async function oppdag() {
+    if (oppdaget) return oppdaget;
     await new Promise((r) => setTimeout(r, 40)); // la meldingen vises før arbeidet starter
     // Regn på en mindre kopi av tegningen; ca. 1400 px holder og går raskt.
     const f = Math.min(1, 1400 / Math.max(W, H));
@@ -464,25 +469,53 @@ async function verktoy(jobId, bildeId) {
     lerret.width = lerret.height = 0;
     let resultat;
     try { resultat = finnRom(graatoner(data, cw, chh), cw, chh); }
-    catch (e) { toast('Klarte ikke lese tegningen.'); console.error(e); return; }
+    catch (e) { console.error(e); return null; }
     const tilbake = (p) => [p[0] / f, p[1] / f];
-    const lagrede = (job().kalkyle?.rom || []).filter((r) => r.tegning === bildeId && r.polygon);
-    forslag = resultat.rom
-      .map((r) => ({
-        polygon: r.polygon.map(tilbake),
-        dorer: r.dorer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
-        vinduer: r.vinduer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
-        trapp: !!r.trapp, // trinnstreker funnet: trappehull
-      }))
+    oppdaget = resultat.rom.map((r) => ({
+      polygon: r.polygon.map(tilbake),
+      dorer: r.dorer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
+      vinduer: r.vinduer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
+      trapp: !!r.trapp, // trinnstreker funnet: trappehull
+    }));
+    return oppdaget;
+  }
+  const midtpunkt = (poly) => poly.reduce(([a, b], [x, y]) => [a + x / poly.length, b + y / poly.length], [0, 0]);
+  const lagredeRom = () => (job().kalkyle?.rom || []).filter((r) => r.tegning === bildeId && r.polygon);
+
+  async function finnAutomatisk() {
+    toast('Leter etter rom …', { ms: 20000 });
+    const alle = await oppdag();
+    if (!alle) { toast('Klarte ikke lese tegningen.'); return; }
+    const lagrede = lagredeRom();
+    forslag = alle.map((r) => ({ ...r, polygon: r.polygon.map((p) => p.slice()) }))
       // Ikke foreslå rom som allerede er lagt inn
-      .filter((r) => {
-        const m = r.polygon.reduce(([a, b], [x, y]) => [a + x / r.polygon.length, b + y / r.polygon.length], [0, 0]);
-        return !lagrede.some((l) => inni(m, l.polygon));
-      })
+      .filter((r) => !lagrede.some((l) => inni(midtpunkt(r.polygon), l.polygon)))
       // Bort med «rom» under 1 m² (skap, sjakter, symboler). Uten målestokk: når den settes.
       .filter((r) => modus === 'skala' || malFor(r.polygon).gulv >= 1);
     const hva = modus === 'skala' ? ' Trykk på et rom du vet arealet på.' : ' Trykk på et rom for å justere det.';
     toast(forslag.length ? 'Fant ' + flertall(forslag.length, 'rom', 'rom') + '.' + hva : 'Fant ingen rom. Tegn dem selv ved å trykke på hjørnene.', { ms: 4000 });
+    tegn();
+  }
+
+  let leter = false;
+  async function romVed(x, y) {
+    if (leter) return;
+    leter = true;
+    if (!oppdaget) toast('Leter etter rommet …', { ms: 20000 });
+    const alle = await oppdag();
+    leter = false;
+    if (punkter.length || redigerer || fraForslag) return; // noe annet ble valgt i mellomtiden
+    const lagrede = lagredeRom();
+    const rom = (alle || []).find((r) => inni([x, y], r.polygon) && !lagrede.some((l) => inni(midtpunkt(r.polygon), l.polygon)));
+    if (rom && malFor(rom.polygon).gulv >= 1) {
+      fraForslag = { ...rom, polygon: rom.polygon.map((p) => p.slice()), fraTrykk: true };
+      apnRom = { dorer: rom.dorer.length, vinduer: rom.vinduer.length, trapp: !!rom.trapp };
+      punkter = rom.polygon.map((p) => p.slice()); lukket = true;
+      toast('Fant rommet. Dra i hjørnene om noe sitter feil, og trykk Ferdig.', { ms: 3500 });
+    } else {
+      punkter.push([x, y]);
+      toast('Fant ikke et rom her. Trykk på hjørnene selv.', { ms: 3500 });
+    }
     tegn();
   }
 
@@ -564,13 +597,13 @@ async function verktoy(jobId, bildeId) {
       tom(panel,
         h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px' } },
           h('div.overtittel', { style: { color: 'var(--terrakotta)', flex: '1' } }, 'Trinn 2 · Rom'), nyMalestokk),
-        h('h2', { style: { margin: '3px 0 8px', fontSize: '20px' } }, forslag.length ? 'Trykk på et forslag for å justere det' : 'Finn rommene, eller trykk på hjørnene selv'),
+        h('h2', { style: { margin: '3px 0 8px', fontSize: '20px' } }, forslag.length ? 'Trykk på et forslag for å justere det' : 'Trykk i et rom for å legge det til'),
         forslag.length
           ? h('div.knapprad', { style: { marginTop: '0' } },
               h('button.knapp', { type: 'button', onclick: leggTilAlle }, ikon('hake'), forslag.length === 1 ? 'Lagre rommet' : 'Lagre alle ' + forslag.length + ' rom'),
               h('button.knapp.sekundar', { type: 'button', onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'))
           : h('button.knapp.hel', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom automatisk'),
-        h('p.dempet.liten', { style: { margin: '8px 0 0' } }, 'Trykk på et lagret rom for å endre eller slette det. Dra i hjørnene for å justere.'));
+        h('p.dempet.liten', { style: { margin: '8px 0 0' } }, 'Appen finner hjørnene, dørene og vinduene i rommet du trykker på. Trykk på et lagret rom for å endre eller slette det.'));
       return;
     }
 
