@@ -62,7 +62,13 @@ export function visJobb(rot, id, fane = 'arbeid') {
       onclick: () => { if (x.id !== fane) gaTil('jobb-' + id + '/' + x.id, { erstatt: true }); },
     }, x.navn, tall[x.id] !== '' && h('span', String(tall[x.id])))));
     // Seks faner er bredere enn telefonen: hold den valgte synlig.
-    requestAnimationFrame(() => fanerEl.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }));
+    // Bare sideveis: scrollIntoView ville også rullet hele siden opp til fanelinja.
+    const valgt = fanerEl.querySelector('[aria-selected="true"]');
+    if (valgt) {
+      const venstre = valgt.offsetLeft - 16, hoyre = valgt.offsetLeft + valgt.offsetWidth + 16 - fanerEl.clientWidth;
+      if (fanerEl.scrollLeft > venstre) fanerEl.scrollLeft = venstre;
+      else if (fanerEl.scrollLeft < hoyre) fanerEl.scrollLeft = hoyre;
+    }
   };
   const tegnPanel = () => {
     const j = job();
@@ -78,7 +84,14 @@ export function visJobb(rot, id, fane = 'arbeid') {
     if (!job()) { gaTil('jobber', { erstatt: true }); return; }
     tegnHode(); tegnFaner();
     // Ikke tegn panelet på nytt midt i skrivingen.
-    if (!panel.contains(document.activeElement) || document.activeElement === document.body) tegnPanel();
+    if (!panel.contains(document.activeElement) || document.activeElement === document.body) {
+      // Hold rulleposisjonen: uten dette hopper siden til toppen ved hvert trykk.
+      const y = scrollY;
+      panel.style.minHeight = panel.offsetHeight + 'px';
+      tegnPanel();
+      panel.style.minHeight = '';
+      scrollTo(0, y);
+    }
   };
   tegnHode(); tegnFaner(); tegnPanel();
 

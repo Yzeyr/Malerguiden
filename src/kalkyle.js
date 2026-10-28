@@ -40,6 +40,8 @@ export function standardArbeid(klasse = '') {
     lister: { strok: 0 },
     vinduer: { strok: 0 },
     dorer: { strok: 0 },
+    // Overganger som sparkles i stedet for å dekkes med list.
+    listefritt: { tak: false, hjorner: false, vinduer: false, dorer: false },
   };
 }
 
@@ -86,6 +88,7 @@ export function rensKalkyle(k, klasse = '') {
       lister: strokBare(a.lister, std.lister),
       vinduer: strokBare(a.vinduer, std.vinduer),
       dorer: strokBare(a.dorer, std.dorer),
+      listefritt: Object.fromEntries(['tak', 'hjorner', 'vinduer', 'dorer'].map((x) => [x, !!(a.listefritt && a.listefritt[x] === true)])),
     },
     rom: Array.isArray(k.rom) ? k.rom.filter((r) => r && typeof r === 'object' && r.id).map((r) => ({
       id: String(r.id),
@@ -182,9 +185,9 @@ export function beregn(kalkyle, lagredePriser) {
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
   const linjer = [];
-  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0 };
+  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0 };
   // Trappehull tar lengre tid per m²: samme mengde, men timene ganges med faktoren.
-  const flater = { vegg: [], tak: [] };
+  const flater = { vegg: [], tak: [], taklinje: [], hjorner: [] };
   let manglerMal = 0;
 
   for (const rom of k.rom || []) {
@@ -195,6 +198,12 @@ export function beregn(kalkyle, lagredePriser) {
     mengder.gulv += m.gulv;
     const faktor = rom.trapp ? P.trappFaktor : 1;
     if (med.vegg) { mengder.vegg += m.vegg; flater.vegg.push({ m2: m.vegg, faktor }); }
+    // Overgangen tak/vegg følger omkretsen. Hjørnene: antall hjørner × takhøyde (4 i et firkantet rom).
+    if (med.vegg || med.tak) { mengder.taklinje += m.omkrets; flater.taklinje.push({ m2: m.omkrets, faktor }); }
+    if (med.vegg) {
+      const hjorner = (Array.isArray(rom.polygon) && rom.polygon.length >= 3 ? rom.polygon.length : 4) * m.hoyde;
+      mengder.hjorner += hjorner; flater.hjorner.push({ m2: hjorner, faktor });
+    }
     if (med.tak) { mengder.tak += m.tak; flater.tak.push({ m2: m.tak, faktor }); }
     if (med.lister) mengder.lister += m.lister;
     if (med.vinduer) mengder.vinduer += m.vinduer;
@@ -233,6 +242,12 @@ export function beregn(kalkyle, lagredePriser) {
       leggTil(flate + (s === 1 ? '-maling-strok1' : '-maling-strok'), m2, { faktorTimer: v, navn: 'Maling ' + ord + ', strøk ' + s });
     }
   }
+  const lf = a.listefritt || {};
+  if (lf.tak) leggTil('listefritt-tak', mengder.taklinje, { faktorTimer: vektet(flater.taklinje) });
+  if (lf.hjorner) leggTil('listefritt-hjorne', mengder.hjorner, { faktorTimer: vektet(flater.hjorner) });
+  if (lf.vinduer) leggTil('listefritt-vindu', mengder.vinduer);
+  if (lf.dorer) leggTil('listefritt-dor', mengder.dorer);
+
   for (let s = 1; s <= (a.lister?.strok || 0); s++) leggTil('lister-strok', mengder.lister, { navn: 'Lister, strøk ' + s });
   for (let s = 1; s <= (a.vinduer?.strok || 0); s++) leggTil('vindu-strok', mengder.vinduer, { navn: 'Vinduer, strøk ' + s });
   for (let s = 1; s <= (a.dorer?.strok || 0); s++) leggTil('dor-strok', mengder.dorer, { navn: 'Dører, strøk ' + s });

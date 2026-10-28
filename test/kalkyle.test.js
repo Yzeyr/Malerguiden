@@ -145,3 +145,17 @@ test('skanning fra Romskanner blir rom med målt veggareal', () => {
   assert.throws(() => fraSkanning('{"x":1}'), /Romskanner/);
   assert.throws(() => fraSkanning('ikke json'), /Romskanner/);
 });
+
+test('listefritt: tak, hjørner, vinduer og dører gir egne linjer', () => {
+  const k = { ...tomKalkyle(), rom: [rom()] };
+  const uten = beregn(k, {}).sum.timer;
+  k.arbeid.listefritt = { tak: true, hjorner: true, vinduer: true, dorer: true };
+  const r = beregn(k, {});
+  const linje = (id) => r.linjer.find((l) => l.id === id);
+  assert.equal(linje('listefritt-tak').mengde, 14, 'omkretsen');
+  assert.equal(Math.round(linje('listefritt-hjorne').mengde * 10) / 10, 9.6, '4 hjørner × 2,4 m');
+  assert.equal(linje('listefritt-vindu').mengde, 1);
+  assert.equal(linje('listefritt-dor').mengde, 1);
+  assert.ok(r.sum.timer > uten + 4);
+  assert.equal(rensKalkyle({ arbeid: { listefritt: { tak: true, hjorner: 'ja' } } }).arbeid.listefritt.hjorner, false);
+});

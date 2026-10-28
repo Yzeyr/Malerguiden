@@ -39,6 +39,13 @@ export const NORMER = [
   { id: 'tak-maling-strok1', gruppe: 'Tak', navn: 'Maling tak, 1. strøk', enhet: 'm²', timer: 0.032, pris: 75, forbruk: 0.12, materialpris: 120, materialenhet: 'L' },
   { id: 'tak-maling-strok', gruppe: 'Tak', navn: 'Maling tak, neste strøk', enhet: 'm²', timer: 0.027, pris: 65, forbruk: 0.10, materialpris: 120, materialenhet: 'L' },
 
+  // Listefritt: overganger som sparkles i stedet for å dekkes med list.
+  // Tak/vegg er tariffens «strimling + sparkling overgang tak/vegg». Hjørner, vinduer og dører er skjønn.
+  { id: 'listefritt-tak', gruppe: 'Listefritt', navn: 'Listefritt mot tak (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'listefritt-hjorne', gruppe: 'Listefritt', navn: 'Listefrie hjørner (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'listefritt-vindu', gruppe: 'Listefritt', navn: 'Listefritt vindu (smyg med hjørnelist, sparkling, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
+  { id: 'listefritt-dor', gruppe: 'Listefritt', navn: 'Listefri dør, én side (overgang karm og vegg)', enhet: 'stk', timer: 0.6, pris: 420, forbruk: 0.2, materialpris: 50, materialenhet: 'L' },
+
   { id: 'lister-strok', gruppe: 'Lister, vinduer og dører', navn: 'Gulv- og taklister, per strøk', enhet: 'lm', timer: 0.031, pris: 35, forbruk: 0.01, materialpris: 180, materialenhet: 'L' },
   { id: 'vindu-strok', gruppe: 'Lister, vinduer og dører', navn: 'Vindu med karm og foring, per strøk', enhet: 'stk', timer: 0.50, pris: 400, forbruk: 0.08, materialpris: 180, materialenhet: 'L' },
   // Én side av døra (dørblad + karm og gerikt). En dør mellom to rom telles i begge rommene, én side hver.

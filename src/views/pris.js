@@ -188,6 +188,17 @@ export function prisPanel(j) {
         h('div', { style: { marginBottom: '8px' } }, h('div.liten', { style: { fontWeight: '650', margin: '0 0 5px' } }, navn, h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px' } }, mengde)),
           velger(STROK(2), a[id].strok, (v) => endreKalkyle(j.id, (x) => { x.arbeid[id].strok = v; }))))));
 
+  // Listefritt: overganger som sparkles i stedet for å dekkes med list
+  const lf = a.listefritt || {};
+  const lfBryter = (id, navn, mengde) => h('label.tallfelt', h('span', navn, h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, mengde)),
+    h('input.bryter', { type: 'checkbox', checked: !!lf[id], onchange: (e) => endreKalkyle(j.id, (x) => { x.arbeid.listefritt = { ...(x.arbeid.listefritt || {}), [id]: e.target.checked }; }) }));
+  ut.append(h('div.seksjon', 'Listefritt', h('span.tall', 'sparkles i stedet for list')),
+    h('div.kort', { style: { marginBottom: '8px', paddingTop: '6px', paddingBottom: '6px' } },
+      lfBryter('tak', 'Mot tak', fmt(r.mengder.taklinje, 1) + ' m overgang tak/vegg'),
+      lfBryter('hjorner', 'Hjørner', fmt(r.mengder.hjorner, 1) + ' m hjørner'),
+      lfBryter('vinduer', 'Vinduer', flertall(r.mengder.vinduer, 'vindu', 'vinduer') + ', smyg uten gerikt'),
+      lfBryter('dorer', 'Dører', flertall(r.mengder.dorer, 'dørside', 'dørsider') + ' uten gerikt')));
+
   // Linjene
   ut.append(h('div.seksjon', 'Utregning', h('span.tall', k.modus === 'timer' ? 'timer · kr' : 'mengde · kr')));
   ut.append(h('div.rad-liste', r.linjer.map((l) => h('div.rad', { style: { minHeight: '50px', padding: '9px 14px' } },
