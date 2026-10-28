@@ -191,3 +191,11 @@ test('sparkel trenger et døgn tørk per runde', () => {
   assert.equal(d.runder, 3);
   assert.ok(d.dager >= 3.5 && d.dager > d.arbeidsdager, JSON.stringify(d));
 });
+
+test('listefritt vindu gir tre sparkelrunder', () => {
+  const k = { ...tomKalkyle(''), rom: [rom({ id: 'a' })] };
+  k.arbeid.listefritt = { tak: false, hjorner: false, vinduer: true, dorer: false };
+  const b = beregn(k, {});
+  assert.ok(b.linjer.some((l) => l.id === 'listefritt-vindu'), b.linjer.map((l) => l.id).join());
+  assert.equal(dagerMedTork(b).runder, 3);
+});

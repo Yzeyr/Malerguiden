@@ -43,7 +43,7 @@ export const NORMER = [
   // Tak/vegg er tariffens «strimling + sparkling overgang tak/vegg». Hjørner, vinduer og dører er skjønn.
   { id: 'listefritt-tak', gruppe: 'Listefritt', navn: 'Listefritt mot tak (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'listefritt-hjorne', gruppe: 'Listefritt', navn: 'Listefrie hjørner (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
-  { id: 'listefritt-vindu', gruppe: 'Listefritt', navn: 'Listefritt vindu (smyg med hjørnelist, sparkling, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
+  { id: 'listefritt-vindu', gruppe: 'Listefritt', navn: 'Listefritt vindu (PVC-hjørnelist i smyg, 3 strøk sparkel, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
   { id: 'listefritt-dor', gruppe: 'Listefritt', navn: 'Listefri dør, én side (overgang karm og vegg)', enhet: 'stk', timer: 0.6, pris: 420, forbruk: 0.2, materialpris: 50, materialenhet: 'L' },
 
   { id: 'lister-strok', gruppe: 'Lister, vinduer og dører', navn: 'Gulv- og taklister, per strøk', enhet: 'lm', timer: 0.031, pris: 35, forbruk: 0.01, materialpris: 180, materialenhet: 'L' },

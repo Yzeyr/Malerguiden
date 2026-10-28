@@ -319,7 +319,7 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 }
 
 /** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
-export const SPARKEL_RUNDER = { skjot: 2, k2: 2, k3: 3, listefritt: 2 };
+export const SPARKEL_RUNDER = { skjot: 2, k2: 2, k3: 3, listefritt: 2, 'listefritt-vindu': 3 };
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Hver sparkelrunde tar minst
@@ -331,7 +331,8 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   let runder = 0, sparkel = 0;
   for (const l of b.linjer) {
     const m = /-sparkling-(skjot|k2|k3)$/.exec(l.id);
-    const r = m ? SPARKEL_RUNDER[m[1]] : l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0;
+    // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
+    const r = m ? SPARKEL_RUNDER[m[1]] : SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
     if (!r || !(l.timer > 0)) continue;
     runder = Math.max(runder, r);
     sparkel += l.timer;
