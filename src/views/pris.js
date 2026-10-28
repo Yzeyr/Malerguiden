@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
 import { endreJobb, hentJobb } from '../jobs.js';
-import { tomKalkyle, romMengder, beregn, perRom, arbeidsdager, dagerMedTork, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -229,6 +229,18 @@ export function prisPanel(j) {
         h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, 'Felles for jobben'), h('small', 'Oppstart, kjøring og tillegg')),
         h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(fordelt.felles.timer, 1) + ' t'),
         h('span', { style: { fontWeight: '750', minWidth: '76px', textAlign: 'right' } }, fmt(fordelt.felles.eksMva, 0)))));
+  }
+
+  // Materialene: hvor mye maling, sparkel osv. som går
+  const mat = materialer(r);
+  if (mat.length) {
+    ut.append(h('div.seksjon', 'Materialer', h('span.tall', 'uten svinn · kr')));
+    ut.append(h('div.rad-liste',
+      mat.map((m) => h('div.rad', { style: { minHeight: '50px', padding: '9px 14px' } },
+        h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, m.navn)),
+        h('span', { style: { fontWeight: '750', minWidth: '64px', textAlign: 'right' } }, fmt(m.mengde, m.enhet === 'rom' ? 0 : 1) + ' ' + m.enhet),
+        h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '64px', textAlign: 'right' } }, fmt(m.kr, 0))))));
+    ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 14px' } }, 'Forbruket per m² står i normtallene under Mitt → Priser. Legg på 10–15 % når du handler.'));
   }
 
   // Linjene

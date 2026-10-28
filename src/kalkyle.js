@@ -255,7 +255,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
     const timer = faktorTimer != null ? faktorTimer * n.timer : mengde * n.timer;
     const arbeid = k.modus === 'enhet' ? mengde * n.pris : timer * P.timepris;
     const materialer = mengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);
-    linjer.push({ id, navn: navn || n.navn, detalj, mengde, enhet: n.enhet, timer, arbeid, materialer });
+    linjer.push({ id, navn: navn || n.navn, detalj, mengde, enhet: n.enhet, timer, arbeid, materialer, forbruk: mengde * (n.forbruk || 0), materialenhet: n.materialenhet || '' });
   };
   // Timer for en flate der noen rom er trappehull: Σ m² × faktor.
   const vektet = (liste) => liste.reduce((s, x) => s + x.m2 * x.faktor, 0);
@@ -311,7 +311,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
   const eksMva = arbeidKr + materialKr;
   const mva = Math.round(eksMva * P.mva / 100);
   return {
-    linjer: linjer.map((l) => ({ ...l, timer: rund(l.timer), arbeid: Math.round(l.arbeid), materialer: Math.round(l.materialer) })),
+    linjer: linjer.map((l) => ({ ...l, timer: rund(l.timer), arbeid: Math.round(l.arbeid), materialer: Math.round(l.materialer), forbruk: rund(l.forbruk || 0, 2) })),
     sum: { timer: rund(timer, 1), arbeid: arbeidKr, materialer: materialKr, eksMva, mva, inklMva: eksMva + mva },
     mengder: Object.fromEntries(Object.entries(mengder).map(([k2, v]) => [k2, rund(v, 1)])),
     manglerMal,
@@ -335,6 +335,33 @@ export function perRom(kalkyle, lagredePriser) {
   // Det som ikke hører til ett rom: oppstart, tillegg, og øreavrunding
   const felles = { timer: rund(alt.sum.timer - sumRom.timer, 1), eksMva: alt.sum.eksMva - sumRom.eksMva };
   return { rom, felles };
+}
+
+/* Hva som går med av materialer, samlet i det man kjøper: liter maling, sparkel osv. */
+const MATERIALGRUPPER = [
+  { navn: 'Veggmaling', test: (id) => id.startsWith('vegg-maling') },
+  { navn: 'Takmaling', test: (id) => id.startsWith('tak-maling') },
+  { navn: 'Grunning', test: (id) => id.endsWith('-grunning') },
+  { navn: 'Sparkel', test: (id) => id.includes('-sparkling-') || id.startsWith('listefritt-') },
+  { navn: 'Snekkermaling (lister, vinduer, dører)', test: (id) => id === 'lister-strok' || id === 'vindu-strok' || id === 'dor-strok' },
+  { navn: 'Dekkpapp', test: (id) => id === 'dekking-gulv' },
+  { navn: 'Tape og plast', test: (id) => id === 'rigging-rom' || id === 'mobler-rom', enhet: 'rom' },
+];
+
+/**
+ * Materialene for jobben fra linjene i beregn(): [{ navn, mengde, enhet, kr }].
+ * Mengden er uten svinn, slik normtallene er; kroner er med påslag, som i prisen.
+ */
+export function materialer(resultat) {
+  const ut = [];
+  for (const g of MATERIALGRUPPER) {
+    const ls = (resultat?.linjer || []).filter((l) => g.test(l.id) && l.forbruk > 0);
+    if (!ls.length) continue;
+    // Tape og plast: mengden er antall rom (møbelflytting teller ikke et rom til)
+    const mengde = g.enhet === 'rom' ? (ls.find((l) => l.id === 'rigging-rom')?.mengde || 0) : rund(ls.reduce((s, l) => s + l.forbruk, 0), 1);
+    ut.push({ navn: g.navn, mengde, enhet: g.enhet || ls[0].materialenhet, kr: ls.reduce((s, l) => s + l.materialer, 0) });
+  }
+  return ut;
 }
 
 /** Arbeidsdager med en gitt dagslengde, avrundet opp til halve dager. */

@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -243,4 +243,15 @@ test('rom uten sparkling får bare maling', () => {
   assert.ok(Math.abs(sp.mengde * 2 - mal.mengde) < 0.01, sp.mengde + ' / ' + mal.mengde);
   assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.sparkling, true);
   assert.equal(rensKalkyle({ rom: [{ id: 'x', med: { sparkling: false } }] }).rom[0].med.sparkling, false);
+});
+
+test('materialene samles i det man kjøper: liter maling og sparkel', () => {
+  const b = beregn({ ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] }, {});
+  const m = Object.fromEntries(materialer(b).map((x) => [x.navn, x]));
+  const vegg = romMengder(rom({ id: 'a' })).vegg;
+  // 2 strøk: 0,12 + 0,10 L per m²
+  assert.ok(Math.abs(m.Veggmaling.mengde - vegg * 0.22) < 0.2, JSON.stringify(m.Veggmaling));
+  assert.equal(m.Veggmaling.enhet, 'L');
+  assert.ok(m.Sparkel.mengde > 0 && m.Sparkel.kr > 0);
+  assert.ok(m.Dekkpapp.enhet === 'm²');
 });
