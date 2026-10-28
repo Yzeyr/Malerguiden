@@ -54,7 +54,7 @@ export function romPanel(j) {
       : m.ok ? fmt(tallEl(r.lengde), 1) + ' × ' + fmt(tallEl(r.bredde), 1) + ' m · takhøyde ' + fmt(m.hoyde, 1) + ' m' : 'Trykk for å legge inn mål';
     ut.append(h('div.kort', { role: 'button', tabindex: '0', style: { marginBottom: '8px', cursor: 'pointer' }, onclick: () => romArk(j.id, r.id), onkeydown: (e) => { if (e.key === 'Enter') romArk(j.id, r.id); } },
       h('div', { style: { display: 'flex', gap: '12px', alignItems: 'center' } },
-        h('span.farge-prove', r.trapp ? '⇅' : m.ok ? fmt(m.gulv, 0) : '?'),
+        r.skannplan ? planSvg(r.skannplan, { bredde: 44, hoyde: 44 }) : h('span.farge-prove', r.trapp ? '⇅' : m.ok ? fmt(m.gulv, 0) : '?'),
         h('span', { style: { flex: '1', minWidth: '0' } }, h('b', { style: { display: 'block' } }, r.navn || 'Rom'), h('small.dempet', under)),
         ikon('rediger')),
       h('div.merker', { style: { marginTop: '8px' } }, brikker.map((b) => h('span.merke' + (b === 'Mangler mål' ? '.m-forfalt' : ''), b)))));
@@ -100,6 +100,7 @@ export function romArk(jobId, romId, forslag = null) {
       },
     },
       h('h2', finnes ? 'Endre rom' : 'Nytt rom'),
+      verdi.skannplan && h('div.kort', { style: { padding: '6px', marginBottom: '12px' } }, planSvg(verdi.skannplan, { bredde: 320, hoyde: 220, mal: true })),
       h('label.felt', h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
       fraPlan
         ? h('p.dempet.liten', { style: { margin: '0 2px 10px' } }, verdi.kilde === 'skann'
@@ -334,4 +335,52 @@ function importerSkanning(jobId) {
         h('label.knapp.sekundar', ikon('lastned'), 'Velg fil', fil),
         h('button.knapp.sekundar', { type: 'button', onclick: () => leggInn(tekst.value) }, 'Legg inn')));
   });
+}
+
+/* ---------- Tegning av plan fra skanning ---------- */
+
+const NS = 'http://www.w3.org/2000/svg';
+const lengde = (l) => Math.hypot(l.b.x - l.a.x, l.b.y - l.a.y);
+
+/** SVG av planen, rotert så lengste vegg ligger vannrett. mal: vis veggmål. */
+export function planSvg(plan, { bredde, hoyde, mal = false }) {
+  const marg = mal ? 26 : 4;
+  const lengste = plan.vegger.reduce((a, b) => (lengde(b) > lengde(a) ? b : a), plan.vegger[0]);
+  const v = -Math.atan2(lengste.b.y - lengste.a.y, lengste.b.x - lengste.a.x);
+  const rot = (p) => ({ x: p.x * Math.cos(v) - p.y * Math.sin(v), y: p.x * Math.sin(v) + p.y * Math.cos(v) });
+  const alle = [...plan.gulv, ...['vegger', 'dorer', 'vinduer', 'apninger'].flatMap((k) => plan[k].flatMap((l) => [l.a, l.b]))].map(rot);
+  const minX = Math.min(...alle.map((p) => p.x)), maxX = Math.max(...alle.map((p) => p.x));
+  const minY = Math.min(...alle.map((p) => p.y)), maxY = Math.max(...alle.map((p) => p.y));
+  const s = Math.min((bredde - 2 * marg) / Math.max(maxX - minX, 0.5), (hoyde - 2 * marg) / Math.max(maxY - minY, 0.5));
+  const ox = (bredde - (maxX - minX) * s) / 2 - minX * s, oy = (hoyde - (maxY - minY) * s) / 2 - minY * s;
+  const til = (p) => { const r = rot(p); return [r.x * s + ox, r.y * s + oy]; };
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${bredde} ${hoyde}`);
+  svg.setAttribute('width', bredde); svg.setAttribute('height', hoyde);
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Plantegning fra skanning');
+  svg.style.display = 'block'; svg.style.flex = 'none'; svg.style.maxWidth = '100%'; svg.style.height = 'auto';
+  const ny = (navn, a) => { const e = document.createElementNS(NS, navn); for (const [k, x] of Object.entries(a)) e.setAttribute(k, x); svg.append(e); return e; };
+  const strek = mal ? 4 : 2;
+  if (plan.gulv.length >= 3) ny('polygon', { points: plan.gulv.map((p) => til(p).join(',')).join(' '), fill: 'color-mix(in srgb, var(--terrakotta) 14%, transparent)' });
+  const linje = (l, attrs) => { const [x1, y1] = til(l.a), [x2, y2] = til(l.b); return ny('line', { x1, y1, x2, y2, 'stroke-linecap': 'round', ...attrs }); };
+  plan.vegger.forEach((l) => linje(l, { stroke: 'var(--blekk)', 'stroke-width': strek }));
+  plan.apninger.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: 'var(--blekk3)', 'stroke-width': 1, 'stroke-dasharray': '3 2' }); });
+  plan.vinduer.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: '#5A9ED9', 'stroke-width': strek }); });
+  plan.dorer.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: 'var(--terrakotta)', 'stroke-width': Math.max(1.5, strek - 1) }); });
+  if (mal) {
+    const pts = plan.gulv.length >= 3 ? plan.gulv.map(til) : plan.vegger.flatMap((l) => [til(l.a), til(l.b)]);
+    const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    for (const l of plan.vegger) {
+      const m = lengde(l);
+      if (m < 0.3) continue;
+      const [x1, y1] = til(l.a), [x2, y2] = til(l.b);
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      const d = Math.hypot(x2 - x1, y2 - y1) || 1;
+      let nx = -(y2 - y1) / d, ny_ = (x2 - x1) / d;
+      if ((cx - mx) * nx + (cy - my) * ny_ > 0) { nx = -nx; ny_ = -ny_; }
+      const t = ny('text', { x: mx + nx * 13, y: my + ny_ * 13 + 4, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 650, fill: 'var(--blekk2)', 'font-family': 'var(--sans)' });
+      t.textContent = fmt(m, 2) + ' m';
+    }
+  }
+  return svg;
 }

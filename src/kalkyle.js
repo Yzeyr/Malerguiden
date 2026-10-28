@@ -103,6 +103,7 @@ export function rensKalkyle(k, klasse = '') {
       kilde: ['manuell', 'plan', 'ki', 'skann'].includes(r.kilde) ? r.kilde : 'manuell',
       polygon: Array.isArray(r.polygon) ? r.polygon.filter((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) : null,
       tegning: r.tegning ? String(r.tegning) : null,
+      skannplan: rensPlan(r.skannplan),
     })) : [],
     tillegg: Array.isArray(k.tillegg) ? k.tillegg.filter((t) => t && typeof t === 'object' && t.id).map((t) => ({
       id: String(t.id), tekst: str(t.tekst), timer: str(t.timer), kr: str(t.kr),
@@ -112,6 +113,21 @@ export function rensKalkyle(k, klasse = '') {
     plan: k.plan && typeof k.plan === 'object' && k.plan.bilde
       ? { bilde: String(k.plan.bilde), skala: Number.isFinite(k.plan.skala) && k.plan.skala > 0 ? k.plan.skala : null } : null,
   };
+}
+
+/* ---------- Plan fra LiDAR-skanning ---------- */
+
+const punkt = (p) => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null);
+const linjer = (a) => (Array.isArray(a) ? a.map((l) => (l && punkt(l.a) && punkt(l.b) ? { a: punkt(l.a), b: punkt(l.b) } : null)).filter(Boolean) : []);
+
+/** Plantegningen fra Romskanner, i meter: gulv (punkter), vegger, dører, vinduer, åpninger (linjer). */
+export function rensPlan(p) {
+  if (!p || typeof p !== 'object') return null;
+  const plan = {
+    gulv: Array.isArray(p.gulv) ? p.gulv.map(punkt).filter(Boolean) : [],
+    vegger: linjer(p.vegger), dorer: linjer(p.dorer), vinduer: linjer(p.vinduer), apninger: linjer(p.apninger),
+  };
+  return plan.vegger.length ? plan : null;
 }
 
 /* ---------- Mengder per rom ---------- */
@@ -298,5 +314,6 @@ export function fraSkanning(tekst) {
     vinduer: heltall(r.vinduer),
     dorer: heltall(r.dorer),
     kilde: 'skann',
+    skannplan: rensPlan(r.plan),
   })).filter((r) => r.gulv && r.omkrets);
 }

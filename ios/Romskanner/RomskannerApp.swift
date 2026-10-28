@@ -16,7 +16,6 @@ struct ContentView: View {
     @State private var navn = ""
     @State private var sporNavn = false
     @State private var kopiert = false
-    @State private var endres: SkannetRom?
 
     private let stottet = RoomCaptureSession.isSupported
 
@@ -41,19 +40,18 @@ struct ContentView: View {
                 } else {
                     Section {
                         ForEach(lager.rom) { rom in
-                            RomRad(rom: rom)
-                                .contentShape(Rectangle())
-                                .onTapGesture { endres = rom; navn = rom.navn }
+                            NavigationLink(value: rom.id) { RomRad(rom: rom) }
                         }
                         .onDelete { lager.rom.remove(atOffsets: $0) }
                     } header: {
                         Text("Skannede rom")
                     } footer: {
-                        Text("Sveip til venstre for å slette. Trykk for å endre navn.")
+                        Text("Trykk på et rom for å se plantegningen. Sveip til venstre for å slette.")
                     }
                 }
             }
             .navigationTitle("Romskanner")
+            .navigationDestination(for: UUID.self) { id in RomDetalj(lager: lager, id: id) }
             .toolbar {
                 if !lager.rom.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -108,16 +106,6 @@ struct ContentView: View {
                 }
                 Button("Forkast", role: .cancel) { ventende = nil }
             }
-            .alert("Endre navn", isPresented: Binding(get: { endres != nil }, set: { if !$0 { endres = nil } })) {
-                TextField("Navn", text: $navn)
-                Button("Lagre") {
-                    if let e = endres, let i = lager.rom.firstIndex(where: { $0.id == e.id }) {
-                        lager.rom[i].navn = navn.isEmpty ? e.navn : navn
-                    }
-                    endres = nil
-                }
-                Button("Avbryt", role: .cancel) { endres = nil }
-            }
             .alert("Kopiert", isPresented: $kopiert) {
                 Button("OK") {}
             } message: {
@@ -133,6 +121,17 @@ struct RomRad: View {
     private func m(_ v: Double, _ d: Int = 1) -> String { v.formatted(.number.precision(.fractionLength(d))) }
 
     var body: some View {
+        HStack(spacing: 12) {
+            if let plan = rom.plan, !plan.vegger.isEmpty {
+                PlanView(plan: plan, visMal: false)
+                    .frame(width: 56, height: 56)
+                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+            }
+            tekst
+        }
+    }
+
+    private var tekst: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(rom.navn).font(.headline)
             Text("\(m(rom.gulv)) m² gulv · \(m(rom.omkrets)) m omkrets · \(m(rom.takhoyde, 2)) m høyde")

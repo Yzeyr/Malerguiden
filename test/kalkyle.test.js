@@ -159,3 +159,13 @@ test('listefritt: tak, hjørner, vinduer og dører gir egne linjer', () => {
   assert.ok(r.sum.timer > uten + 4);
   assert.equal(rensKalkyle({ arbeid: { listefritt: { tak: true, hjorner: 'ja' } } }).arbeid.listefritt.hjorner, false);
 });
+
+test('plantegning fra skanningen blir med og renses', () => {
+  const plan = { gulv: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }, { x: 0, y: 3 }], vegger: [{ a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }, { a: { x: 4, y: 0 }, b: { x: 'x', y: 3 } }], dorer: [], vinduer: 'tull', apninger: [] };
+  const [r] = fraSkanning(JSON.stringify({ format: 'malerguiden-rom', rom: [{ navn: 'A', gulv: 12, omkrets: 14, takhoyde: 2.4, vegg: 30, vinduer: 0, dorer: 1, plan }] }));
+  assert.equal(r.skannplan.vegger.length, 1, 'ugyldig vegg fjernes');
+  assert.deepEqual(r.skannplan.vinduer, []);
+  const k = rensKalkyle({ rom: [{ id: 'a', ...r }] });
+  assert.equal(k.rom[0].skannplan.gulv.length, 4);
+  assert.equal(rensKalkyle({ rom: [{ id: 'b', skannplan: { vegger: [] } }] }).rom[0].skannplan, null);
+});
