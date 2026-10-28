@@ -245,11 +245,22 @@ export function prisPanel(j) {
 
   // Linjene
   ut.append(h('div.seksjon', 'Utregning', h('span.tall', k.modus === 'timer' ? 'timer · kr' : 'mengde · kr')));
-  ut.append(h('div.rad-liste', r.linjer.map((l) => h('div.rad', { style: { minHeight: '50px', padding: '9px 14px' } },
+  // Trykk på en linje for å endre den eller ta den ut, bare for denne jobben
+  ut.append(h('div.rad-liste', r.linjer.map((l) => h('div.rad', {
+    style: { minHeight: '50px', padding: '9px 14px', cursor: l.tillegg ? '' : 'pointer' },
+    ...(l.tillegg ? {} : { role: 'button', tabindex: '0', onclick: () => linjeArk(j.id, l), onkeydown: (e) => { if (e.key === 'Enter') linjeArk(j.id, l); } }),
+  },
     h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15.5px' } }, l.navn),
-      h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : ''))),
+      h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj && !l.justert ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : '') + (l.justert ? ' · justert' : ''))),
     h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(l.timer, 1) + ' t'),
     h('span', { style: { fontWeight: '750', minWidth: '70px', textAlign: 'right' } }, fmt(l.arbeid, 0))))));
+  // Linjer som er tatt ut av prisen for denne jobben
+  if (r.utelatt.length) {
+    ut.append(h('div.rad-liste', { style: { marginTop: '8px' } }, r.utelatt.map((u) => h('div.rad', { style: { minHeight: '48px', padding: '8px 14px' } },
+      h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15px', textDecoration: 'line-through', opacity: '.6' } }, u.navn), h('small', 'Tatt ut av prisen')),
+      h('button.lenkeknapp', { type: 'button', onclick: () => endreKalkyle(j.id, (x) => { delete x.justering[u.nokkel]; }) }, 'Ta med')))));
+  }
+  ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 0' } }, 'Trykk på en linje for å endre mengde, timer eller pris, eller ta den ut, bare for denne jobben.'));
 
   // Tillegg
   ut.append(h('div.seksjon', 'Tillegg'));
@@ -272,6 +283,38 @@ export function prisPanel(j) {
     h('a.lenkeknapp', { href: '#mitt/priser' }, 'Timepris og normtall', ikon('pil'))));
   ut.append(h('p.dempet.liten', { style: { textAlign: 'center' } }, 'Et overslag. Juster normtallene til din egen fart under Mitt.'));
   return ut;
+}
+
+/* ---------- Endre én linje for denne jobben ---------- */
+
+function linjeArk(jobId, l) {
+  const k = hentJobb(jobId).kalkyle || tomKalkyle();
+  const egen = (k.justering && k.justering[l.nokkel]) || {};
+  ark((lukk) => {
+    const felt = (navn, label, plassholder, enhet) => {
+      const inn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: egen[navn] || '', placeholder: plassholder });
+      return [inn, h('label.tallfelt', h('span', label, h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Utregnet: ' + plassholder + ' ' + enhet)), inn)];
+    };
+    const [mengde, mengdeRad] = felt('mengde', 'Mengde (' + l.enhet + ')', fmt(l.beregnet ?? l.mengde, 1), l.enhet);
+    const [timer, timerRad] = felt('timer', 'Timer', fmt(l.timer, 1), 't');
+    const [kroner, kronerRad] = felt('kr', 'Arbeid (kr)', fmt(l.arbeid, 0), 'kr');
+    const lagre = (endring) => {
+      endreKalkyle(jobId, (x) => {
+        x.justering = x.justering || {};
+        const ny = { av: false, mengde: '', timer: '', kr: '', ...endring };
+        if (ny.av || ny.mengde || ny.timer || ny.kr) x.justering[l.nokkel] = ny; else delete x.justering[l.nokkel];
+      });
+      lukk();
+    };
+    return h('form', { onsubmit: (e) => { e.preventDefault(); lagre({ mengde: mengde.value.trim(), timer: timer.value.trim(), kr: kroner.value.trim() }); } },
+      h('h2', l.navn),
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Gjelder bare denne jobben. Tomme felt bruker det utregnede. Normtallene for alle jobber endres under Mitt → Priser.'),
+      mengdeRad, timerRad, kronerRad,
+      h('div.knapprad',
+        h('button.knapp.fare', { type: 'button', onclick: () => lagre({ av: true }) }, ikon('kryss'), 'Ta ut av prisen'),
+        h('button.knapp', { type: 'submit' }, 'Lagre')),
+      (egen.mengde || egen.timer || egen.kr) && h('button.lenkeknapp', { type: 'button', style: { marginTop: '6px' }, onclick: () => lagre({}) }, 'Tilbake til utregnet'));
+  });
 }
 
 /* ---------- KI-lesing ---------- */

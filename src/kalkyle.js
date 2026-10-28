@@ -54,7 +54,7 @@ export function standardArbeid(klasse = '') {
 export const MED_ALT = { vegg: true, tak: true, lister: true, vinduer: true, dorer: true, sparkling: true };
 
 export function tomKalkyle(klasse = '') {
-  return { modus: 'timer', arbeid: standardArbeid(klasse), rom: [], tillegg: [], planer: [] };
+  return { modus: 'timer', arbeid: standardArbeid(klasse), rom: [], tillegg: [], planer: [], justering: {} };
 }
 
 /* ---------- Tall ---------- */
@@ -116,7 +116,20 @@ export function rensKalkyle(k, klasse = '') {
       id: String(t.id), tekst: str(t.tekst), timer: str(t.timer), kr: str(t.kr),
     })) : [],
     planer: rensPlaner(k),
+    justering: rensJustering(k.justering),
   };
+}
+
+/* Justeringer per linje for denne jobben: { [nokkel]: { av, mengde, timer, kr } } (tekst som i skjemaene). */
+function rensJustering(j) {
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return {};
+  const ut = {};
+  for (const [nokkel, v] of Object.entries(j)) {
+    if (!v || typeof v !== 'object' || nokkel.length > 120) continue;
+    const r = { av: v.av === true, mengde: str(v.mengde).slice(0, 12), timer: str(v.timer).slice(0, 12), kr: str(v.kr).slice(0, 12) };
+    if (r.av || r.mengde || r.timer || r.kr) ut[nokkel] = r;
+  }
+  return ut;
 }
 
 /* Plantegningene det måles på, én per etasje: bilde-id, navn og meter per bildepunkt
@@ -216,7 +229,7 @@ export function priser(lagret) {
  * Returnerer { linjer, sum: { timer, arbeid, materialer, eksMva, mva, inklMva }, mengder, manglerMal }
  * Hver linje: { id, navn, detalj, mengde, enhet, timer, arbeid, materialer }
  */
-export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
+export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering = true } = {}) {
   const P = priser(lagredePriser);
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
@@ -249,13 +262,27 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
     if (med.dorer) mengder.dorer += m.dorer;
   }
 
+  // Justeringer for denne jobben: linjer som er tatt ut, og egen mengde, timer eller kroner.
+  const justering = (medJustering && k.justering) || {};
+  const utelatt = [];
   const leggTil = (id, mengde, { detalj = '', faktorTimer = null, navn = null } = {}) => {
     const n = P.normer[id];
     if (!n || !(mengde > 0)) return;
-    const timer = faktorTimer != null ? faktorTimer * n.timer : mengde * n.timer;
-    const arbeid = k.modus === 'enhet' ? mengde * n.pris : timer * P.timepris;
+    const nokkel = navn ? id + ':' + navn : id;
+    const j = justering[nokkel];
+    if (j && j.av) { utelatt.push({ nokkel, navn: navn || n.navn }); return; }
+    const beregnet = mengde;
+    let timer = faktorTimer != null ? faktorTimer * n.timer : mengde * n.timer;
+    const egenMengde = medJustering === true && j ? tall(j.mengde) : NaN;
+    if (egenMengde >= 0) { timer = beregnet > 0 ? timer * (egenMengde / beregnet) : egenMengde * n.timer; mengde = egenMengde; }
+    const egneTimer = medJustering === true && j ? tall(j.timer) : NaN;
+    if (egneTimer >= 0) timer = egneTimer;
+    let arbeid = k.modus === 'enhet' ? mengde * n.pris : timer * P.timepris;
+    const egneKr = medJustering === true && j ? tall(j.kr) : NaN;
+    if (egneKr >= 0) arbeid = egneKr;
     const materialer = mengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);
-    linjer.push({ id, navn: navn || n.navn, detalj, mengde, enhet: n.enhet, timer, arbeid, materialer, forbruk: mengde * (n.forbruk || 0), materialenhet: n.materialenhet || '' });
+    linjer.push({ id, nokkel, navn: navn || n.navn, detalj, mengde, beregnet, enhet: n.enhet, timer, arbeid, materialer,
+      forbruk: mengde * (n.forbruk || 0), materialenhet: n.materialenhet || '', justert: !!(egenMengde >= 0 || egneTimer >= 0 || egneKr >= 0) });
   };
   // Timer for en flate der noen rom er trappehull: Σ m² × faktor.
   const vektet = (liste) => liste.reduce((s, x) => s + x.m2 * x.faktor, 0);
@@ -315,6 +342,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
     sum: { timer: rund(timer, 1), arbeid: arbeidKr, materialer: materialKr, eksMva, mva, inklMva: eksMva + mva },
     mengder: Object.fromEntries(Object.entries(mengder).map(([k2, v]) => [k2, rund(v, 1)])),
     manglerMal,
+    utelatt,
     timepris: P.timepris,
     modus: k.modus,
   };
@@ -327,12 +355,12 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
 export function perRom(kalkyle, lagredePriser) {
   const k = kalkyle || tomKalkyle();
   const rom = (k.rom || []).map((r) => {
-    const b = beregn({ ...k, rom: [r] }, lagredePriser, { medFelles: false });
+    const b = beregn({ ...k, rom: [r] }, lagredePriser, { medFelles: false, medJustering: 'bareUt' });
     return { id: r.id, navn: r.navn || 'Rom', ok: romMengder(r).ok, sum: b.sum };
   });
   const alt = beregn(k, lagredePriser);
   const sumRom = rom.reduce((s, r) => ({ timer: s.timer + r.sum.timer, eksMva: s.eksMva + r.sum.eksMva }), { timer: 0, eksMva: 0 });
-  // Det som ikke hører til ett rom: oppstart, tillegg, og øreavrunding
+  // Det som ikke hører til ett rom: oppstart, tillegg, egne mengder og timer, og øreavrunding
   const felles = { timer: rund(alt.sum.timer - sumRom.timer, 1), eksMva: alt.sum.eksMva - sumRom.eksMva };
   return { rom, felles };
 }

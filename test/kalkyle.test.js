@@ -255,3 +255,27 @@ test('materialene samles i det man kjøper: liter maling og sparkel', () => {
   assert.ok(m.Sparkel.mengde > 0 && m.Sparkel.kr > 0);
   assert.ok(m.Dekkpapp.enhet === 'm²');
 });
+
+test('linjer kan tas ut eller justeres for jobben', () => {
+  const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] };
+  const for_ = beregn(k, {});
+  const dekk = for_.linjer.find((l) => l.id === 'dekking-gulv');
+  assert.ok(dekk);
+  // Betonggulv: ikke dekk til
+  k.justering = { 'dekking-gulv': { av: true } };
+  const uten = beregn(k, {});
+  assert.ok(!uten.linjer.some((l) => l.id === 'dekking-gulv'));
+  assert.equal(uten.utelatt[0].nokkel, 'dekking-gulv');
+  assert.ok(uten.sum.eksMva < for_.sum.eksMva);
+  // Egen mengde og egne timer
+  k.justering = { 'vegg-sparkling-k2': { mengde: '10' }, 'Maling vegg, strøk 2': {} };
+  const sp = beregn(k, {}).linjer.find((l) => l.id === 'vegg-sparkling-k2');
+  assert.equal(sp.mengde, 10); assert.ok(sp.justert);
+  k.justering = { 'vegg-sparkling-k2': { timer: '3' } };
+  assert.equal(beregn(k, {}).linjer.find((l) => l.id === 'vegg-sparkling-k2').timer, 3);
+  // Strøk 2 har egen nøkkel
+  const s2 = for_.linjer.find((l) => l.navn === 'Maling vegg, strøk 2');
+  assert.equal(s2.nokkel, 'vegg-maling-strok:Maling vegg, strøk 2');
+  // Rensing
+  assert.deepEqual(rensKalkyle({ justering: { a: { av: true, mengde: 5 }, b: {}, c: 'x' } }).justering, { a: { av: true, mengde: '5', timer: '', kr: '' } });
+});
