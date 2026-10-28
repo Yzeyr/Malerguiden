@@ -85,6 +85,12 @@ export function normaliserJobb(j) {
     forbeholdValgt: Array.isArray(j.forbeholdValgt) ? j.forbeholdValgt.filter((x) => typeof x === 'string') : [],
     notat: str(j.notat),
     forbehold: str(j.forbehold),
+    // Timer brukt på jobben, ført dag for dag, til å sammenligne med det beregnede.
+    timeforing: Array.isArray(j.timeforing)
+      ? j.timeforing.filter((t) => obj(t) && t.id && Number(t.timer) > 0).map((t) => ({
+          id: String(t.id), dato: erIsoDag(t.dato) ? t.dato : '', timer: Math.round(Number(t.timer) * 100) / 100, tekst: str(t.tekst).slice(0, 80),
+        }))
+      : [],
     // Prisberegningen (rom, arbeid, tillegg). null til den tas i bruk.
     kalkyle: null,
   };
@@ -198,6 +204,9 @@ export function kladdTilJobb(tilId, navn = '') {
   });
   return ok ? tilId : null;
 }
+
+/** Timer ført på jobben til sammen. */
+export function timerBrukt(job) { return (job?.timeforing || []).reduce((s, t) => s + t.timer, 0); }
 
 export function alleJobber() { return jobber; }
 export function hentJobb(id) {

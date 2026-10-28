@@ -2,8 +2,8 @@
    romPanel: øverst i Mål-fanen. prisPanel: Pris-fanen. */
 
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
-import { nyId, fmt, flertall } from '../util.js';
-import { endreJobb, hentJobb } from '../jobs.js';
+import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
+import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
 import { tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
@@ -180,6 +180,9 @@ export function prisPanel(j) {
 
   if (r.manglerMal) ut.append(h('p.advarsel', ikon('advarsel'), h('span', flertall(r.manglerMal, 'rom mangler', 'rom mangler') + ' mål og er ikke regnet med.')));
 
+  // Timer brukt mot beregnet (ikke i hurtigprisen, som ikke er en jobb)
+  if (j.id !== KLADD_ID) ut.append(timerPanel(j, r.sum.timer));
+
   // Timer eller enhetspriser
   ut.append(h('div.velger', { style: { marginBottom: '4px' } },
     [['timer', 'Timer × ' + fmt(r.timepris, 0) + ' kr'], ['enhet', 'Enhetspriser']].map(([id, label]) => h('button', {
@@ -286,6 +289,43 @@ export function prisPanel(j) {
   ut.append(h('div', { style: { textAlign: 'center', marginTop: '12px' } },
     h('a.lenkeknapp', { href: '#mitt/priser' }, 'Timepris og normtall', ikon('pil'))));
   ut.append(h('p.dempet.liten', { style: { textAlign: 'center' } }, 'Et overslag. Juster normtallene til din egen fart under Mitt.'));
+  return ut;
+}
+
+/* ---------- Timer brukt mot beregnet ---------- */
+
+function timerPanel(j, beregnet) {
+  const brukt = timerBrukt(j);
+  const avvik = brukt - beregnet;
+  const andel = beregnet > 0 ? brukt / beregnet : 0;
+  const farge = !brukt ? 'var(--blekk3)' : andel > 1.1 ? 'var(--rod)' : andel > 1 ? 'var(--oker)' : 'var(--gronn)';
+  const ut = h('div');
+  ut.append(h('div.seksjon', 'Timer brukt', h('span.tall', fmt(brukt, 1) + ' av ' + fmt(beregnet, 1) + ' t')));
+  // Stolpen: hvor mye av det beregnede som er brukt. Over 100 % blir den farget.
+  ut.append(h('div.kort', { style: { padding: '12px 14px', marginBottom: '8px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '8px' } },
+      h('b', { style: { fontFamily: 'var(--serif)', fontSize: '22px' } }, fmt(brukt, 1) + ' t brukt'),
+      h('span', { style: { fontWeight: '700', color: farge } }, !brukt ? 'Beregnet ' + fmt(beregnet, 1) + ' t'
+        : (avvik > 0 ? fmt(avvik, 1) + ' t over' : fmt(-avvik, 1) + ' t igjen') + (beregnet > 0 ? ' (' + fmt(andel * 100, 0) + ' %)' : ''))),
+    h('div', { style: { height: '10px', borderRadius: '99px', background: 'var(--kort2)', overflow: 'hidden' } },
+      h('div', { style: { height: '100%', width: Math.min(100, andel * 100) + '%', background: farge, borderRadius: '99px' } }))));
+  // Linjene, nyeste først
+  const linjer = [...j.timeforing].sort((a, b) => (b.dato || '').localeCompare(a.dato || ''));
+  const tekst = h('input', { type: 'text', placeholder: 'Hva (valgfritt), f.eks. sparkling', maxlength: 80, autocomplete: 'off' });
+  const dato = h('input', { type: 'date', value: iDagIso(), 'aria-label': 'Dato' });
+  const timer = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Timer', autocomplete: 'off' });
+  ut.append(h('div.rad-liste',
+    linjer.map((t) => h('div.rad',
+      h('span.hoved', h('b', fmt(t.timer, t.timer % 1 ? 1 : 0) + ' t' + (t.tekst ? ' · ' + t.tekst : '')), h('small', t.dato ? visDato(t.dato) : 'Uten dato')),
+      h('button.ikonknapp', { type: 'button', 'aria-label': 'Fjern', onclick: () => endreJobb(j.id, (x) => { x.timeforing = x.timeforing.filter((y) => y.id !== t.id); }) }, ikon('kryss')))),
+    h('form.leggtil-rad.bred', {
+      onsubmit: (e) => {
+        e.preventDefault();
+        const v = parseFloat(String(timer.value).replace(',', '.'));
+        if (!(v > 0)) { toast('Skriv inn antall timer.'); return; }
+        endreJobb(j.id, (x) => { x.timeforing.push({ id: nyId('t-'), dato: dato.value || iDagIso(), timer: Math.round(v * 100) / 100, tekst: tekst.value.trim() }); });
+      },
+    }, tekst, dato, timer, h('button.knapp', { type: 'submit', 'aria-label': 'Før timer' }, ikon('pluss')))));
   return ut;
 }
 

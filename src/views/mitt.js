@@ -3,12 +3,12 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { visTidspunkt, flertall, fmt } from '../util.js';
 import { egnePriser, settPris, nullstillPriser } from '../priser.js';
-import { priser } from '../kalkyle.js';
+import { priser, beregn } from '../kalkyle.js';
 import { NORMER, STANDARD_PRISER } from '../data/normer.js';
 import { harNokkel, glemNokkel } from '../ki.js';
 import { FACT_BY_ID } from '../data/facts.js';
 import { alleFavoritter, alleNotater, lagreNotat, slettNotat } from '../egne.js';
-import { alleJobber, lagringSperret } from '../jobs.js';
+import { alleJobber, lagringSperret, timerBrukt, jobbNavn } from '../jobs.js';
 import { byggKopi, delKopi, lastNed, markerKopiTatt, dagerSidenKopi, kanDele, lesFil, gjenopprett } from '../backup.js';
 import { plassBrukt, beOmVarigLagring } from '../store.js';
 import { topp } from './felles.js';
@@ -43,6 +43,29 @@ export function visMitt(rot, del) {
 
 /* ---------- Priser og normtall ---------- */
 
+/** Ferdige jobber med førte timer: hvor mye tid som gikk i forhold til det beregnede, med dagens normtall. */
+function erfaring(egne) {
+  const jobber = alleJobber()
+    .filter((j) => j.status === 'ferdig' && j.kalkyle?.rom.length && timerBrukt(j) > 0)
+    .map((j) => ({ j, brukt: timerBrukt(j), beregnet: beregn(j.kalkyle, egne).sum.timer }))
+    .filter((x) => x.beregnet > 0)
+    .sort((a, b) => b.j.updated - a.j.updated);
+  if (!jobber.length) return null;
+  const brukt = jobber.reduce((s, x) => s + x.brukt, 0), beregnet = jobber.reduce((s, x) => s + x.beregnet, 0);
+  const prosent = Math.round((brukt / beregnet - 1) * 100);
+  const tekst = Math.abs(prosent) < 3 ? 'Du bruker omtrent like lang tid som beregnet.'
+    : 'Du bruker i snitt ' + Math.abs(prosent) + ' % ' + (prosent > 0 ? 'mer' : 'mindre') + ' tid enn beregnet.'
+      + (Math.abs(prosent) >= 10 ? ' Juster timene under «Timer og pris per operasjon», så treffer overslagene bedre.' : '');
+  return h('div',
+    h('div.seksjon', 'Erfaring', h('span.tall', flertall(jobber.length, 'ferdig jobb', 'ferdige jobber'))),
+    h('div.kort', { style: { padding: '12px 14px' } },
+      h('b', { style: { display: 'block', fontFamily: 'var(--serif)', fontSize: '20px', marginBottom: '4px' } }, fmt(brukt, 1) + ' t brukt · ' + fmt(beregnet, 1) + ' t beregnet'),
+      h('p.dempet', { style: { margin: '0 0 8px' } }, tekst),
+      jobber.slice(0, 5).map((x) => h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid var(--linje)', fontSize: '15px' } },
+        h('span', jobbNavn(x.j)),
+        h('b', fmt(x.brukt, 1) + ' / ' + fmt(x.beregnet, 1) + ' t')))));
+}
+
 function tegnPriser(el) {
   const egne = egnePriser();
   const P = priser(egne);
@@ -54,6 +77,7 @@ function tegnPriser(el) {
   const rad = (navn, under, ...felt) => h('div.tallfelt', h('label', navn, under && h('small', under)), h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } }, ...felt));
   const grupper = [...new Set(NORMER.map((n) => n.gruppe))];
   tom(el,
+    erfaring(egne),
     h('div.seksjon', 'Priser og normtall'),
     h('div.kort',
       rad('Timepris', 'kr per time eks. mva', inn(['timepris'], egne.timepris, STANDARD_PRISER.timepris)),

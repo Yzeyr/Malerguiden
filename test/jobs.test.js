@@ -140,3 +140,16 @@ test('hurtigprisen lagres for seg og kan kopieres til en ny eller eksisterende j
   assert.equal(jobs.hentJobb(K).kalkyle?.rom?.length || 0, 0);
   assert.equal(jobs.alleJobber().length, 1);
 });
+
+test('timer brukt føres på jobben og renses', () => {
+  const j = jobs.normaliserJobb({ id: 'j-t', timeforing: [
+    { id: 't1', dato: '2026-10-28', timer: '7,5'.replace(',', '.'), tekst: 'Sparkling' },
+    { id: 't2', dato: 'i går', timer: 3, tekst: 'Maling' },
+    { id: 't3', timer: 0 }, { timer: 2 }, null,
+  ] });
+  assert.equal(j.timeforing.length, 2);
+  assert.equal(j.timeforing[0].timer, 7.5);
+  assert.equal(j.timeforing[1].dato, '');
+  assert.equal(jobs.timerBrukt(j), 10.5);
+  assert.deepEqual(jobs.normaliserJobb({ id: 'j-u' }).timeforing, []);
+});
