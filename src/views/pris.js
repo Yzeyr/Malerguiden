@@ -47,7 +47,7 @@ export function romPanel(j) {
     const brikker = m.ok ? [
       r.med.vegg && 'Vegg ' + m2(m.vegg), r.med.tak && 'Tak ' + m2(m.tak), r.med.lister && 'Lister ' + fmt(m.lister, 1) + ' m',
       m.vinduer > 0 && r.med.vinduer && flertall(m.vinduer, 'vindu', 'vinduer'), m.dorer > 0 && r.med.dorer && flertall(m.dorer, 'dør', 'dører'),
-      r.trapp && 'Trappehull',
+      r.trapp && 'Trappehull', r.mobler && 'Møbler',
     ].filter(Boolean) : ['Mangler mål'];
     const under = r.kilde === 'skann' ? 'LiDAR-skanning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 2) + ' m'
       : r.kilde === 'plan' ? 'Fra plantegning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 1) + ' m'
@@ -70,7 +70,7 @@ export function romArk(jobId, romId, forslag = null) {
   const job = hentJobb(jobId);
   const finnes = romId ? job.kalkyle?.rom.find((r) => r.id === romId) : null;
   const r = finnes || {
-    id: nyId('r-'), navn: forslag?.navn || '', lengde: '', bredde: '', hoyde: '', vinduer: '', dorer: '1', trapp: false,
+    id: nyId('r-'), navn: forslag?.navn || '', lengde: '', bredde: '', hoyde: '', vinduer: '', dorer: '1', trapp: false, mobler: false,
     med: { ...MED_ALT }, kilde: 'manuell', gulv: null, omkrets: null, ...(forslag || {}),
   };
   ark((lukk) => {
@@ -119,6 +119,8 @@ export function romArk(jobId, romId, forslag = null) {
       resultat,
       h('label.tallfelt', h('span', 'Trappehull', h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Høye flater, stige eller stillas')),
         h('input.bryter', { type: 'checkbox', checked: verdi.trapp, onchange: (e) => { verdi.trapp = e.target.checked; } })),
+      h('label.tallfelt', h('span', 'Flytte møbler', h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Flytte og dekke til møbler i rommet')),
+        h('input.bryter', { type: 'checkbox', checked: !!verdi.mobler, onchange: (e) => { verdi.mobler = e.target.checked; } })),
       h('details.flere', h('summary', 'Hva skal gjøres i dette rommet'),
         bryter('vegg', 'Vegger'), bryter('tak', 'Tak'), bryter('lister', 'Lister'), bryter('vinduer', 'Vinduer'), bryter('dorer', 'Dører')),
       h('div.knapprad',

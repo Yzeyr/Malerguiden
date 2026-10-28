@@ -199,3 +199,14 @@ test('listefritt vindu gir tre sparkelrunder', () => {
   assert.ok(b.linjer.some((l) => l.id === 'listefritt-vindu'), b.linjer.map((l) => l.id).join());
   assert.equal(dagerMedTork(b).runder, 3);
 });
+
+test('møbelflytting regnes bare når det er huket av', () => {
+  const uten = beregn({ ...tomKalkyle(''), rom: [rom({ id: 'a' })] }, {});
+  assert.ok(!uten.linjer.some((l) => l.id === 'mobler-rom'));
+  const med = beregn({ ...tomKalkyle(''), rom: [rom({ id: 'a', mobler: true }), rom({ id: 'b' })] }, {});
+  const l = med.linjer.find((x) => x.id === 'mobler-rom');
+  assert.equal(l.mengde, 1);
+  assert.ok(med.sum.timer > uten.sum.timer);
+  assert.equal(rensKalkyle({ rom: [{ id: 'x', mobler: true }] }).rom[0].mobler, true);
+  assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].mobler, false);
+});

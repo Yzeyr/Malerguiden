@@ -13,6 +13,7 @@
              gulv, omkrets,                           // tall fra plantegning (overstyrer L × B)
              vinduer, dorer,                          // antall (tekst)
              trapp: bool,                             // trappehull: høye flater, stillas
+             mobler: bool,                            // møbler må flyttes og dekkes til
              med: { vegg, tak, lister, vinduer, dorer }, // av/på per rom
              kilde: 'manuell'|'plan'|'ki'|'skann', polygon? }],
      tillegg: [{ id, tekst, timer, kr }],
@@ -99,6 +100,7 @@ export function rensKalkyle(k, klasse = '') {
       vegg: Number.isFinite(r.vegg) ? r.vegg : null,
       vinduer: str(r.vinduer), dorer: str(r.dorer),
       trapp: !!r.trapp,
+      mobler: r.mobler === true,
       med: { ...MED_ALT, ...(r.med && typeof r.med === 'object' ? r.med : {}) },
       kilde: ['manuell', 'plan', 'ki', 'skann'].includes(r.kilde) ? r.kilde : 'manuell',
       polygon: Array.isArray(r.polygon) ? r.polygon.filter((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) : null,
@@ -247,6 +249,8 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
   leggTil('dekking-gulv', mengder.gulv);
   const trapper = (k.rom || []).filter((r) => r.trapp && romMengder(r).ok).length;
   leggTil('rigging-trapp', trapper, { detalj: trapper + ' trappehull' });
+  const mobler = (k.rom || []).filter((r) => r.mobler && romMengder(r).ok).length;
+  leggTil('mobler-rom', mobler, { detalj: mobler + ' rom' });
 
   for (const flate of ['vegg', 'tak']) {
     const f = a[flate];

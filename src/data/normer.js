@@ -20,7 +20,8 @@ export const STANDARD_PRISER = {
 export const NORMER = [
   { id: 'jobb-oppstart', gruppe: 'Rigging', navn: 'Oppstart, kjøring og sluttrydding', enhet: 'stk', timer: 1.0, pris: 450, forbruk: 0, materialpris: 0 },
   // Tariffen gir 1,0 t (skjønn); en kontroll mot markedet viser at 1,5 t passer bedre for bebodde rom.
-  { id: 'rigging-rom', gruppe: 'Rigging', navn: 'Rigging, maskering og møbelflytting', enhet: 'stk', timer: 1.5, pris: 900, forbruk: 1, materialpris: 60, materialenhet: 'rom' },
+  { id: 'rigging-rom', gruppe: 'Rigging', navn: 'Rigging og maskering', enhet: 'stk', timer: 1.0, pris: 600, forbruk: 1, materialpris: 60, materialenhet: 'rom' },
+  { id: 'mobler-rom', gruppe: 'Rigging', navn: 'Flytte og dekke til møbler', enhet: 'stk', timer: 1.0, pris: 650, forbruk: 1, materialpris: 40, materialenhet: 'rom' }, // skjønn, huk av per rom
   { id: 'dekking-gulv', gruppe: 'Rigging', navn: 'Tildekking av gulv med papp', enhet: 'm²', timer: 0.02, pris: 13, forbruk: 1.1, materialpris: 12, materialenhet: 'm²' },
   { id: 'rigging-trapp', gruppe: 'Rigging', navn: 'Stige og stillas i trappehull', enhet: 'stk', timer: 2, pris: 1300, forbruk: 0, materialpris: 0 }, // skjønn
 
