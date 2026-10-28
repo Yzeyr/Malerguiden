@@ -153,3 +153,9 @@ test('timer brukt føres på jobben og renses', () => {
   assert.equal(jobs.timerBrukt(j), 10.5);
   assert.deepEqual(jobs.normaliserJobb({ id: 'j-u' }).timeforing, []);
 });
+
+test('timer kan føres på et bestemt arbeid, som strimling', () => {
+  const j = jobs.normaliserJobb({ id: 'j-a', timeforing: [{ id: 'a', timer: 2, arbeid: 'strimling' }, { id: 'b', timer: 1, arbeid: '<script>' }] });
+  assert.equal(j.timeforing[0].arbeid, 'strimling');
+  assert.equal(j.timeforing[1].arbeid, '');
+});

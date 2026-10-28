@@ -308,7 +308,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     const ord = flate === 'vegg' ? 'vegg' : 'tak';
     // Sparkletallene fra tariffen inkluderer sliping. Bare rommene der sparkling er huket av.
     const m2Sp = mengder[flate + 'Sparkles'], vSp = vektet(flater[flate + 'Sparkles']);
-    if (f.sparkling !== 'ingen') leggTil(flate + '-sparkling-' + f.sparkling.toLowerCase(), m2Sp, { faktorTimer: vSp });
+    for (const runde of SPARKEL_RUNDER_FOR[f.sparkling] || []) leggTil(flate + '-sparkling-' + runde, m2Sp, { faktorTimer: vSp });
     // Grunning: hele flaten om det er valgt, ellers det som er sparklet
     if (f.grunning) leggTil(flate + '-grunning', m2, { faktorTimer: v });
     else if (f.sparkling !== 'ingen') leggTil(flate + '-grunning', m2Sp, { faktorTimer: vSp });
@@ -397,14 +397,48 @@ export function materialer(resultat) {
   return ut;
 }
 
+/* Arbeidet delt i det man fører timer på: strimling, 2. strøk, maling osv. */
+export const ARBEID = [
+  { id: 'strimling', navn: 'Strimling' },
+  { id: 'strok2', navn: 'Sparkling 2. strøk' },
+  { id: 'strok3', navn: 'Sparkling 3. strøk' },
+  { id: 'hel', navn: 'Helsparkling' },
+  { id: 'listefritt', navn: 'Listefritt' },
+  { id: 'grunning', navn: 'Grunning' },
+  { id: 'maling', navn: 'Maling vegg og tak' },
+  { id: 'snekker', navn: 'Lister, vinduer og dører' },
+  { id: 'gulvbelegg', navn: 'Gulvbelegg' },
+  { id: 'rigging', navn: 'Rigging og rydding' },
+  { id: 'annet', navn: 'Annet' },
+];
+/** Hvilket arbeid en linje i beregningen hører til. */
+export function arbeidFor(id) {
+  const m = /^(?:vegg|tak)-sparkling-(strimling|strok2|strok3|hel)$/.exec(id);
+  if (m) return m[1];
+  if (id.startsWith('listefritt-')) return 'listefritt';
+  if (id.endsWith('-grunning')) return 'grunning';
+  if (/^(vegg|tak)-maling/.test(id)) return 'maling';
+  if (id === 'lister-strok' || id === 'vindu-strok' || id === 'dor-strok') return 'snekker';
+  if (id === 'gulvbelegg') return 'gulvbelegg';
+  if (['jobb-oppstart', 'rigging-rom', 'mobler-rom', 'dekking-gulv', 'rigging-trapp'].includes(id)) return 'rigging';
+  return 'annet';
+}
+/** Beregnede timer per arbeid: { strimling: 3.2, maling: 6, … }. */
+export function timerPerArbeid(resultat) {
+  const ut = {};
+  for (const l of resultat?.linjer || []) { const a = arbeidFor(l.id); ut[a] = (ut[a] || 0) + l.timer; }
+  return ut;
+}
+
 /** Arbeidsdager med en gitt dagslengde, avrundet opp til halve dager. */
 export function arbeidsdager(timer, timerPerDag = 7.5) {
   return Math.ceil((timer / timerPerDag) * 2) / 2;
 }
 
 /** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
-// K1: strimling og fylling. K2: strimling, fyllstrøk og finstrøk. K3: K2-skjøtene pluss to strøk helsparkling.
-export const SPARKEL_RUNDER = { k1: 2, k2: 3, k3: 4, listefritt: 2, 'listefritt-vindu': 3 };
+// Sparkelrundene per klasse. K2 er strimling, 2. og 3. strøk; K3 er de pluss helsparkling til slutt.
+export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
+export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3 };
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn
@@ -415,14 +449,18 @@ export const SPARKEL_RUNDER = { k1: 2, k2: 3, k3: 4, listefritt: 2, 'listefritt-
 export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const b = resultat || { linjer: [], sum: { timer: 0 } };
   let runder = 0, sparkel = 0;
+  const perFlate = {}; // antall sparkelrunder på vegg og tak
   for (const l of b.linjer) {
-    const m = /-sparkling-(k1|k2|k3)$/.exec(l.id);
+    if (!(l.timer > 0)) continue;
+    const m = /^(vegg|tak)-sparkling-/.exec(l.id);
+    if (m) { perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
     // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
-    const r = m ? SPARKEL_RUNDER[m[1]] : SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
-    if (!r || !(l.timer > 0)) continue;
+    const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
+    if (!r) continue;
     runder = Math.max(runder, r);
     sparkel += l.timer;
   }
+  runder = Math.max(runder, ...Object.values(perFlate), 0);
   const uten = arbeidsdager(b.sum.timer, timerPerDag);
   if (!runder) return { dager: uten, arbeidsdager: uten, runder: 0 };
   const perRunde = sparkel / runder / timerPerDag;            // dager arbeid per runde

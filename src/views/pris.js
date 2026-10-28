@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
-import { tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -181,7 +181,7 @@ export function prisPanel(j) {
   if (r.manglerMal) ut.append(h('p.advarsel', ikon('advarsel'), h('span', flertall(r.manglerMal, 'rom mangler', 'rom mangler') + ' mål og er ikke regnet med.')));
 
   // Timer brukt mot beregnet (ikke i hurtigprisen, som ikke er en jobb)
-  if (j.id !== KLADD_ID) ut.append(timerPanel(j, r.sum.timer));
+  if (j.id !== KLADD_ID) ut.append(timerPanel(j, r));
 
   // Timer eller enhetspriser
   ut.append(h('div.velger', { style: { marginBottom: '4px' } },
@@ -294,8 +294,11 @@ export function prisPanel(j) {
 
 /* ---------- Timer brukt mot beregnet ---------- */
 
-function timerPanel(j, beregnet) {
+function timerPanel(j, r) {
+  const beregnet = r.sum.timer;
   const brukt = timerBrukt(j);
+  const perArbeid = timerPerArbeid(r);
+  const navnPa = Object.fromEntries(ARBEID.map((a) => [a.id, a.navn]));
   const avvik = brukt - beregnet;
   const andel = beregnet > 0 ? brukt / beregnet : 0;
   const farge = !brukt ? 'var(--blekk3)' : andel > 1.1 ? 'var(--rod)' : andel > 1 ? 'var(--oker)' : 'var(--gronn)';
@@ -309,23 +312,41 @@ function timerPanel(j, beregnet) {
         : (avvik > 0 ? fmt(avvik, 1) + ' t over' : fmt(-avvik, 1) + ' t igjen') + (beregnet > 0 ? ' (' + fmt(andel * 100, 0) + ' %)' : ''))),
     h('div', { style: { height: '10px', borderRadius: '99px', background: 'var(--kort2)', overflow: 'hidden' } },
       h('div', { style: { height: '100%', width: Math.min(100, andel * 100) + '%', background: farge, borderRadius: '99px' } }))));
+  // Per arbeid: brukt mot beregnet, for det som har timer på seg
+  const bruktPer = {};
+  for (const t of j.timeforing) if (t.arbeid) bruktPer[t.arbeid] = (bruktPer[t.arbeid] || 0) + t.timer;
+  const arbeider = ARBEID.filter((a) => (perArbeid[a.id] || 0) > 0.05 || bruktPer[a.id]);
+  if (Object.keys(bruktPer).length) {
+    ut.append(h('div.kort', { style: { padding: '6px 14px', marginBottom: '8px' } },
+      arbeider.filter((a) => bruktPer[a.id] || perArbeid[a.id]).map((a) => {
+        const b = bruktPer[a.id] || 0, e = perArbeid[a.id] || 0;
+        const f = !b ? 'var(--blekk3)' : e && b / e > 1.1 ? 'var(--rod)' : e && b > e ? 'var(--oker)' : 'var(--gronn)';
+        return h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--linje)', fontSize: '15px' } },
+          h('span', a.navn), h('b', { style: { color: f } }, fmt(b, 1) + ' / ' + fmt(e, 1) + ' t'));
+      })));
+  }
   // Linjene, nyeste først
   const linjer = [...j.timeforing].sort((a, b) => (b.dato || '').localeCompare(a.dato || ''));
-  const tekst = h('input', { type: 'text', placeholder: 'Hva (valgfritt), f.eks. sparkling', maxlength: 80, autocomplete: 'off' });
+  // Velg hva timene gjelder; arbeidet i denne jobben først
+  const hva = h('select', { 'aria-label': 'Hva timene gjelder', style: { flex: '1 1 100%', border: '0', background: 'var(--kort2)', borderRadius: '12px', padding: '10px 12px', fontWeight: '600', fontSize: '15px' } },
+    h('option', { value: '' }, 'Hele jobben / ikke delt opp'),
+    arbeider.map((a) => h('option', { value: a.id }, a.navn + ' (' + fmt(perArbeid[a.id] || 0, 1) + ' t beregnet)')),
+    ARBEID.filter((a) => !arbeider.includes(a)).map((a) => h('option', { value: a.id }, a.navn)));
+  const tekst = h('input', { type: 'text', placeholder: 'Merknad (valgfritt)', maxlength: 80, autocomplete: 'off' });
   const dato = h('input', { type: 'date', value: iDagIso(), 'aria-label': 'Dato' });
   const timer = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Timer', autocomplete: 'off' });
   ut.append(h('div.rad-liste',
     linjer.map((t) => h('div.rad',
-      h('span.hoved', h('b', fmt(t.timer, t.timer % 1 ? 1 : 0) + ' t' + (t.tekst ? ' · ' + t.tekst : '')), h('small', t.dato ? visDato(t.dato) : 'Uten dato')),
+      h('span.hoved', h('b', fmt(t.timer, t.timer % 1 ? 1 : 0) + ' t' + (t.arbeid ? ' · ' + (navnPa[t.arbeid] || t.arbeid) : '') + (t.tekst ? ' · ' + t.tekst : '')), h('small', t.dato ? visDato(t.dato) : 'Uten dato')),
       h('button.ikonknapp', { type: 'button', 'aria-label': 'Fjern', onclick: () => endreJobb(j.id, (x) => { x.timeforing = x.timeforing.filter((y) => y.id !== t.id); }) }, ikon('kryss')))),
     h('form.leggtil-rad.bred', {
       onsubmit: (e) => {
         e.preventDefault();
         const v = parseFloat(String(timer.value).replace(',', '.'));
         if (!(v > 0)) { toast('Skriv inn antall timer.'); return; }
-        endreJobb(j.id, (x) => { x.timeforing.push({ id: nyId('t-'), dato: dato.value || iDagIso(), timer: Math.round(v * 100) / 100, tekst: tekst.value.trim() }); });
+        endreJobb(j.id, (x) => { x.timeforing.push({ id: nyId('t-'), dato: dato.value || iDagIso(), timer: Math.round(v * 100) / 100, tekst: tekst.value.trim(), arbeid: hva.value }); });
       },
-    }, tekst, dato, timer, h('button.knapp', { type: 'submit', 'aria-label': 'Før timer' }, ikon('pluss')))));
+    }, hva, tekst, dato, timer, h('button.knapp', { type: 'submit', 'aria-label': 'Før timer' }, ikon('pluss')))));
   return ut;
 }
 

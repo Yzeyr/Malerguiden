@@ -25,18 +25,21 @@ export const NORMER = [
   { id: 'dekking-gulv', gruppe: 'Rigging', navn: 'Tildekking av gulv med papp', enhet: 'm²', timer: 0.02, pris: 13, forbruk: 1.1, materialpris: 12, materialenhet: 'm²' },
   { id: 'rigging-trapp', gruppe: 'Rigging', navn: 'Stige og stillas i trappehull', enhet: 'stk', timer: 2, pris: 1300, forbruk: 0, materialpris: 0 }, // skjønn
 
-  // Sparkling etter estetisk klasse i NS 3420-T. Bare K3 er helsparkling.
-  { id: 'vegg-sparkling-k1', gruppe: 'Vegg', navn: 'K1 sparkling vegg, funksjonell (strimling og fylling av skjøter og hull)', enhet: 'm²', timer: 0.06, pris: 50, forbruk: 0.2, materialpris: 50, materialenhet: 'L' },
-  { id: 'vegg-sparkling-k2', gruppe: 'Vegg', navn: 'K2 skjøt- og flekksparkling vegg (strimling, fyll, finstrøk, slip)', enhet: 'm²', timer: 0.10, pris: 80, forbruk: 0.3, materialpris: 50, materialenhet: 'L' },
-  { id: 'vegg-sparkling-k3', gruppe: 'Vegg', navn: 'K3 helsparkling vegg (skjøter og hele flaten, slip)', enhet: 'm²', timer: 0.25, pris: 225, forbruk: 1.1, materialpris: 50, materialenhet: 'L' },
+  // Sparkling i runder. K1: strimling og 2. strøk. K2: strimling, 2. og 3. strøk (skjøter og
+  // skruehull). K3: K2 pluss helsparkling av hele flaten til slutt. Sum K2 = 0,10 t/m², K3 = 0,25 t/m².
+  { id: 'vegg-sparkling-strimling', gruppe: 'Vegg', navn: 'Strimling vegg (skjøter, hjørner og skruehull)', enhet: 'm²', timer: 0.045, pris: 36, forbruk: 0.12, materialpris: 50, materialenhet: 'L' },
+  { id: 'vegg-sparkling-strok2', gruppe: 'Vegg', navn: 'Sparkling vegg, 2. strøk', enhet: 'm²', timer: 0.03, pris: 24, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'vegg-sparkling-strok3', gruppe: 'Vegg', navn: 'Sparkling vegg, 3. strøk med sliping', enhet: 'm²', timer: 0.025, pris: 20, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
+  { id: 'vegg-sparkling-hel', gruppe: 'Vegg', navn: 'Helsparkling vegg, hele flaten, med sliping (K3)', enhet: 'm²', timer: 0.15, pris: 145, forbruk: 0.8, materialpris: 50, materialenhet: 'L' },
   { id: 'vegg-grunning', gruppe: 'Vegg', navn: 'Grunning vegg', enhet: 'm²', timer: 0.015, pris: 30, forbruk: 0.14, materialpris: 95, materialenhet: 'L' },
   { id: 'vegg-maling-strok1', gruppe: 'Vegg', navn: 'Maling vegg, 1. strøk', enhet: 'm²', timer: 0.027, pris: 60, forbruk: 0.12, materialpris: 130, materialenhet: 'L' },
   { id: 'vegg-maling-strok', gruppe: 'Vegg', navn: 'Maling vegg, neste strøk', enhet: 'm²', timer: 0.022, pris: 50, forbruk: 0.10, materialpris: 130, materialenhet: 'L' },
 
   // Tak: ca. +20 % på tiden (skjønn).
-  { id: 'tak-sparkling-k1', gruppe: 'Tak', navn: 'K1 sparkling tak, funksjonell (strimling og fylling av skjøter og hull)', enhet: 'm²', timer: 0.07, pris: 60, forbruk: 0.2, materialpris: 50, materialenhet: 'L' },
-  { id: 'tak-sparkling-k2', gruppe: 'Tak', navn: 'K2 skjøt- og flekksparkling tak (strimling, fyll, finstrøk, slip)', enhet: 'm²', timer: 0.12, pris: 95, forbruk: 0.3, materialpris: 50, materialenhet: 'L' },
-  { id: 'tak-sparkling-k3', gruppe: 'Tak', navn: 'K3 helsparkling tak (skjøter og hele flaten, slip)', enhet: 'm²', timer: 0.30, pris: 270, forbruk: 1.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-strimling', gruppe: 'Tak', navn: 'Strimling tak (skjøter, hjørner og skruehull)', enhet: 'm²', timer: 0.054, pris: 43, forbruk: 0.12, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-strok2', gruppe: 'Tak', navn: 'Sparkling tak, 2. strøk', enhet: 'm²', timer: 0.036, pris: 29, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-strok3', gruppe: 'Tak', navn: 'Sparkling tak, 3. strøk med sliping', enhet: 'm²', timer: 0.03, pris: 23, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-hel', gruppe: 'Tak', navn: 'Helsparkling tak, hele flaten, med sliping (K3)', enhet: 'm²', timer: 0.18, pris: 175, forbruk: 0.8, materialpris: 50, materialenhet: 'L' },
   { id: 'tak-grunning', gruppe: 'Tak', navn: 'Grunning tak', enhet: 'm²', timer: 0.018, pris: 36, forbruk: 0.14, materialpris: 95, materialenhet: 'L' },
   { id: 'tak-maling-strok1', gruppe: 'Tak', navn: 'Maling tak, 1. strøk', enhet: 'm²', timer: 0.032, pris: 75, forbruk: 0.12, materialpris: 120, materialenhet: 'L' },
   { id: 'tak-maling-strok', gruppe: 'Tak', navn: 'Maling tak, neste strøk', enhet: 'm²', timer: 0.027, pris: 65, forbruk: 0.10, materialpris: 120, materialenhet: 'L' },

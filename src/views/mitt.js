@@ -3,7 +3,7 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { visTidspunkt, flertall, fmt } from '../util.js';
 import { egnePriser, settPris, nullstillPriser } from '../priser.js';
-import { priser, beregn } from '../kalkyle.js';
+import { priser, beregn, ARBEID, timerPerArbeid } from '../kalkyle.js';
 import { NORMER, STANDARD_PRISER } from '../data/normer.js';
 import { harNokkel, glemNokkel } from '../ki.js';
 import { FACT_BY_ID } from '../data/facts.js';
@@ -47,7 +47,7 @@ export function visMitt(rot, del) {
 function erfaring(egne) {
   const jobber = alleJobber()
     .filter((j) => j.status === 'ferdig' && j.kalkyle?.rom.length && timerBrukt(j) > 0)
-    .map((j) => ({ j, brukt: timerBrukt(j), beregnet: beregn(j.kalkyle, egne).sum.timer }))
+    .map((j) => { const r = beregn(j.kalkyle, egne); return { j, brukt: timerBrukt(j), beregnet: r.sum.timer, per: timerPerArbeid(r) }; })
     .filter((x) => x.beregnet > 0)
     .sort((a, b) => b.j.updated - a.j.updated);
   if (!jobber.length) return null;
@@ -56,11 +56,29 @@ function erfaring(egne) {
   const tekst = Math.abs(prosent) < 3 ? 'Du bruker omtrent like lang tid som beregnet.'
     : 'Du bruker i snitt ' + Math.abs(prosent) + ' % ' + (prosent > 0 ? 'mer' : 'mindre') + ' tid enn beregnet.'
       + (Math.abs(prosent) >= 10 ? ' Juster timene under «Timer og pris per operasjon», så treffer overslagene bedre.' : '');
+  // Per arbeid (strimling, maling …): bare timer som er ført på et bestemt arbeid
+  const sumPer = {};
+  for (const x of jobber) {
+    for (const t of x.j.timeforing) {
+      if (!t.arbeid || !(x.per[t.arbeid] > 0)) continue;
+      const s = sumPer[t.arbeid] || (sumPer[t.arbeid] = { brukt: 0, beregnet: 0, jobber: new Set() });
+      s.brukt += t.timer;
+      if (!s.jobber.has(x.j.id)) { s.jobber.add(x.j.id); s.beregnet += x.per[t.arbeid]; }
+    }
+  }
+  const perRader = ARBEID.filter((a) => sumPer[a.id]).map((a) => {
+    const s = sumPer[a.id], p = Math.round((s.brukt / s.beregnet - 1) * 100);
+    return h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid var(--linje)', fontSize: '15px' } },
+      h('span', a.navn), h('b', { style: { color: Math.abs(p) < 10 ? 'var(--gronn)' : 'var(--oker)' } }, (p > 0 ? '+' : '') + p + ' %'));
+  });
   return h('div',
     h('div.seksjon', 'Erfaring', h('span.tall', flertall(jobber.length, 'ferdig jobb', 'ferdige jobber'))),
     h('div.kort', { style: { padding: '12px 14px' } },
       h('b', { style: { display: 'block', fontFamily: 'var(--serif)', fontSize: '20px', marginBottom: '4px' } }, fmt(brukt, 1) + ' t brukt · ' + fmt(beregnet, 1) + ' t beregnet'),
       h('p.dempet', { style: { margin: '0 0 8px' } }, tekst),
+      perRader.length > 0 && h('div.overtittel', { style: { margin: '10px 0 2px' } }, 'Per arbeid, mot beregnet'),
+      perRader,
+      perRader.length > 0 && h('div.overtittel', { style: { margin: '12px 0 2px' } }, 'Siste jobber'),
       jobber.slice(0, 5).map((x) => h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid var(--linje)', fontSize: '15px' } },
         h('span', jobbNavn(x.j)),
         h('b', fmt(x.brukt, 1) + ' / ' + fmt(x.beregnet, 1) + ' t')))));

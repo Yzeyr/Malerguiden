@@ -89,6 +89,7 @@ export function normaliserJobb(j) {
     timeforing: Array.isArray(j.timeforing)
       ? j.timeforing.filter((t) => obj(t) && t.id && Number(t.timer) > 0).map((t) => ({
           id: String(t.id), dato: erIsoDag(t.dato) ? t.dato : '', timer: Math.round(Number(t.timer) * 100) / 100, tekst: str(t.tekst).slice(0, 80),
+          arbeid: /^[a-z0-9]{1,20}$/.test(str(t.arbeid)) ? str(t.arbeid) : '', // strimling, maling osv. Tom: hele jobben
         }))
       : [],
     // Prisberegningen (rom, arbeid, tillegg). null til den tas i bruk.

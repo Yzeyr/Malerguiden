@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -107,7 +107,7 @@ test('rensKalkyle tåler rot', () => {
 
 test('alle operasjoner som beregningen bruker, finnes i normene', () => {
   const ider = new Set(NORMER.map((n) => n.id));
-  for (const f of ['vegg', 'tak']) for (const s of ['k1', 'k2', 'k3']) assert.ok(ider.has(f + '-sparkling-' + s));
+  for (const f of ['vegg', 'tak']) for (const s of ['strimling', 'strok2', 'strok3', 'hel']) assert.ok(ider.has(f + '-sparkling-' + s));
   for (const id of ['jobb-oppstart', 'rigging-rom', 'dekking-gulv', 'rigging-trapp', 'vegg-grunning', 'tak-grunning', 'vegg-maling-strok1', 'vegg-maling-strok', 'tak-maling-strok1', 'tak-maling-strok', 'lister-strok', 'vindu-strok', 'dor-strok']) assert.ok(ider.has(id), id);
 });
 
@@ -238,7 +238,7 @@ test('flere plantegninger per jobb, og den gamle ene blir «1. etasje»', () => 
 test('rom uten sparkling får bare maling', () => {
   const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a' }), rom({ id: 'b', med: { sparkling: false } })] };
   const b = beregn(k, {});
-  const sp = b.linjer.find((l) => l.id === 'vegg-sparkling-k2');
+  const sp = b.linjer.find((l) => l.id === 'vegg-sparkling-strimling');
   const mal = b.linjer.find((l) => l.id === 'vegg-maling-strok1');
   assert.ok(Math.abs(sp.mengde * 2 - mal.mengde) < 0.01, sp.mengde + ' / ' + mal.mengde);
   assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.sparkling, true);
@@ -268,11 +268,11 @@ test('linjer kan tas ut eller justeres for jobben', () => {
   assert.equal(uten.utelatt[0].nokkel, 'dekking-gulv');
   assert.ok(uten.sum.eksMva < for_.sum.eksMva);
   // Egen mengde og egne timer
-  k.justering = { 'vegg-sparkling-k2': { mengde: '10' }, 'Maling vegg, strøk 2': {} };
-  const sp = beregn(k, {}).linjer.find((l) => l.id === 'vegg-sparkling-k2');
+  k.justering = { 'vegg-sparkling-strimling': { mengde: '10' }, 'Maling vegg, strøk 2': {} };
+  const sp = beregn(k, {}).linjer.find((l) => l.id === 'vegg-sparkling-strimling');
   assert.equal(sp.mengde, 10); assert.ok(sp.justert);
-  k.justering = { 'vegg-sparkling-k2': { timer: '3' } };
-  assert.equal(beregn(k, {}).linjer.find((l) => l.id === 'vegg-sparkling-k2').timer, 3);
+  k.justering = { 'vegg-sparkling-strimling': { timer: '3' } };
+  assert.equal(beregn(k, {}).linjer.find((l) => l.id === 'vegg-sparkling-strimling').timer, 3);
   // Strøk 2 har egen nøkkel
   const s2 = for_.linjer.find((l) => l.navn === 'Maling vegg, strøk 2');
   assert.equal(s2.nokkel, 'vegg-maling-strok:Maling vegg, strøk 2');
@@ -289,4 +289,21 @@ test('per rom: tildekking kan slås av, og gulvbelegg hukes på', () => {
   assert.ok(materialer(b).some((m) => m.navn === 'Gulvbelegg'));
   assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.gulvbelegg, false);
   assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.dekking, true);
+});
+
+test('sparkling i runder: K2 er strimling, 2. og 3. strøk; K3 har helsparkling i tillegg', () => {
+  const ider = (kl) => beregn({ ...tomKalkyle(kl), rom: [rom({ id: 'a' })] }, {}).linjer.filter((l) => l.id.startsWith('vegg-sparkling')).map((l) => l.id);
+  assert.deepEqual(ider('K2'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3']);
+  assert.deepEqual(ider('K3'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3', 'vegg-sparkling-hel']);
+  assert.deepEqual(ider('K1'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2']);
+  // Summen per m² er som før: K2 0,10 t og K3 0,25 t på vegg
+  const vegg = romMengder(rom({ id: 'a' })).vegg;
+  const t = (kl) => beregn({ ...tomKalkyle(kl), rom: [rom({ id: 'a' })] }, {}).linjer.filter((l) => l.id.startsWith('vegg-sparkling')).reduce((s, l) => s + l.timer, 0);
+  assert.ok(Math.abs(t('K2') - vegg * 0.10) < 0.05, String(t('K2')));
+  assert.ok(Math.abs(t('K3') - vegg * 0.25) < 0.05, String(t('K3')));
+  // Timer per arbeid
+  const per = timerPerArbeid(beregn({ ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] }, {}));
+  assert.ok(per.strimling > 0 && per.strok2 > 0 && per.strok3 > 0 && per.maling > 0 && per.rigging > 0);
+  assert.equal(arbeidFor('tak-sparkling-hel'), 'hel');
+  assert.equal(arbeidFor('tillegg-x'), 'annet');
 });
