@@ -7,24 +7,82 @@
    Én finger flytter, to fingre zoomer, et kort trykk setter et punkt.
    Koordinatene lagres i bildets egne punkter, så de stemmer neste gang. */
 
-import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
+import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
 import { hentJobb, endreJobb, vedEndring } from '../jobs.js';
-import { lagreNyttBilde, hentBilde } from '../photos.js';
+import { lagreNyttBilde, hentBilde, slettBilde } from '../photos.js';
 import { polygonMal, STANDARD_HOYDE, tall } from '../kalkyle.js';
 import { endreKalkyle, romArk } from './pris.js';
 import { finnRom, graatoner, arealPx } from '../plangjenkjenning.js';
 
 const TEGNING_MAKS = 2600; // høyere enn vanlige bilder, så små mål på tegningen kan leses
 
+const planer = (jobId) => hentJobb(jobId)?.kalkyle?.planer || [];
+const romPa = (jobId, bilde) => (hentJobb(jobId)?.kalkyle?.rom || []).filter((r) => r.tegning === bilde).length;
+/** Setter målestokken på én av tegningene. */
+const settSkala = (k, bilde, skala) => { const p = (k.planer || []).find((x) => x.bilde === bilde); if (p) p.skala = skala; };
+
+/** Plantegning-knappen: ingen tegning ennå → velg en. Ellers en liste: åpne, gi nytt navn, fjern eller legg til. */
 export function apnePlantegning(jobId) {
-  const job = hentJobb(jobId);
-  const plan = job.kalkyle?.plan;
-  if (plan) { verktoy(jobId, plan.bilde); return; }
-  velgTegning(jobId);
+  if (!planer(jobId).length) { velgTegning(jobId); return; }
+  tegningsListe(jobId);
 }
 
-/** Lar brukeren velge et bilde av tegningen og lagrer det på jobben. Løses med bilde-id eller null. */
+function tegningsListe(jobId) {
+  ark((lukk) => {
+    const liste = h('div.valgliste');
+    const tegnListe = () => tom(liste, planer(jobId).map((p) => {
+      const n = romPa(jobId, p.bilde);
+      return h('div', { style: { display: 'flex', gap: '8px', alignItems: 'stretch' } },
+        h('button', { type: 'button', style: { flex: '1' }, onclick: () => { lukk(); verktoy(jobId, p.bilde); } },
+          ikon('kart'), h('span', p.navn, h('small', (n ? n + ' rom' : 'Ingen rom ennå') + (p.skala ? '' : ' · målestokk mangler')))),
+        h('button', { type: 'button', 'aria-label': 'Valg for ' + p.navn, style: { width: '56px', justifyContent: 'center' }, onclick: () => tegningValg(jobId, p, tegnListe) }, '⋯'));
+    }));
+    tegnListe();
+    return h('div',
+      h('h2', 'Plantegninger'),
+      liste,
+      h('button.knapp.hel', { type: 'button', style: { marginTop: '12px' }, onclick: () => { lukk(); velgTegning(jobId); } },
+        ikon('pluss'), 'Ny tegning, f.eks. ' + (planer(jobId).length + 1) + '. etasje'));
+  });
+}
+
+async function tegningValg(jobId, p, oppdater) {
+  const valg = await velg({ tittel: p.navn, valg: [
+    { verdi: 'navn', tekst: 'Endre navn', under: 'F.eks. 1. etasje, kjeller, loft' },
+    { verdi: 'fjern', tekst: 'Fjern tegningen', under: 'Rommene beholdes med målene' },
+  ] });
+  if (valg === 'navn') {
+    const navn = await spørNavn('Navn på tegningen', p.navn);
+    if (navn) { endreKalkyle(jobId, (k) => { const x = k.planer.find((y) => y.bilde === p.bilde); if (x) x.navn = navn; }); oppdater(); }
+  } else if (valg === 'fjern') {
+    const n = romPa(jobId, p.bilde);
+    if (!await bekreft({ tittel: 'Fjerne «' + p.navn + '»?', tekst: n ? flertall(n, 'rom', 'rom') + ' fra tegningen blir liggende under Mål, med målene.' : 'Tegningen fjernes fra jobben.', ja: 'Fjern', fare: true })) return;
+    endreKalkyle(jobId, (k) => {
+      k.planer = k.planer.filter((x) => x.bilde !== p.bilde);
+      for (const r of k.rom) if (r.tegning === p.bilde) { r.tegning = null; r.polygon = null; }
+    });
+    endreJobb(jobId, (j) => { j.bilder = j.bilder.filter((b) => b.id !== p.bilde); });
+    slettBilde(p.bilde).catch(() => {});
+    toast('Tegningen er fjernet.');
+    oppdater();
+  }
+}
+
+function spørNavn(tittel, verdi) {
+  return new Promise((resolve) => {
+    let svar = null;
+    ark((lukk) => {
+      const inn = h('input', { type: 'text', value: verdi || '', maxlength: 40, autocomplete: 'off' });
+      setTimeout(() => { inn.focus(); inn.select(); }, 250);
+      return h('form', { onsubmit: (e) => { e.preventDefault(); svar = inn.value.trim() || null; lukk(); } },
+        h('h2', tittel), h('label.felt', h('span', 'Navn'), inn),
+        h('div.knapprad', h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Avbryt'), h('button.knapp', { type: 'submit' }, 'Lagre')));
+    }, { vedLukk: () => resolve(svar) });
+  });
+}
+
+/** Lar brukeren velge et bilde av tegningen og lagrer det på jobben som en ny tegning. Løses med bilde-id eller null. */
 export function velgTegningFil(jobId) {
   return new Promise((resolve) => {
     let svar = null;
@@ -39,7 +97,7 @@ export function velgTegningFil(jobId) {
           try {
             await lagreNyttBilde(f, id, { maks: TEGNING_MAKS });
             endreJobb(jobId, (j) => { j.bilder.push({ id, kategori: 'tegning', tatt: Date.now() }); });
-            endreKalkyle(jobId, (k) => { k.plan = { bilde: id, skala: null }; });
+            endreKalkyle(jobId, (k) => { k.planer = [...(k.planer || []), { bilde: id, navn: ((k.planer || []).length + 1) + '. etasje', skala: null }]; });
             toast('Tegningen er klar.');
             svar = id;
           } catch (err) { toast('Klarte ikke lese bildet: ' + (err?.message || '')); }
@@ -63,14 +121,15 @@ async function velgTegning(jobId) {
 
 async function verktoy(jobId, bildeId) {
   const blob = await hentBilde(bildeId).catch(() => null);
-  if (!blob) { toast('Fant ikke tegningen. Velg den på nytt.'); endreKalkyle(jobId, (k) => { k.plan = null; }); velgTegning(jobId); return; }
+  if (!blob) { toast('Fant ikke tegningen. Velg den på nytt.'); endreKalkyle(jobId, (k) => { k.planer = (k.planer || []).filter((p) => p.bilde !== bildeId); }); velgTegning(jobId); return; }
   const url = URL.createObjectURL(blob);
   const img = new Image();
   await new Promise((r, f) => { img.onload = r; img.onerror = f; img.src = url; }).catch(() => {});
   const W = img.naturalWidth, H = img.naturalHeight;
 
   const job = () => hentJobb(jobId);
-  let skala = job().kalkyle?.plan?.skala; // meter per bildepunkt
+  const denne = () => job().kalkyle?.planer?.find((p) => p.bilde === bildeId);
+  let skala = denne()?.skala; // meter per bildepunkt
   let modus = Number.isFinite(skala) && skala > 0 ? 'rom' : 'skala';
   let punkter = [];
 
@@ -88,7 +147,7 @@ async function verktoy(jobId, bildeId) {
   const el = h('div.planverktoy', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Måling på plantegning' },
     h('div.plinje',
       h('button', { type: 'button', onclick: () => lukk() }, 'Lukk'),
-      h('span', { style: { flex: '1' } }),
+      h('span', { style: { flex: '1', color: '#fff', fontWeight: '650', fontSize: '15px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, denne()?.navn || ''),
       h('button', { type: 'button', 'aria-label': 'Zoom ut', onclick: () => zoomRundt(1 / 1.5) }, '−'),
       h('button', { type: 'button', 'aria-label': 'Zoom inn', onclick: () => zoomRundt(1.5) }, '+'),
       h('button', { type: 'button', 'aria-label': 'Angre siste hjørne', onclick: () => { if (lukket) lukket = false; else punkter.pop(); tegn(); } }, ikon('angre'))),
@@ -291,7 +350,7 @@ async function verktoy(jobId, bildeId) {
           if (!(m > 0)) return;
           if (m > 100) m = m / 1000; // skrevet i millimeter, slik tegninger ofte gjør
           skala = m / px;
-          endreKalkyle(jobId, (k) => { k.plan = { bilde: bildeId, skala }; });
+          endreKalkyle(jobId, (k) => settSkala(k, bildeId, skala));
           lukkArk();
           skalaSatt('Målestokken er satt.');
         },
@@ -329,7 +388,7 @@ async function verktoy(jobId, bildeId) {
           const m2 = tall(inn.value);
           if (!(m2 > 0) || !(px > 0)) return;
           skala = Math.sqrt(m2 / px);
-          endreKalkyle(jobId, (k) => { k.plan = { bilde: bildeId, skala }; });
+          endreKalkyle(jobId, (k) => settSkala(k, bildeId, skala));
           lukkArk();
           skalaSatt('Målestokken er satt. Sjekk et rom mot tegningen.');
         },

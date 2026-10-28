@@ -1,7 +1,7 @@
 /* Rom og prisberegning inne i en jobb.
    romPanel: øverst i Mål-fanen. prisPanel: Pris-fanen. */
 
-import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
+import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
 import { endreJobb, hentJobb } from '../jobs.js';
 import { tomKalkyle, romMengder, beregn, perRom, arbeidsdager, dagerMedTork, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
@@ -43,8 +43,11 @@ export function romPanel(j) {
     ut.append(h('p.dempet', { style: { margin: '0 2px 8px' } }, 'Legg inn rommene, så regnes pris og timer ut under Pris. Mål med lengde og bredde, eller trykk på hjørnene i en plantegning.'));
     return ut;
   }
+  // Med flere tegninger (etasjer) vises hvilken rommet hører til
+  const planer = j.kalkyle?.planer || [];
+  const etasje = planer.length > 1 ? Object.fromEntries(planer.map((p) => [p.bilde, p.navn])) : {};
   for (const { r, m } of ok) {
-    const brikker = m.ok ? [
+    const brikker = m.ok ? [etasje[r.tegning],
       r.med.vegg && 'Vegg ' + m2(m.vegg), r.med.tak && 'Tak ' + m2(m.tak), r.med.lister && 'Lister ' + fmt(m.lister, 1) + ' m',
       m.vinduer > 0 && r.med.vinduer && flertall(m.vinduer, 'vindu', 'vinduer'), m.dorer > 0 && r.med.dorer && flertall(m.dorer, 'dør', 'dører'),
       r.trapp && 'Trappehull', r.mobler && 'Møbler',
@@ -286,7 +289,14 @@ function nokkelArk() {
 
 async function kiLes(jobId) {
   if (!harNokkel() && !(await nokkelArk())) return;
-  let bildeId = hentJobb(jobId).kalkyle?.plan?.bilde;
+  // Hvilken tegning: den ene, et valg blant flere, eller en ny
+  const planer = hentJobb(jobId).kalkyle?.planer || [];
+  let bildeId = planer.length === 1 ? planer[0].bilde : null;
+  if (planer.length > 1) {
+    bildeId = await velg({ tittel: 'Hvilken tegning?', valg: [...planer.map((p) => ({ verdi: p.bilde, tekst: p.navn })), { verdi: 'ny', tekst: 'Ny tegning' }] });
+    if (!bildeId) return;
+    if (bildeId === 'ny') bildeId = null;
+  }
   if (!bildeId) bildeId = await velgTegningFil(jobId);
   if (!bildeId) return;
   const blob = await hentBilde(bildeId).catch(() => null);

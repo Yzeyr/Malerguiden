@@ -226,3 +226,11 @@ test('gammel «skjøt» blir K2, og egne tall for skjøtsparkling følger med', 
   const p = flyttGamleNormer({ normer: { 'vegg-sparkling-skjot': { timer: '0,2' }, 'vegg-sparkling-k2': { timer: '0,17' } } });
   assert.deepEqual(p.normer, { 'vegg-sparkling-k2': { timer: '0,2' } });
 });
+
+test('flere plantegninger per jobb, og den gamle ene blir «1. etasje»', () => {
+  assert.deepEqual(rensKalkyle({ plan: { bilde: 'img-1', skala: 0.01 } }).planer, [{ bilde: 'img-1', navn: '1. etasje', skala: 0.01 }]);
+  assert.deepEqual(rensKalkyle({}).planer, []);
+  const k = rensKalkyle({ planer: [{ bilde: 'a', navn: 'Kjeller', skala: -1 }, { bilde: 'b' }, { bilde: 'a' }, null] });
+  assert.deepEqual(k.planer, [{ bilde: 'a', navn: 'Kjeller', skala: null }, { bilde: 'b', navn: '2. etasje', skala: null }]);
+  assert.equal('plan' in k, false);
+});

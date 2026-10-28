@@ -54,7 +54,7 @@ export function standardArbeid(klasse = '') {
 export const MED_ALT = { vegg: true, tak: true, lister: true, vinduer: true, dorer: true };
 
 export function tomKalkyle(klasse = '') {
-  return { modus: 'timer', arbeid: standardArbeid(klasse), rom: [], tillegg: [], plan: null };
+  return { modus: 'timer', arbeid: standardArbeid(klasse), rom: [], tillegg: [], planer: [] };
 }
 
 /* ---------- Tall ---------- */
@@ -115,11 +115,20 @@ export function rensKalkyle(k, klasse = '') {
     tillegg: Array.isArray(k.tillegg) ? k.tillegg.filter((t) => t && typeof t === 'object' && t.id).map((t) => ({
       id: String(t.id), tekst: str(t.tekst), timer: str(t.timer), kr: str(t.kr),
     })) : [],
-    // Plantegningen det måles på: bilde-id og meter per bildepunkt.
-    // skala er null til målestokken er satt.
-    plan: k.plan && typeof k.plan === 'object' && k.plan.bilde
-      ? { bilde: String(k.plan.bilde), skala: Number.isFinite(k.plan.skala) && k.plan.skala > 0 ? k.plan.skala : null } : null,
+    planer: rensPlaner(k),
   };
+}
+
+/* Plantegningene det måles på, én per etasje: bilde-id, navn og meter per bildepunkt
+   (skala er null til målestokken er satt). Før hadde en jobb bare én, i `plan`. */
+function rensPlaner(k) {
+  const liste = Array.isArray(k.planer) ? k.planer : k.plan ? [{ navn: '1. etasje', ...k.plan }] : [];
+  const sett = new Set();
+  return liste.filter((p) => p && typeof p === 'object' && p.bilde && !sett.has(String(p.bilde)) && sett.add(String(p.bilde))).map((p, i) => ({
+    bilde: String(p.bilde),
+    navn: str(p.navn).trim().slice(0, 40) || (i + 1) + '. etasje',
+    skala: Number.isFinite(p.skala) && p.skala > 0 ? p.skala : null,
+  }));
 }
 
 /* ---------- Plan fra LiDAR-skanning ---------- */
