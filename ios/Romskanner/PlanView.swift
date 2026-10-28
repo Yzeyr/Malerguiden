@@ -21,6 +21,12 @@ struct PlanView: View {
                 ctx.fill(gulv, with: .color(terrakotta.opacity(0.12)))
             }
 
+            // Vegger utenfor rommet (sett gjennom åpen dør): stiplet og grå, regnes ikke med
+            for v in p.utenfor {
+                var sti = Path(); sti.move(to: v.0); sti.addLine(to: v.1)
+                ctx.stroke(sti, with: .color(.secondary.opacity(0.6)), style: StrokeStyle(lineWidth: visMal ? 2 : 1, dash: [5, 4]))
+            }
+
             // Veggene
             for v in p.vegger {
                 var sti = Path(); sti.move(to: v.0); sti.addLine(to: v.1)
@@ -89,6 +95,7 @@ struct Tilpasning {
     var dorer: [(CGPoint, CGPoint)] = []
     var vinduer: [(CGPoint, CGPoint)] = []
     var apninger: [(CGPoint, CGPoint)] = []
+    var utenfor: [(CGPoint, CGPoint)] = []
     var veggLengder: [Double] = []
     var senter = CGPoint.zero
 
@@ -114,6 +121,7 @@ struct Tilpasning {
         dorer = plan.dorer.map(linje)
         vinduer = plan.vinduer.map(linje)
         apninger = plan.apninger.map(linje)
+        utenfor = (plan.utenfor ?? []).map(linje)
         veggLengder = plan.vegger.map(lengde)
         let kilde = gulv.count >= 3 ? gulv : vegger.flatMap { [$0.0, $0.1] }
         if !kilde.isEmpty {
@@ -179,6 +187,18 @@ struct RomDetalj: View {
                     if let plan = rom.plan {
                         Text("\(plan.vegger.count) vegger · \(plan.dorer.count) dører · \(plan.vinduer.count) vinduer" + (plan.apninger.isEmpty ? "" : " · \(plan.apninger.count) åpninger"))
                     }
+                }
+                if (rom.utenforVegger ?? 0) > 0 || (rom.apneDorer ?? 0) > 0 {
+                    Section {
+                        if let n = rom.utenforVegger, n > 0 {
+                            Label((n == 1 ? "1 vegg" : "\(n) vegger") + " utenfor rommet er ikke regnet med. Den er trolig sett gjennom en åpen dør, og vises stiplet.", systemImage: "eye.slash")
+                        }
+                        if let n = rom.apneDorer, n > 0 {
+                            Label((n == 1 ? "1 dør" : "\(n) dører") + " sto åpne. Lukk dørene neste gang for sikrest mål.", systemImage: "door.left.hand.open")
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
                 if let plan = rom.plan, !(plan.vinduer.isEmpty && plan.dorer.isEmpty) {
                     Section("Vinduer og dører") {

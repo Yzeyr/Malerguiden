@@ -168,4 +168,5 @@ test('plantegning fra skanningen blir med og renses', () => {
   const k = rensKalkyle({ rom: [{ id: 'a', ...r }] });
   assert.equal(k.rom[0].skannplan.gulv.length, 4);
   assert.equal(rensKalkyle({ rom: [{ id: 'b', skannplan: { vegger: [] } }] }).rom[0].skannplan, null);
+  assert.deepEqual(r.skannplan.utenfor, [], 'mangler utenfor: tom liste');
 });

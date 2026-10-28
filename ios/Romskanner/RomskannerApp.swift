@@ -32,7 +32,7 @@ struct ContentView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Slik skanner du").font(.headline)
-                            Text("Trykk «Skann rom», stå i døråpningen og gå rolig langs veggene. Pek kameraet mot hjørnene og taket. Trykk «Ferdig med rommet» når alle veggene er farget inn.")
+                            Text("Lukk dørene til andre rom. Trykk «Skann rom», stå i døråpningen og gå rolig langs veggene. Pek kameraet mot hjørnene og taket, ikke gjennom åpne dører. Trykk «Ferdig med rommet» når alle veggene er farget inn.")
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 4)
@@ -95,7 +95,7 @@ struct ContentView: View {
                 }
                 .ignoresSafeArea()
             }
-            .alert("Hva heter rommet?", isPresented: $sporNavn) {
+            .alert("Hva heter rommet?", isPresented: $sporNavn, presenting: ventende) { _ in
                 TextField("Navn", text: $navn)
                 Button("Lagre") {
                     if var r = ventende {
@@ -105,6 +105,8 @@ struct ContentView: View {
                     ventende = nil
                 }
                 Button("Forkast", role: .cancel) { ventende = nil }
+            } message: { r in
+                Text(Self.melding(r))
             }
             .alert("Kopiert", isPresented: $kopiert) {
                 Button("OK") {}
@@ -112,6 +114,17 @@ struct ContentView: View {
                 Text("Åpne Malerguiden, gå til jobben → Mål → Importer skanning, og trykk «Lim inn».")
             }
         }
+    }
+}
+
+extension ContentView {
+    /// Kort beskjed etter skanningen: hva som ble tatt ut, eller gulvarealet.
+    static func melding(_ r: SkannetRom) -> String {
+        var deler: [String] = []
+        if let n = r.utenforVegger, n > 0 { deler.append(n == 1 ? "1 vegg utenfor rommet er tatt ut." : "\(n) vegger utenfor rommet er tatt ut.") }
+        if let n = r.apneDorer, n > 0 { deler.append(n == 1 ? "1 dør sto åpen." : "\(n) dører sto åpne.") }
+        if deler.isEmpty { return r.gulv.formatted(.number.precision(.fractionLength(1))) + " m² gulv" }
+        return deler.joined(separator: " ")
     }
 }
 

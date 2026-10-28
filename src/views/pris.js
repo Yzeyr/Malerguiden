@@ -104,7 +104,9 @@ export function romArk(jobId, romId, forslag = null) {
         planSvg(verdi.skannplan, { bredde: 320, hoyde: 240, mal: true }),
         (verdi.skannplan.vinduer.length > 0 || verdi.skannplan.dorer.length > 0) && h('div.merker', { style: { padding: '6px 4px 2px' } },
           verdi.skannplan.vinduer.map((l, i) => h('span.merke', 'Vindu ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : ''))),
-          verdi.skannplan.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : ''))))),
+          verdi.skannplan.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '')))),
+        verdi.skannplan.utenfor.length > 0 && h('p.dempet.liten', { style: { margin: '6px 4px 2px' } },
+          flertall(verdi.skannplan.utenfor.length, 'vegg', 'vegger') + ' utenfor rommet (stiplet) er ikke regnet med. Trolig sett gjennom en åpen dør.')),
       h('label.felt', h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
       fraPlan
         ? h('p.dempet.liten', { style: { margin: '0 2px 10px' } }, verdi.kilde === 'skann'
@@ -352,7 +354,7 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
   const lengste = plan.vegger.reduce((a, b) => (lengde(b) > lengde(a) ? b : a), plan.vegger[0]);
   const v = -Math.atan2(lengste.b.y - lengste.a.y, lengste.b.x - lengste.a.x);
   const rot = (p) => ({ x: p.x * Math.cos(v) - p.y * Math.sin(v), y: p.x * Math.sin(v) + p.y * Math.cos(v) });
-  const alle = [...plan.gulv, ...['vegger', 'dorer', 'vinduer', 'apninger'].flatMap((k) => plan[k].flatMap((l) => [l.a, l.b]))].map(rot);
+  const alle = [...plan.gulv, ...['vegger', 'dorer', 'vinduer', 'apninger', 'utenfor'].flatMap((k) => (plan[k] || []).flatMap((l) => [l.a, l.b]))].map(rot);
   const minX = Math.min(...alle.map((p) => p.x)), maxX = Math.max(...alle.map((p) => p.x));
   const minY = Math.min(...alle.map((p) => p.y)), maxY = Math.max(...alle.map((p) => p.y));
   const s = Math.min((bredde - 2 * marg) / Math.max(maxX - minX, 0.5), (hoyde - 2 * marg) / Math.max(maxY - minY, 0.5));
@@ -367,6 +369,7 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
   const strek = mal ? 4 : 2;
   if (plan.gulv.length >= 3) ny('polygon', { points: plan.gulv.map((p) => til(p).join(',')).join(' '), fill: 'color-mix(in srgb, var(--terrakotta) 14%, transparent)' });
   const linje = (l, attrs) => { const [x1, y1] = til(l.a), [x2, y2] = til(l.b); return ny('line', { x1, y1, x2, y2, 'stroke-linecap': 'round', ...attrs }); };
+  (plan.utenfor || []).forEach((l) => linje(l, { stroke: 'var(--blekk3)', 'stroke-width': Math.max(1, strek / 2), 'stroke-dasharray': '5 4' }));
   plan.vegger.forEach((l) => linje(l, { stroke: 'var(--blekk)', 'stroke-width': strek }));
   plan.apninger.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: 'var(--blekk3)', 'stroke-width': 1, 'stroke-dasharray': '3 2' }); });
   plan.vinduer.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: '#5A9ED9', 'stroke-width': strek }); });

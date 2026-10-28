@@ -17,6 +17,10 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     var dato = Date()
     /// Plantegningen sett ovenfra. Mangler på rom skannet før planen ble lagret.
     var plan: Plan?
+    /// Vegger som lå utenfor gulvet (typisk sett gjennom en åpen dør) og ikke er regnet med.
+    var utenforVegger: Int?
+    /// Dører RoomPlan så som åpne under skanningen.
+    var apneDorer: Int?
 }
 
 /// Plantegning i meter, sett ovenfra (x mot høyre, y nedover på skjermen).
@@ -34,24 +38,66 @@ struct Plan: Codable, Hashable {
     var dorer: [Linje]
     var vinduer: [Linje]
     var apninger: [Linje]
+    /// Vegger utenfor rommets gulv. Vises stiplet, men regnes ikke med.
+    var utenfor: [Linje]? = nil
 
-    var allePunkter: [Punkt] { gulv + (vegger + dorer + vinduer + apninger).flatMap { [$0.a, $0.b] } }
+    var allePunkter: [Punkt] { gulv + (vegger + dorer + vinduer + apninger + (utenfor ?? [])).flatMap { [$0.a, $0.b] } }
 }
 
 enum Maling {
     /// Regner ut målene fra RoomPlan sitt resultat.
     static func rom(fra r: CapturedRoom, navn: String) -> SkannetRom {
-        let vegger = r.walls.map { (bredde: Double($0.dimensions.x), hoyde: Double($0.dimensions.y)) }
-        let takhoyde = vegger.map { $0.hoyde }.max() ?? 2.4
-        let veggBrutto = vegger.reduce(0.0) { $0 + $1.bredde * $1.hoyde }
-        let hull = (r.doors + r.windows + r.openings).reduce(0.0) { $0 + Double($1.dimensions.x * $1.dimensions.y) }
-        let (gulv, omkrets) = gulvMal(r)
+        var p = plan(r)
+        let (gulv, omkretsGulv) = gulvMal(r)
+
+        // Står en dør åpen, kan RoomPlan få med vegger fra rommet bak. Bare vegger
+        // (og vinduer og dører i dem) som ligger langs kanten av gulvet, regnes med.
+        var utenfor: [Plan.Linje] = []
+        if p.gulv.count >= 3 {
+            let kant = p.gulv
+            utenfor = p.vegger.filter { !langsKanten($0, kant) }
+            p.vegger = p.vegger.filter { langsKanten($0, kant) }
+            p.dorer = p.dorer.filter { langsKanten($0, kant) }
+            p.vinduer = p.vinduer.filter { langsKanten($0, kant) }
+            p.apninger = p.apninger.filter { langsKanten($0, kant) }
+            p.utenfor = utenfor
+        }
+
+        func areal(_ l: Plan.Linje) -> Double { (l.bredde ?? 0) * (l.hoyde ?? 0) }
+        let takhoyde = p.vegger.compactMap { $0.hoyde }.max() ?? 2.4
+        let veggBrutto = p.vegger.reduce(0.0) { $0 + areal($1) }
+        let hull = (p.dorer + p.vinduer + p.apninger).reduce(0.0) { $0 + areal($1) }
+        let omkrets = p.gulv.count >= 3 ? omkretsGulv : p.vegger.reduce(0.0) { $0 + ($1.bredde ?? 0) }
+        var apne = 0
+        for d in r.doors {
+            if case .door(let erApen) = d.category, erApen { apne += 1 }
+        }
+
         return SkannetRom(
             navn: navn,
             gulv: avrund(gulv), omkrets: avrund(omkrets), takhoyde: avrund(takhoyde),
             veggBrutto: avrund(veggBrutto), veggNetto: avrund(max(0, veggBrutto - hull)),
-            vinduer: r.windows.count, dorer: r.doors.count, apninger: r.openings.count,
-            plan: plan(r))
+            vinduer: p.vinduer.count, dorer: p.dorer.count, apninger: p.apninger.count,
+            plan: p, utenforVegger: utenfor.count, apneDorer: apne)
+    }
+
+    /// Ligger midten av linjen nær en av gulvets kanter? Veggen står litt utenfor
+    /// gulvkanten (halve veggtykkelsen), så grensen er romslig.
+    static func langsKanten(_ l: Plan.Linje, _ gulv: [Plan.Punkt], grense: Double = 0.45) -> Bool {
+        let m = SIMD2<Double>((l.a.x + l.b.x) / 2, (l.a.y + l.b.y) / 2)
+        var minst = Double.infinity
+        for i in gulv.indices {
+            let neste = gulv[(i + 1) % gulv.count]
+            let a = SIMD2<Double>(gulv[i].x, gulv[i].y)
+            let b = SIMD2<Double>(neste.x, neste.y)
+            let ab = b - a
+            let lengde2 = ab.x * ab.x + ab.y * ab.y
+            let am = m - a
+            let t = lengde2 > 0 ? max(0, min(1, (am.x * ab.x + am.y * ab.y) / lengde2)) : 0
+            let n = a + ab * t - m
+            minst = min(minst, (n.x * n.x + n.y * n.y).squareRoot())
+        }
+        return minst <= grense
     }
 
     /// En flate (vegg, dør, vindu) som et linjestykke sett ovenfra: midtpunkt ± halve bredden langs flatens x-akse.
@@ -196,7 +242,8 @@ struct Eksport: Codable {
         func r(_ q: Plan.Punkt) -> Plan.Punkt { .init(x: (q.x * 100).rounded() / 100, y: (q.y * 100).rounded() / 100) }
         func m(_ v: Double?) -> Double? { v.map { ($0 * 100).rounded() / 100 } }
         func l(_ x: Plan.Linje) -> Plan.Linje { .init(a: r(x.a), b: r(x.b), bredde: m(x.bredde), hoyde: m(x.hoyde)) }
-        return Plan(gulv: p.gulv.map(r), vegger: p.vegger.map(l), dorer: p.dorer.map(l), vinduer: p.vinduer.map(l), apninger: p.apninger.map(l))
+        return Plan(gulv: p.gulv.map(r), vegger: p.vegger.map(l), dorer: p.dorer.map(l), vinduer: p.vinduer.map(l), apninger: p.apninger.map(l),
+                    utenfor: p.utenfor?.map(l))
     }
 
     func json() -> String {

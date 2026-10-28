@@ -128,6 +128,8 @@ export function rensPlan(p) {
   const plan = {
     gulv: Array.isArray(p.gulv) ? p.gulv.map(punkt).filter(Boolean) : [],
     vegger: linjer(p.vegger), dorer: linjer(p.dorer), vinduer: linjer(p.vinduer), apninger: linjer(p.apninger),
+    // Vegger utenfor rommet (sett gjennom åpen dør). Tegnes stiplet, regnes ikke med.
+    utenfor: linjer(p.utenfor),
   };
   return plan.vegger.length ? plan : null;
 }
