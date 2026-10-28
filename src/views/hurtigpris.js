@@ -1,6 +1,6 @@
 /* Hurtigpris: rom, plantegning, skanning og pris uten å lage en jobb først.
    Når prisen ser riktig ut, kopieres alt over til en ny eller eksisterende jobb.
-   Siden kan også vises inne i Forbrukskalkulator-appen (samme nettsted, samme data). */
+   Siden kan også vises inne i Malerkalk-appen (samme nettsted, samme data). */
 
 import { h, tom, ikon, toast, ark, velg, bekreft } from '../dom.js';
 import { flertall } from '../util.js';
@@ -77,7 +77,7 @@ export function visHurtigpris(rot, fane = 'maal') {
     if (!id) { toast('Klarte ikke kopiere.'); return; }
     if (await bekreft({ tittel: 'Kopiert til jobben', tekst: 'Vil du tømme hurtigprisen? Rommene ligger nå i jobben.', ja: 'Tøm', nei: 'Behold' })) tomOgSlett();
     if (innebygd) {
-      // Inne i Forbrukskalkulator: åpne jobben i Malerguiden i hele vinduet
+      // Inne i Malerkalk: åpne jobben i Malerguiden i hele vinduet
       window.top.location.href = new URL('./#jobb-' + id + '/pris', location.href).href;
     } else gaTil('jobb-' + id + '/pris');
   }

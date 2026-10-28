@@ -12,12 +12,12 @@ const PREFIKS = '/Malerguiden/';
 
 createServer(async (req, res) => {
   const sti = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (sti === '/Forbrukskalkulator') { res.writeHead(302, { location: '/Forbrukskalkulator/' }).end(); return; }
+  if (sti === '/Malerkalk' || sti === '/Forbrukskalkulator') { res.writeHead(302, { location: sti + '/' }).end(); return; }
   if (sti === '/' || sti === '/Malerguiden') { res.writeHead(302, { location: PREFIKS }).end(); return; }
-  // Søsterappen Forbrukskalkulator ligger på samme nettsted på GitHub Pages (samme lagring),
-  // og serveres her fra mappa ved siden av, hvis den finnes.
-  const sos = '/Forbrukskalkulator/';
-  const [prefiks, base] = sti.startsWith(sos) ? [sos, normalize(join(rot, '..', 'Forbrukskalkulator')) + sep] : [PREFIKS, rot];
+  // Søsterappene (Malerkalk, Forbrukskalkulator) ligger på samme nettsted på GitHub Pages
+  // (samme lagring), og serveres her fra mappene ved siden av, hvis de finnes.
+  const sos = ['/Malerkalk/', '/Forbrukskalkulator/'].find((p) => sti.startsWith(p));
+  const [prefiks, base] = sos ? [sos, normalize(join(rot, '..', sos.slice(1, -1))) + sep] : [PREFIKS, rot];
   if (!sti.startsWith(prefiks)) { res.writeHead(404).end('Fant ikke fila'); return; }
   const rel = sti.slice(prefiks.length) || 'index.html';
   const fil = normalize(join(base, rel));

@@ -114,7 +114,7 @@ function registrerSW() {
 }
 
 /* ---------- Oppstart ---------- */
-// Vist inne i Forbrukskalkulator: uten menyen nederst
+// Vist inne i Malerkalk: uten menyen nederst
 if (innebygd) document.documentElement.classList.add('innebygd');
 lastPriser();
 lastJobber();
