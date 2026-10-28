@@ -208,7 +208,7 @@ dialog.ark { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width:
 dialog.ark::backdrop { background: rgba(30, 20, 12, .45); }
 dialog.ark[open] { animation: opp .22s ease-out; }
 @keyframes opp { from { transform: translateY(40px); opacity: .4; } }
-.ark-innhold { padding: 10px 18px calc(18px + var(--bunn)); overflow-y: auto; max-height: 92vh; }
+.ark-innhold { padding: 10px 18px calc(18px + var(--bunn)); overflow-y: auto; max-height: 92vh; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .ark-innhold::before { content: ""; display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--linje); margin: 0 auto 14px; }
 .ark h2 { margin-bottom: 14px; }
 .ark .valgliste { display: flex; flex-direction: column; gap: 8px; }

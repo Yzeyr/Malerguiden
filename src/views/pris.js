@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
 import { endreJobb, hentJobb } from '../jobs.js';
-import { tomKalkyle, romMengder, beregn, arbeidsdager, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { tomKalkyle, romMengder, beregn, perRom, arbeidsdager, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -205,6 +205,21 @@ export function prisPanel(j) {
       lfBryter('hjorner', 'Hjørner', fmt(r.mengder.hjorner, 1) + ' m hjørner'),
       lfBryter('vinduer', 'Vinduer', flertall(r.mengder.vinduer, 'vindu', 'vinduer') + ', smyg uten gerikt'),
       lfBryter('dorer', 'Dører', flertall(r.mengder.dorer, 'dørside', 'dørsider') + ' uten gerikt')));
+
+  // Per rom
+  const fordelt = perRom(k, egnePriser());
+  if (fordelt.rom.length > 1 || fordelt.felles.eksMva > 0) {
+    ut.append(h('div.seksjon', 'Per rom', h('span.tall', 'timer · kr eks. mva')));
+    ut.append(h('div.rad-liste',
+      fordelt.rom.map((r) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '50px', padding: '9px 14px', cursor: 'pointer' }, onclick: () => romArk(j.id, r.id) },
+        h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, r.navn), !r.ok && h('small', 'Mangler mål')),
+        h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(r.sum.timer, 1) + ' t'),
+        h('span', { style: { fontWeight: '750', minWidth: '76px', textAlign: 'right' } }, fmt(r.sum.eksMva, 0)))),
+      fordelt.felles.eksMva > 0 && h('div.rad', { style: { minHeight: '50px', padding: '9px 14px' } },
+        h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, 'Felles for jobben'), h('small', 'Oppstart, kjøring og tillegg')),
+        h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(fordelt.felles.timer, 1) + ' t'),
+        h('span', { style: { fontWeight: '750', minWidth: '76px', textAlign: 'right' } }, fmt(fordelt.felles.eksMva, 0)))));
+  }
 
   // Linjene
   ut.append(h('div.seksjon', 'Utregning', h('span.tall', k.modus === 'timer' ? 'timer · kr' : 'mengde · kr')));

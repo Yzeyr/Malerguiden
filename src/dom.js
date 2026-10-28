@@ -100,14 +100,66 @@ export function ark(bygg, { vedLukk } = {}) {
     lukket = true;
     try { d.close(); } catch { /* allerede lukket */ }
     d.remove();
+    lasOpp();
     vedLukk && vedLukk(verdi);
   };
   d.addEventListener('click', (e) => { if (e.target === d) lukk(); });
   d.addEventListener('cancel', (e) => { e.preventDefault(); lukk(); });
+  draForALukke(d, inn, lukk);
   inn.append(bygg(lukk));
   document.body.append(d);
+  las();
   d.showModal();
   return lukk;
+}
+
+/* iPhone ruller siden bak et åpent ark. Siden låses mens et ark er åpent,
+   og står på samme sted når det lukkes. Flere ark oppå hverandre telles. */
+let laste = 0, lasY = 0;
+function las() {
+  if (laste++ > 0) return;
+  lasY = scrollY;
+  Object.assign(document.body.style, { position: 'fixed', top: -lasY + 'px', left: '0', right: '0', width: '100%' });
+}
+function lasOpp() {
+  if (laste === 0 || --laste > 0) return;
+  Object.assign(document.body.style, { position: '', top: '', left: '', right: '', width: '' });
+  scrollTo(0, lasY);
+}
+
+/* Arket følger fingeren nedover og lukkes når det dras langt nok, eller raskt nok.
+   Bare når innholdet er rullet helt til toppen, så vanlig rulling i arket virker som før. */
+function draForALukke(d, inn, lukk) {
+  let y0 = null, sist = 0, tid = 0, fart = 0, drar = false;
+  inn.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || inn.scrollTop > 0) { y0 = null; return; }
+    y0 = e.touches[0].clientY; sist = y0; tid = e.timeStamp; drar = false;
+  }, { passive: true });
+  inn.addEventListener('touchmove', (e) => {
+    if (y0 == null) return;
+    const y = e.touches[0].clientY, dy = y - y0;
+    if (!drar && (dy < 6 || inn.scrollTop > 0)) return;
+    drar = true;
+    e.preventDefault();
+    fart = (y - sist) / Math.max(1, e.timeStamp - tid); sist = y; tid = e.timeStamp;
+    d.style.transition = 'none';
+    d.style.transform = `translateY(${Math.max(0, dy)}px)`;
+  }, { passive: false });
+  const slipp = () => {
+    if (y0 == null || !drar) { y0 = null; return; }
+    const dy = sist - y0;
+    y0 = null; drar = false;
+    if (dy > 110 || fart > 0.7) {
+      d.style.transition = 'transform .18s ease-in';
+      d.style.transform = 'translateY(100%)';
+      setTimeout(() => lukk(), 170);
+    } else {
+      d.style.transition = 'transform .2s ease-out';
+      d.style.transform = '';
+    }
+  };
+  inn.addEventListener('touchend', slipp);
+  inn.addEventListener('touchcancel', slipp);
 }
 
 /** Ja/nei-spørsmål som et ark. Løses med true/false. */

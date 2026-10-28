@@ -84,7 +84,11 @@ export function visJobb(rot, id, fane = 'arbeid') {
     if (!job()) { gaTil('jobber', { erstatt: true }); return; }
     tegnHode(); tegnFaner();
     // Ikke tegn panelet på nytt midt i skrivingen.
-    if (!panel.contains(document.activeElement) || document.activeElement === document.body) {
+    // Ikke tegn på nytt mens det skrives i et felt i fanen. Annet fokus (et kort eller
+    // en knapp som fikk fokus tilbake etter et ark) skal ikke stoppe oppdateringen.
+    const aktiv = document.activeElement;
+    const skriver = aktiv && panel.contains(aktiv) && aktiv.matches('input:not([type=checkbox]):not([type=file]), textarea, select');
+    if (!skriver) {
       // Hold rulleposisjonen: uten dette hopper siden til toppen ved hvert trykk.
       const y = scrollY;
       panel.style.minHeight = panel.offsetHeight + 'px';

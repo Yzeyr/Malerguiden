@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -169,4 +169,15 @@ test('plantegning fra skanningen blir med og renses', () => {
   assert.equal(k.rom[0].skannplan.gulv.length, 4);
   assert.equal(rensKalkyle({ rom: [{ id: 'b', skannplan: { vegger: [] } }] }).rom[0].skannplan, null);
   assert.deepEqual(r.skannplan.utenfor, [], 'mangler utenfor: tom liste');
+});
+
+test('pris per rom: rommene pluss det felles blir summen', () => {
+  const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a', navn: 'Stue' }), rom({ id: 'b', navn: 'Gang', lengde: '1,8', bredde: '6', trapp: true })],
+    tillegg: [{ id: 't', tekst: 'Flytte piano', timer: '2', kr: '500' }] };
+  const { rom: rader, felles } = perRom(k, {});
+  const alt = beregn(k, {});
+  assert.equal(rader.length, 2);
+  assert.ok(rader[1].sum.timer > 0 && rader[0].sum.timer > 0);
+  assert.equal(rader.reduce((s, r) => s + r.sum.eksMva, 0) + felles.eksMva, alt.sum.eksMva);
+  assert.ok(felles.timer >= 3 - 0.2, 'oppstart 1 t + tillegg 2 t');
 });

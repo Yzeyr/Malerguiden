@@ -10,7 +10,7 @@
  *
  * VERSJON oppdateres av tools/versjon.mjs (kjøres før hver publisering).
  */
-const VERSJON = 'malerguiden-2c301f45';
+const VERSJON = 'malerguiden-f7ed001b';
 const FILER = [
   './',
   './index.html',
@@ -33,6 +33,7 @@ const FILER = [
   './src/kalkyle.js',
   './src/priser.js',
   './src/ki.js',
+  './src/plangjenkjenning.js',
   './src/data/checklists.js',
   './src/data/facts.js',
   './src/data/misc.js',

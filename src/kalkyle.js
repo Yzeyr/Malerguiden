@@ -200,7 +200,7 @@ export function priser(lagret) {
  * Returnerer { linjer, sum: { timer, arbeid, materialer, eksMva, mva, inklMva }, mengder, manglerMal }
  * Hver linje: { id, navn, detalj, mengde, enhet, timer, arbeid, materialer }
  */
-export function beregn(kalkyle, lagredePriser) {
+export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
   const P = priser(lagredePriser);
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
@@ -242,7 +242,7 @@ export function beregn(kalkyle, lagredePriser) {
   const vektet = (liste) => liste.reduce((s, x) => s + x.m2 * x.faktor, 0);
 
   // Oppstart per jobb, rigging per rom, tildekking av gulvet og stige/stillas per trappehull.
-  if (mengder.rom > 0) leggTil('jobb-oppstart', 1, { detalj: 'Per jobb' });
+  if (medFelles && mengder.rom > 0) leggTil('jobb-oppstart', 1, { detalj: 'Per jobb' });
   leggTil('rigging-rom', mengder.rom, { detalj: mengder.rom + ' rom' });
   leggTil('dekking-gulv', mengder.gulv);
   const trapper = (k.rom || []).filter((r) => r.trapp && romMengder(r).ok).length;
@@ -272,7 +272,7 @@ export function beregn(kalkyle, lagredePriser) {
   for (let s = 1; s <= (a.vinduer?.strok || 0); s++) leggTil('vindu-strok', mengder.vinduer, { navn: 'Vinduer, strøk ' + s });
   for (let s = 1; s <= (a.dorer?.strok || 0); s++) leggTil('dor-strok', mengder.dorer, { navn: 'Dører, strøk ' + s });
 
-  for (const t of k.tillegg || []) {
+  for (const t of medFelles ? k.tillegg || [] : []) {
     const timer = Math.max(0, ellers(tall(t.timer), 0));
     const kr = Math.max(0, ellers(tall(t.kr), 0));
     if (!timer && !kr) continue;
@@ -294,6 +294,23 @@ export function beregn(kalkyle, lagredePriser) {
     timepris: P.timepris,
     modus: k.modus,
   };
+}
+
+/**
+ * Pris og timer for hvert rom for seg, og det som er felles for jobben
+ * (oppstart og tillegg). Rommene pluss det felles blir summen for jobben.
+ */
+export function perRom(kalkyle, lagredePriser) {
+  const k = kalkyle || tomKalkyle();
+  const rom = (k.rom || []).map((r) => {
+    const b = beregn({ ...k, rom: [r] }, lagredePriser, { medFelles: false });
+    return { id: r.id, navn: r.navn || 'Rom', ok: romMengder(r).ok, sum: b.sum };
+  });
+  const alt = beregn(k, lagredePriser);
+  const sumRom = rom.reduce((s, r) => ({ timer: s.timer + r.sum.timer, eksMva: s.eksMva + r.sum.eksMva }), { timer: 0, eksMva: 0 });
+  // Det som ikke hører til ett rom: oppstart, tillegg, og øreavrunding
+  const felles = { timer: rund(alt.sum.timer - sumRom.timer, 1), eksMva: alt.sum.eksMva - sumRom.eksMva };
+  return { rom, felles };
 }
 
 /** Arbeidsdager med en gitt dagslengde, avrundet opp til halve dager. */

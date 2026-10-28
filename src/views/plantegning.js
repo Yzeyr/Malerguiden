@@ -7,12 +7,13 @@
    Én finger flytter, to fingre zoomer, et kort trykk setter et punkt.
    Koordinatene lagres i bildets egne punkter, så de stemmer neste gang. */
 
-import { h, tom, ikon, toast, ark } from '../dom.js';
-import { nyId, fmt } from '../util.js';
+import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
+import { nyId, fmt, flertall } from '../util.js';
 import { hentJobb, endreJobb, vedEndring } from '../jobs.js';
 import { lagreNyttBilde, hentBilde } from '../photos.js';
 import { polygonMal, STANDARD_HOYDE, tall } from '../kalkyle.js';
 import { endreKalkyle, romArk } from './pris.js';
+import { finnRom, graatoner } from '../plangjenkjenning.js';
 
 const TEGNING_MAKS = 2600; // høyere enn vanlige bilder, så små mål på tegningen kan leses
 
@@ -89,7 +90,7 @@ async function verktoy(jobId, bildeId) {
       h('span', { style: { flex: '1' } }),
       h('button', { type: 'button', 'aria-label': 'Zoom ut', onclick: () => zoomRundt(1 / 1.5) }, '−'),
       h('button', { type: 'button', 'aria-label': 'Zoom inn', onclick: () => zoomRundt(1.5) }, '+'),
-      h('button', { type: 'button', onclick: () => { punkter.pop(); tegn(); } }, ikon('angre'))),
+      h('button', { type: 'button', 'aria-label': 'Angre siste hjørne', onclick: () => { if (lukket) lukket = false; else punkter.pop(); tegn(); } }, ikon('angre'))),
     vindu, panel);
   document.body.append(el);
 
@@ -115,24 +116,46 @@ async function verktoy(jobId, bildeId) {
   };
   const tilBilde = (cx, cy) => [(cx - tx) / s, (cy - ty) / s];
 
+  /* ---------- Tilstand for rommet som tegnes eller justeres ---------- */
+  let lukket = false;     // mangekanten er lukket: trykk legger ikke til flere hjørner
+  let redigerer = null;   // id på et lagret rom som endres
+  let fraForslag = null;  // forslaget som justeres (legges tilbake ved Avbryt)
+  let apnRom = null;      // { dorer, vinduer } funnet for rommet som justeres
+  let forslag = [];       // rom funnet automatisk: { polygon, dorer, vinduer }
+  let dra = null;         // indeks til hjørnet som dras
+
   const pekere = new Map();
-  let start = null; // { x, y, tx, ty, s, avstand, midt, flyttet }
+  let start = null; // { tx, ty, s, avstand, midt, flyttet }
+  const nesteHjorne = (cx, cy) => {
+    let best = -1, min = 26;
+    punkter.forEach(([x, y], i) => { const d = Math.hypot(x * s + tx - cx, y * s + ty - cy); if (d < min) { min = d; best = i; } });
+    return best;
+  };
   vindu.addEventListener('pointerdown', (e) => {
     try { vindu.setPointerCapture(e.pointerId); } catch { /* ikke alle pekere kan fanges */ }
     const r = vindu.getBoundingClientRect();
-    pekere.set(e.pointerId, [e.clientX - r.left, e.clientY - r.top]);
-    start = { tx, ty, s, flyttet: pekere.size > 1, ...maal() };
+    const p = [e.clientX - r.left, e.clientY - r.top];
+    pekere.set(e.pointerId, p);
+    // Én finger på et hjørne: dra hjørnet i stedet for å flytte tegningen
+    dra = pekere.size === 1 && modus === 'rom' ? nesteHjorne(p[0], p[1]) : -1;
+    if (dra < 0) dra = null;
+    start = { tx, ty, s, flyttet: pekere.size > 1 || dra != null, ...maal() };
   });
   vindu.addEventListener('pointermove', (e) => {
     if (!pekere.has(e.pointerId) || !start) return;
     const r = vindu.getBoundingClientRect();
     pekere.set(e.pointerId, [e.clientX - r.left, e.clientY - r.top]);
     const m = maal();
+    if (dra != null && pekere.size === 1) {
+      flyttHjorne(dra, ...tilBilde(m.midt[0], m.midt[1]));
+      return;
+    }
     if (pekere.size === 1) {
       const dx = m.midt[0] - start.midt[0], dy = m.midt[1] - start.midt[1];
-      if (Math.hypot(dx, dy) > 8) start.flyttet = true;
+      if (Math.hypot(dx, dy) > 12) start.flyttet = true;
       if (start.flyttet) { tx = start.tx + dx; ty = start.ty + dy; bruk(); }
     } else if (pekere.size === 2 && start.avstand) {
+      dra = null;
       start.flyttet = true;
       const ny = Math.max(0.05, Math.min(12, start.s * (m.avstand / start.avstand)));
       // Punktet under fingrene skal bli liggende under fingrene.
@@ -145,11 +168,12 @@ async function verktoy(jobId, bildeId) {
     if (!pekere.has(e.pointerId)) return;
     const [x, y] = pekere.get(e.pointerId);
     pekere.delete(e.pointerId);
-    if (start && !start.flyttet && pekere.size === 0) settPunkt(...tilBilde(x, y));
+    if (start && !start.flyttet && pekere.size === 0) trykk(...tilBilde(x, y));
+    if (pekere.size === 0) dra = null;
     start = pekere.size ? { tx, ty, s, flyttet: true, ...maal() } : null;
   };
   vindu.addEventListener('pointerup', slipp);
-  vindu.addEventListener('pointercancel', (e) => { pekere.delete(e.pointerId); start = null; });
+  vindu.addEventListener('pointercancel', (e) => { pekere.delete(e.pointerId); start = null; dra = null; });
   vindu.addEventListener('wheel', (e) => { e.preventDefault(); const r = vindu.getBoundingClientRect(); zoomRundt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
   function maal() {
     const p = [...pekere.values()];
@@ -158,16 +182,68 @@ async function verktoy(jobId, bildeId) {
     return { midt: [(p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2], avstand: Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) };
   }
 
-  /* ---------- Punkter ---------- */
-  function settPunkt(x, y) {
+  /** Flytter et hjørne. Står det nesten på linje med naboen, rettes det inn (rette vinkler). */
+  function flyttHjorne(i, x, y) {
+    const n = punkter.length;
+    const naboer = n >= 2 ? [punkter[(i + n - 1) % n], punkter[(i + 1) % n]] : [];
+    const grense = 10 / s;
+    for (const [nx, ny] of naboer) {
+      if (Math.abs(x - nx) < grense) x = nx;
+      if (Math.abs(y - ny) < grense) y = ny;
+    }
+    punkter[i] = [x, y];
+    tegn();
+  }
+
+  function inni([x, y], poly) {
+    let inne = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inne = !inne;
+    }
+    return inne;
+  }
+
+  /* ---------- Trykk ---------- */
+  function trykk(x, y) {
     if (x < -W * 0.05 || y < -H * 0.05 || x > W * 1.05 || y > H * 1.05) return;
-    // Trykk på første hjørne lukker rommet.
-    if (modus === 'rom' && punkter.length >= 3) {
+    if (modus === 'skala') {
+      punkter.push([x, y]);
+      if (punkter.length === 2) { spørAvstand(); return; }
+      tegn();
+      return;
+    }
+    if (!punkter.length) {
+      // Trykk på et forslag: juster det. Trykk på et lagret rom: endre eller slett det.
+      const f = forslag.find((r) => inni([x, y], r.polygon));
+      if (f) {
+        forslag = forslag.filter((r) => r !== f);
+        fraForslag = f; apnRom = { dorer: f.dorer.length, vinduer: f.vinduer.length };
+        punkter = f.polygon.map((p) => p.slice()); lukket = true;
+        tegn();
+        return;
+      }
+      const lagret = (job().kalkyle?.rom || []).find((r) => r.tegning === bildeId && r.polygon && inni([x, y], r.polygon));
+      if (lagret) {
+        redigerer = lagret.id;
+        punkter = lagret.polygon.map((p) => p.slice()); lukket = true;
+        tegn();
+        return;
+      }
+    }
+    if (lukket) return;
+    // Trykk på første hjørne lukker rommet
+    if (punkter.length >= 3) {
       const [fx, fy] = punkter[0];
-      if (Math.hypot(fx - x, fy - y) * s < 22) { ferdigRom(); return; }
+      if (Math.hypot(fx - x, fy - y) * s < 22) { lukket = true; tegn(); return; }
     }
     punkter.push([x, y]);
-    if (modus === 'skala' && punkter.length === 2) { spørAvstand(); return; }
+    tegn();
+  }
+
+  function nullstill({ leggTilbake = false } = {}) {
+    if (leggTilbake && fraForslag) forslag.push(fraForslag);
+    punkter = []; lukket = false; redigerer = null; fraForslag = null; apnRom = null;
     tegn();
   }
 
@@ -200,14 +276,85 @@ async function verktoy(jobId, bildeId) {
     });
   }
 
+  function malFor(poly) {
+    const { areal, omkrets } = polygonMal(poly.map(([x, y]) => [x * skala, y * skala]));
+    return { gulv: Math.round(areal * 100) / 100, omkrets: Math.round(omkrets * 100) / 100 };
+  }
+
   function ferdigRom() {
     if (punkter.length < 3) return;
-    const meter = punkter.map(([x, y]) => [x * skala, y * skala]);
-    const { areal, omkrets } = polygonMal(meter);
     const polygon = punkter.map(([x, y]) => [Math.round(x), Math.round(y)]);
-    punkter = [];
+    const mal = malFor(polygon);
+    if (redigerer) {
+      const id = redigerer;
+      endreKalkyle(jobId, (k) => { const r = k.rom.find((x) => x.id === id); if (r) Object.assign(r, mal, { polygon }); });
+      toast('Rommet er oppdatert.');
+      nullstill();
+      return;
+    }
+    const tellere = apnRom ? { vinduer: String(apnRom.vinduer), dorer: String(apnRom.dorer) } : {};
+    nullstill();
+    romArk(jobId, null, { navn: 'Rom ' + ((job().kalkyle?.rom.length || 0) + 1), ...mal, ...tellere, kilde: 'plan', polygon, tegning: bildeId });
+  }
+
+  async function slettRommet() {
+    const id = redigerer;
+    const r = job().kalkyle?.rom.find((x) => x.id === id);
+    if (!r || !await bekreft({ tittel: 'Slette rommet?', tekst: r.navn || 'Rom', ja: 'Slett', fare: true })) return;
+    endreKalkyle(jobId, (k) => { k.rom = k.rom.filter((x) => x.id !== id); });
+    nullstill();
+    toast('Rommet er slettet.');
+  }
+
+  /* ---------- Finn rom automatisk ---------- */
+  async function finnAutomatisk() {
+    toast('Leter etter rom …', { ms: 20000 });
+    await new Promise((r) => setTimeout(r, 40)); // la meldingen vises før arbeidet starter
+    // Regn på en mindre kopi av tegningen; ca. 1400 px holder og går raskt.
+    const f = Math.min(1, 1400 / Math.max(W, H));
+    const cw = Math.round(W * f), chh = Math.round(H * f);
+    const lerret = document.createElement('canvas');
+    lerret.width = cw; lerret.height = chh;
+    const cx = lerret.getContext('2d', { willReadFrequently: true });
+    cx.fillStyle = '#fff'; cx.fillRect(0, 0, cw, chh);
+    cx.drawImage(img, 0, 0, cw, chh);
+    const data = cx.getImageData(0, 0, cw, chh).data;
+    lerret.width = lerret.height = 0;
+    let resultat;
+    try { resultat = finnRom(graatoner(data, cw, chh), cw, chh); }
+    catch (e) { toast('Klarte ikke lese tegningen.'); console.error(e); return; }
+    const tilbake = (p) => [p[0] / f, p[1] / f];
+    const lagrede = (job().kalkyle?.rom || []).filter((r) => r.tegning === bildeId && r.polygon);
+    forslag = resultat.rom
+      .map((r) => ({
+        polygon: r.polygon.map(tilbake),
+        dorer: r.dorer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
+        vinduer: r.vinduer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
+      }))
+      // Ikke foreslå rom som allerede er lagt inn
+      .filter((r) => {
+        const m = r.polygon.reduce(([a, b], [x, y]) => [a + x / r.polygon.length, b + y / r.polygon.length], [0, 0]);
+        return !lagrede.some((l) => inni(m, l.polygon));
+      })
+      // Bort med «rom» under 1 m² (skap, sjakter, symboler)
+      .filter((r) => malFor(r.polygon).gulv >= 1);
+    toast(forslag.length ? 'Fant ' + flertall(forslag.length, 'rom', 'rom') + '. Trykk på et rom for å justere det.' : 'Fant ingen rom. Tegn dem selv ved å trykke på hjørnene.', { ms: 4000 });
     tegn();
-    romArk(jobId, null, { navn: 'Rom ' + ((job().kalkyle?.rom.length || 0) + 1), gulv: Math.round(areal * 100) / 100, omkrets: Math.round(omkrets * 100) / 100, kilde: 'plan', polygon, tegning: bildeId });
+  }
+
+  function leggTilAlle() {
+    const antall = job().kalkyle?.rom.length || 0;
+    const nye = forslag.map((f, i) => ({
+      id: nyId('r-'), navn: 'Rom ' + (antall + i + 1), lengde: '', bredde: '', hoyde: '',
+      ...malFor(f.polygon), vinduer: String(f.vinduer.length), dorer: String(f.dorer.length), trapp: false,
+      med: { vegg: true, tak: true, lister: true, vinduer: true, dorer: true }, kilde: 'plan',
+      polygon: f.polygon.map(([x, y]) => [Math.round(x), Math.round(y)]), tegning: bildeId,
+    }));
+    if (!nye.length) return;
+    endreKalkyle(jobId, (k) => { k.rom.push(...nye); });
+    forslag = [];
+    toast(flertall(nye.length, 'rom', 'rom') + ' lagt til. Gi dem navn under Mål.');
+    tegn();
   }
 
   /* ---------- Tegning av lag og panel ---------- */
@@ -216,20 +363,32 @@ async function verktoy(jobId, bildeId) {
     const k = 1 / s; // linjer og punkter i fast skjermstørrelse
     svg.innerHTML = '';
     const ny = (navn, attrs) => { const e = document.createElementNS(NS, navn); for (const [a, v] of Object.entries(attrs)) e.setAttribute(a, v); svg.append(e); return e; };
+    const etikett = (poly, tekst, farge) => {
+      const [cx, cy] = poly.reduce(([a, b], [x, y]) => [a + x / poly.length, b + y / poly.length], [0, 0]);
+      const t = ny('text', { x: cx, y: cy, 'text-anchor': 'middle', 'font-size': 15 * k, 'font-weight': 700, fill: farge, 'font-family': 'system-ui, sans-serif' });
+      t.textContent = tekst;
+    };
+    const linjer = (ls, farge) => ls.forEach((l) => ny('line', { x1: l.a[0], y1: l.a[1], x2: l.b[0], y2: l.b[1], stroke: farge, 'stroke-width': 6 * k, 'stroke-linecap': 'round', opacity: 0.85 }));
     for (const r of job().kalkyle?.rom || []) {
-      if (!r.polygon || r.tegning !== bildeId) continue;
+      if (!r.polygon || r.tegning !== bildeId || r.id === redigerer) continue;
       ny('polygon', { points: r.polygon.map((p) => p.join(',')).join(' '), fill: 'rgba(30,107,116,.18)', stroke: '#1E6B74', 'stroke-width': STROK * k });
-      const [cx, cy] = r.polygon.reduce(([a, b], [x, y]) => [a + x / r.polygon.length, b + y / r.polygon.length], [0, 0]);
-      const t = ny('text', { x: cx, y: cy, 'text-anchor': 'middle', 'font-size': 15 * k, 'font-weight': 700, fill: '#1E6B74', 'font-family': 'system-ui, sans-serif' });
-      t.textContent = r.navn || 'Rom';
+      etikett(r.polygon, r.navn || 'Rom', '#1E6B74');
     }
+    forslag.forEach((f, i) => {
+      ny('polygon', { points: f.polygon.map((p) => p.join(',')).join(' '), fill: 'rgba(59,76,160,.14)', stroke: '#3B4CA0', 'stroke-width': STROK * k, 'stroke-dasharray': `${8 * k} ${6 * k}` });
+      linjer(f.dorer, '#B9482A');
+      linjer(f.vinduer, '#4F8FD1');
+      etikett(f.polygon, 'Forslag ' + (i + 1), '#3B4CA0');
+    });
+    if (fraForslag) { linjer(fraForslag.dorer, '#B9482A'); linjer(fraForslag.vinduer, '#4F8FD1'); }
     const farge = modus === 'skala' ? '#3B4CA0' : '#B9482A';
     if (punkter.length > 1) {
       ny(modus === 'rom' && punkter.length > 2 ? 'polygon' : 'polyline', {
         points: punkter.map((p) => p.join(',')).join(' '), fill: modus === 'rom' ? 'rgba(185,72,42,.2)' : 'none', stroke: farge, 'stroke-width': STROK * k, 'stroke-linejoin': 'round',
       });
     }
-    punkter.forEach(([x, y], i) => ny('circle', { cx: x, cy: y, r: (i === 0 && modus === 'rom' && punkter.length >= 3 ? 11 : 8) * k, fill: '#fff', stroke: farge, 'stroke-width': STROK * k }));
+    // Hjørnene: store nok til å ta tak i med en finger
+    punkter.forEach(([x, y], i) => ny('circle', { cx: x, cy: y, r: (i === 0 && !lukket && modus === 'rom' && punkter.length >= 3 ? 12 : 10) * k, fill: i === dra ? farge : '#fff', stroke: farge, 'stroke-width': STROK * k }));
     tegnPanel();
   }
 
@@ -241,19 +400,43 @@ async function verktoy(jobId, bildeId) {
         h('p.dempet.liten', { style: { margin: '0' } }, 'For eksempel endene av et målsatt mål, eller en vegg du kjenner lengden på. Zoom inn med to fingre for å treffe nøyaktig.'));
       return;
     }
-    const meter = punkter.map(([x, y]) => [x * skala, y * skala]);
-    const m = punkter.length >= 3 ? polygonMal(meter) : { areal: 0, omkrets: punkter.length === 2 ? Math.hypot(meter[1][0] - meter[0][0], meter[1][1] - meter[0][1]) : 0 };
+    const nyMalestokk = h('button.lenkeknapp', { type: 'button', style: { padding: '0' }, onclick: () => { modus = 'skala'; forslag = []; nullstill(); } }, 'Ny målestokk');
+
+    // Ingenting valgt: finn rom automatisk eller tegn selv
+    if (!punkter.length) {
+      tom(panel,
+        h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px' } },
+          h('div.overtittel', { style: { color: 'var(--terrakotta)', flex: '1' } }, 'Trinn 2 · Rom'), nyMalestokk),
+        h('h2', { style: { margin: '3px 0 8px', fontSize: '20px' } }, forslag.length ? 'Trykk på et forslag for å justere det' : 'Finn rommene, eller trykk på hjørnene selv'),
+        forslag.length
+          ? h('div.knapprad', { style: { marginTop: '0' } },
+              h('button.knapp', { type: 'button', onclick: leggTilAlle }, ikon('hake'), 'Legg til alle ' + forslag.length),
+              h('button.knapp.sekundar', { type: 'button', onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'))
+          : h('button.knapp.hel', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom automatisk'),
+        h('p.dempet.liten', { style: { margin: '8px 0 0' } }, 'Trykk på et lagret rom for å endre eller slette det. Dra i hjørnene for å justere.'));
+      return;
+    }
+
+    const m = punkter.length >= 3 ? malFor(punkter) : { gulv: 0, omkrets: punkter.length === 2 ? Math.hypot(punkter[1][0] - punkter[0][0], punkter[1][1] - punkter[0][1]) * skala : 0 };
     const vegg = m.omkrets * STANDARD_HOYDE;
     const boks = (navn, verdi) => h('div', { style: { flex: '1', background: 'var(--kort)', borderRadius: '12px', padding: '8px 10px', boxShadow: 'var(--skygge)' } },
       h('small.dempet', { style: { display: 'block', fontSize: '12px', fontWeight: '650' } }, navn), h('b', { style: { fontFamily: 'var(--serif)', fontSize: '19px' } }, verdi));
-    const antall = job().kalkyle?.rom.filter((r) => r.tegning === bildeId).length || 0;
+    const navn = redigerer ? (job().kalkyle?.rom.find((r) => r.id === redigerer)?.navn || 'Rom') : 'Nytt rom';
+    const tittel = redigerer || fraForslag ? 'Dra i hjørnene for å justere'
+      : lukket ? 'Rommet er lukket. Dra i hjørnene om noe sitter feil'
+      : punkter.length < 3 ? 'Trykk på hjørnene i rommet' : 'Trykk på første hjørne for å lukke';
     tom(panel,
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px' } },
-        h('div.overtittel', { style: { color: 'var(--terrakotta)', flex: '1' } }, 'Rom ' + (antall + 1) + ' · ' + punkter.length + ' hjørner'),
-        h('button.lenkeknapp', { type: 'button', style: { padding: '0' }, onclick: () => { modus = 'skala'; punkter = []; tegn(); } }, 'Ny målestokk')),
-      h('h2', { style: { margin: '3px 0 8px', fontSize: '20px' } }, punkter.length < 3 ? 'Trykk på hjørnene i rommet' : 'Trykk på første hjørne for å lukke'),
-      h('div', { style: { display: 'flex', gap: '8px' } }, boks('Gulv', fmt(m.areal, 1) + ' m²'), boks('Omkrets', fmt(m.omkrets, 1) + ' m'), boks('Vegg (' + fmt(STANDARD_HOYDE, 1) + ' m)', fmt(vegg, 1) + ' m²')),
-      h('button.knapp.hel', { type: 'button', style: { marginTop: '10px' }, disabled: punkter.length < 3, onclick: ferdigRom }, ikon('hake'), 'Ferdig med rommet'));
+        h('div.overtittel', { style: { color: 'var(--terrakotta)', flex: '1' } }, navn + ' · ' + punkter.length + ' hjørner' + (apnRom ? ' · ' + flertall(apnRom.dorer, 'dør', 'dører') + ', ' + flertall(apnRom.vinduer, 'vindu', 'vinduer') : '')),
+        nyMalestokk),
+      h('h2', { style: { margin: '3px 0 8px', fontSize: '19px' } }, tittel),
+      h('div', { style: { display: 'flex', gap: '8px' } }, boks('Gulv', fmt(m.gulv, 1) + ' m²'), boks('Omkrets', fmt(m.omkrets, 1) + ' m'), boks('Vegg (' + fmt(STANDARD_HOYDE, 1) + ' m)', fmt(vegg, 1) + ' m²')),
+      h('div.knapprad', { style: { marginTop: '10px' } },
+        redigerer
+          ? h('button.knapp.fare', { type: 'button', onclick: slettRommet }, ikon('slett'), 'Slett')
+          : h('button.knapp.sekundar', { type: 'button', onclick: () => nullstill({ leggTilbake: true }) }, 'Avbryt'),
+        h('button.knapp', { type: 'button', disabled: punkter.length < 3, onclick: ferdigRom }, ikon('hake'), redigerer ? 'Lagre' : 'Ferdig med rommet')),
+      redigerer && h('button.lenkeknapp', { type: 'button', style: { marginTop: '4px' }, onclick: () => nullstill() }, 'Avbryt'));
   }
 
   // Rett etter at visningen er lagt inn, er størrelsen kjent. Snus telefonen, tilpasses den på nytt.
