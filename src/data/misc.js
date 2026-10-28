@@ -59,7 +59,9 @@ export const BILDE_KATEGORIER = [
   { id: 'for', label: 'Før' },
   { id: 'underveis', label: 'Underveis' },
   { id: 'ferdig', label: 'Ferdig' },
-  { id: 'avvik', label: 'Avvik' }
+  { id: 'avvik', label: 'Avvik' },
+  // Plantegninger som er målt på under Mål. Vises ikke som valg for nye bilder.
+  { id: 'tegning', label: 'Tegning', skjult: true }
 ];
 
 // Jobbstatus (`job.status`). Rekkefølgen er arbeidsgangen — planlagt, pågår,

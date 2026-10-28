@@ -104,9 +104,9 @@ async function skaler(kilde, maks, kvalitet) {
 }
 
 /** Skalerer ned og lagrer bilde + miniatyr i én transaksjon. Returnerer id. */
-export async function lagreNyttBilde(fil, id) {
+export async function lagreNyttBilde(fil, id, { maks = MAKS_KANT } = {}) {
   const img = await lastBilde(fil);
-  const stor = await skaler(img, MAKS_KANT, 0.82);
+  const stor = await skaler(img, maks, 0.82);
   const mini = await skaler(img, MINI_KANT, 0.75);
   await tx([BILDER, MINI], 'readwrite', (t) => {
     t.objectStore(BILDER).put(stor, id);

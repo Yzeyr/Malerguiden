@@ -12,10 +12,14 @@ import { FORBEHOLD_VALG, BILDE_KATEGORIER, KLASSER, KLASSE_MERKNAD, FARGE_FELT, 
 import { lagreNyttBilde, slettBilde, miniatyrUrl, hentBilde, slippUrler } from '../photos.js';
 import { gaTil, tilbake } from '../nav.js';
 import { fagVelger, typeVelger, FAGFARGE } from './felles.js';
+import { romPanel, prisPanel } from './pris.js';
+import { beregn } from '../kalkyle.js';
+import { egnePriser } from '../priser.js';
 
 const FANER = [
   { id: 'arbeid', navn: 'Arbeid' },
   { id: 'maal', navn: 'Mål' },
+  { id: 'pris', navn: 'Pris' },
   { id: 'bilder', navn: 'Bilder' },
   { id: 'farger', navn: 'Farger' },
   { id: 'mer', navn: 'Mer' },
@@ -50,17 +54,22 @@ export function visJobb(rot, id, fane = 'arbeid') {
     const j = job();
     const f = framdrift(j);
     const maalTall = maalGrupperFor(j).flatMap((g) => g.felt).filter((x) => (j.maal[x.id] || '').trim()).length;
-    const tall = { arbeid: '', maal: maalTall || '', bilder: j.bilder.length || '', farger: j.farger.length || '', mer: '' };
+    const romTall = j.kalkyle?.rom.length || 0;
+    const sum = romTall ? beregn(j.kalkyle, egnePriser()).sum.eksMva : 0;
+    const tall = { arbeid: '', maal: (romTall || maalTall) || '', pris: sum ? Math.round(sum / 1000) + 'k' : '', bilder: j.bilder.length || '', farger: j.farger.length || '', mer: '' };
     tom(fanerEl, FANER.map((x) => h('button', {
       type: 'button', role: 'tab', 'aria-selected': String(x.id === fane),
       onclick: () => { if (x.id !== fane) gaTil('jobb-' + id + '/' + x.id, { erstatt: true }); },
     }, x.navn, tall[x.id] !== '' && h('span', String(tall[x.id])))));
+    // Seks faner er bredere enn telefonen: hold den valgte synlig.
+    requestAnimationFrame(() => fanerEl.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }));
   };
   const tegnPanel = () => {
     const j = job();
     tom(panel);
     if (fane === 'arbeid') panel.append(arbeidPanel(j, faseValg, tegnPanel));
-    else if (fane === 'maal') panel.append(maalPanel(j));
+    else if (fane === 'maal') panel.append(romPanel(j), maalPanel(j));
+    else if (fane === 'pris') panel.append(prisPanel(j));
     else if (fane === 'bilder') panel.append(bildePanel(j));
     else if (fane === 'farger') panel.append(fargePanel(j));
     else panel.append(merPanel(j));
@@ -228,7 +237,7 @@ function arbeidArk(j, del = null) {
 function maalPanel(j) {
   const grupper = maalGrupperFor(j);
   const ut = h('div');
-  ut.append(h('p.dempet', { style: { margin: '2px 2px 12px' } }, 'Målene du tar på stedet. Kalkulatoren fylles ut fra dem.'));
+  if (grupper.length) ut.append(h('p.dempet', { style: { margin: '18px 2px 0' } }, 'Mål til kalkulatorene under Regn.'));
   for (const g of grupper) {
     ut.append(h('div.seksjon', g.tittel));
     ut.append(h('div.kort', g.felt.map((f) => {
@@ -288,7 +297,7 @@ function bildePanel(j) {
   let kategori = standardKategori(j);
   const ut = h('div');
   const katVelger = h('div.velger', { style: { marginBottom: '10px' } });
-  const tegnKat = () => tom(katVelger, BILDE_KATEGORIER.map((k) => h('button', {
+  const tegnKat = () => tom(katVelger, BILDE_KATEGORIER.filter((k) => !k.skjult).map((k) => h('button', {
     type: 'button', 'aria-pressed': String(k.id === kategori), onclick: () => { kategori = k.id; tegnKat(); },
   }, k.label)));
   tegnKat();
@@ -496,7 +505,7 @@ function merPanel(j) {
     ut.append(h('div.seksjon', 'Avtalt sparklingsklasse'));
     ut.append(h('div.velger', KLASSER.map((k) => h('button.k-oker', {
       type: 'button', 'aria-pressed': String(j.klasse === k.id),
-      onclick: () => endreJobb(j.id, (x) => { x.klasse = k.id; }),
+      onclick: () => endreJobb(j.id, (x) => { x.klasse = k.id; if (x.kalkyle && k.id) x.kalkyle.arbeid.vegg.sparkling = k.id; }),
     }, k.id || k.label))));
     ut.append(h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, KLASSE_MERKNAD));
   }

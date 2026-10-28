@@ -16,6 +16,7 @@ import { iDagIso } from './util.js';
 import { alleJobber, importerJobber, lagringSperret, opphevSperre, lastJobber } from './jobs.js';
 import { alleNotater, alleFavoritter, importerNotater, leggTilFavoritter } from './egne.js';
 import { hentBilde, finnesBilde, leggInnBilde } from './photos.js';
+import { egnePriser, importerPriser } from './priser.js';
 
 function blobTilDataUrl(blob) {
   return new Promise((resolve, reject) => {
@@ -50,6 +51,7 @@ export async function byggKopi({ medBilder = true, framdrift = () => {} } = {}) 
     notater: alleNotater(),
     favoritter: alleFavoritter(),
     kalkulator: kalkulatorVerdier(),
+    priser: egnePriser(),
   };
   // JSON uten den avsluttende } — bildene legges til som egne biter.
   const start = JSON.stringify(hode);
@@ -170,6 +172,8 @@ export async function gjenopprett(tekst) {
       if (k.startsWith(NOKLER.calcPrefiks) && les(k) == null) skriv(k, String(v));
     }
   }
+
+  if (importerPriser(data.priser)) deler.push('priser og normtall');
 
   let bilder = 0, bildeFeil = 0;
   if (data.bilder && typeof data.bilder === 'object') {

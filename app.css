@@ -170,6 +170,9 @@ h3 { font-size: 17px; margin: 0; }
 .jobbkort .under { font-size: 14.5px; color: var(--blekk2); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jobbkort .neste { font-size: 15px; margin-top: 7px; }
 .jobbkort .merker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.merker { display: flex; gap: 6px; flex-wrap: wrap; }
+.leggtil-rad.bred { flex-wrap: wrap; }
+.leggtil-rad.bred input:first-child { flex-basis: 100%; }
 .merke { font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--kort2); color: var(--blekk2); white-space: nowrap; }
 .merke.m-idag { background: color-mix(in srgb, var(--gronn) 18%, var(--kort)); color: var(--gronn); }
 .merke.m-forfalt { background: color-mix(in srgb, var(--rod) 15%, var(--kort)); color: var(--rod); }
@@ -283,6 +286,12 @@ dialog.ark[open] { animation: opp .22s ease-out; }
 .viser .vlinje.nede button { padding: 8px 10px; font-size: 14.5px; }
 .viser button { background: rgba(255,255,255,.14); color: #fff; border: 0; border-radius: 12px; min-height: 44px; padding: 8px 14px; font-weight: 650; }
 .viser button[aria-pressed="true"] { background: #fff; color: #111; }
+
+/* Måling på plantegning */
+.planverktoy { position: fixed; inset: 0; z-index: 80; background: #0d0b09; display: flex; flex-direction: column; }
+.planverktoy .plinje { display: flex; gap: 8px; align-items: center; padding: calc(var(--topp) + 8px) 12px 8px; }
+.planverktoy .plinje button { background: rgba(255,255,255,.14); color: #fff; border: 0; border-radius: 12px; min-height: 44px; min-width: 44px; padding: 8px 14px; font-weight: 650; font-size: 17px; display: grid; place-items: center; }
+.planverktoy svg.ik { width: 21px; height: 21px; }
 
 /* ---------- Regn ---------- */
 .kalk-valg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }

@@ -7,6 +7,7 @@ import { h, tom, ikon, toast } from './dom.js';
 import { vedLagringsfeil, beOmVarigLagring } from './store.js';
 import { lastJobber, lagringSperret, vedEndring } from './jobs.js';
 import { lastFavoritter, lastNotater } from './egne.js';
+import { lastPriser } from './priser.js';
 import { settRuter, noter, gaTil, visBanner, fjernBanner } from './nav.js';
 import { visJobber } from './views/jobber.js';
 import { visJobb } from './views/jobb.js';
@@ -109,6 +110,7 @@ function registrerSW() {
 }
 
 /* ---------- Oppstart ---------- */
+lastPriser();
 lastJobber();
 lastNotater();
 lastFavoritter();

@@ -10,7 +10,7 @@
  *
  * VERSJON oppdateres av tools/versjon.mjs (kjøres før hver publisering).
  */
-const VERSJON = 'malerguiden-5f1c7db7';
+const VERSJON = 'malerguiden-635ad736';
 const FILER = [
   './',
   './index.html',
@@ -30,16 +30,22 @@ const FILER = [
   './src/photos.js',
   './src/backup.js',
   './src/calc.js',
+  './src/kalkyle.js',
+  './src/priser.js',
+  './src/ki.js',
   './src/data/checklists.js',
   './src/data/facts.js',
   './src/data/misc.js',
   './src/data/oppslag.js',
+  './src/data/normer.js',
   './src/views/felles.js',
   './src/views/jobber.js',
   './src/views/jobb.js',
   './src/views/regn.js',
   './src/views/oppslag.js',
   './src/views/mitt.js',
+  './src/views/pris.js',
+  './src/views/plantegning.js',
 ];
 const VENT_MS = 2500;
 

@@ -13,6 +13,8 @@ import { NOKLER, lesJson, skrivJson, reddOdelagt, senere } from './store.js';
 import { nyId, erIsoDag, datoEtikett, visTidspunkt, visDato, fmt } from './util.js';
 import { FAG_BY_ID, JOBBTYPER, sjekklisteFor, delTittel } from './data/checklists.js';
 import { MAAL_GRUPPER, FORBEHOLD_VALG, BILDE_KATEGORIER } from './data/misc.js';
+import { rensKalkyle, beregn } from './kalkyle.js';
+import { egnePriser } from './priser.js';
 
 export const STATUS = ['planlagt', 'pagar', 'pauset', 'ferdig'];
 export const STATUS_LABEL = { planlagt: 'Planlagt', pagar: 'Pågår', pauset: 'Pauset', ferdig: 'Ferdig' };
@@ -83,6 +85,8 @@ export function normaliserJobb(j) {
     forbeholdValgt: Array.isArray(j.forbeholdValgt) ? j.forbeholdValgt.filter((x) => typeof x === 'string') : [],
     notat: str(j.notat),
     forbehold: str(j.forbehold),
+    // Prisberegningen (rom, arbeid, tillegg). null til den tas i bruk.
+    kalkyle: null,
   };
   // Mål kan ha blitt lagret som tall i en redigert kopi; UI-et regner med tekst.
   const maal = obj(j.maal) || {};
@@ -93,6 +97,7 @@ export function normaliserJobb(j) {
   let deler = Array.isArray(j.deler) ? j.deler.filter((d) => obj(d)) : [];
   if (!deler.length) deler = [{ fag: j.fag, jobbtype: j.jobbtype, sjekkliste: j.sjekkliste, lagtTil: j.created }];
   job.deler = deler.map(normaliserDel);
+  job.kalkyle = rensKalkyle(j.kalkyle, job.klasse);
   return job;
 }
 
@@ -203,6 +208,8 @@ export function dupliserJobb(kilde, { notat = false, beregninger = false } = {})
     beregninger: beregninger
       ? kilde.beregninger.map((b) => ({ ...b, id: nyId('b-'), tidspunkt: Date.now(), faktiskMengde: null }))
       : [],
+    // Valgene for arbeidet følger med, men rommene hører til jobben som ble målt opp.
+    kalkyle: kilde.kalkyle ? { ...kilde.kalkyle, rom: [], tillegg: [] } : null,
   });
 }
 
@@ -336,6 +343,15 @@ export function eksportTekst(job) {
       if (d) rad += ' (' + d + ')';
       L.push(rad);
     });
+  }
+  if (job.kalkyle && job.kalkyle.rom.length) {
+    const r = beregn(job.kalkyle, egnePriser());
+    if (r.sum.timer > 0) {
+      L.push('', 'Overslag:');
+      L.push('- ' + job.kalkyle.rom.map((x) => x.navn || 'Rom').join(', '));
+      L.push('- Vegg ' + fmt(r.mengder.vegg, 1) + ' m², tak ' + fmt(r.mengder.tak, 1) + ' m², lister ' + fmt(r.mengder.lister, 1) + ' m');
+      L.push('- ' + fmt(r.sum.timer, 1) + ' timer, ' + fmt(r.sum.eksMva, 0) + ' kr eks. mva (' + fmt(r.sum.inklMva, 0) + ' kr inkl.)');
+    }
   }
   const fb = forbeholdTekster(job);
   if (fb.length) L.push('', 'Forbehold:', ...fb.map((l) => '⚠️ ' + l));
