@@ -169,6 +169,7 @@ struct RomDetalj: View {
     @State private var navn = ""
     @State private var endrer = false
     @State private var visModell: URL?
+    @State private var visning: VistModell?
 
     private var rom: SkannetRom? { lager.rom.first { $0.id == id } }
     private func m(_ v: Double, _ d: Int = 1) -> String { v.formatted(.number.precision(.fractionLength(d))) }
@@ -215,7 +216,7 @@ struct RomDetalj: View {
                 if Modell.finnes(rom.id) {
                     Section {
                         if Fotomodell.finnes(rom.id) {
-                            Button { visModell = Fotomodell.url(rom.id) } label: {
+                            Button { visning = VistModell(url: Fotomodell.url(rom.id), tittel: rom.navn) } label: {
                                 Label("Vis med bilder i 3D", systemImage: "photo.on.rectangle.angled")
                             }
                         } else if lager.fotoUnderArbeid.contains(rom.id) {
@@ -224,14 +225,17 @@ struct RomDetalj: View {
                                 Text("Lager 3D med bilder …").foregroundStyle(.secondary)
                             }
                         }
-                        Button { visModell = Modell.url(rom.id) } label: {
+                        Button { visning = VistModell(url: Modell.url(rom.id), tittel: rom.navn) } label: {
                             Label("Vis rommet i 3D", systemImage: "cube.transparent")
+                        }
+                        Button { visModell = Fotomodell.finnes(rom.id) ? Fotomodell.url(rom.id) : Modell.url(rom.id) } label: {
+                            Label("Sett rommet ut i AR", systemImage: "arkit")
                         }
                         ShareLink(item: Modell.delbar(rom)) {
                             Label("Del 3D-modellen", systemImage: "square.and.arrow.up")
                         }
                     } footer: {
-                        Text("Snu og zoom med fingrene. Trykk AR for å sette rommet ut i virkeligheten.")
+                        Text("3D viser modellen på svart bakgrunn. AR setter den ut i rommet du står i.")
                     }
                 }
                 Section("Mål") {
@@ -246,6 +250,7 @@ struct RomDetalj: View {
             }
             .navigationTitle(rom.navn)
             .quickLookPreview($visModell)
+            .fullScreenCover(item: $visning) { ModellVisning(modell: $0) }
             .toolbar {
                 Button("Endre navn") { navn = rom.navn; endrer = true }
             }
