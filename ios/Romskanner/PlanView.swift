@@ -214,6 +214,16 @@ struct RomDetalj: View {
                 }
                 if Modell.finnes(rom.id) {
                     Section {
+                        if Fotomodell.finnes(rom.id) {
+                            Button { visModell = Fotomodell.url(rom.id) } label: {
+                                Label("Vis med bilder i 3D", systemImage: "photo.on.rectangle.angled")
+                            }
+                        } else if lager.fotoUnderArbeid.contains(rom.id) {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text("Lager 3D med bilder …").foregroundStyle(.secondary)
+                            }
+                        }
                         Button { visModell = Modell.url(rom.id) } label: {
                             Label("Vis rommet i 3D", systemImage: "cube.transparent")
                         }

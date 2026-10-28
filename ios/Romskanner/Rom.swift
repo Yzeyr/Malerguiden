@@ -259,12 +259,25 @@ struct Eksport: Codable {
 @MainActor
 final class RomLager: ObservableObject {
     @Published var rom: [SkannetRom] = [] { didSet { lagre() } }
+    /// Rom der 3D-modellen med bilder fortsatt lages.
+    @Published var fotoUnderArbeid = Set<UUID>()
     private let nokkel = "skannede-rom"
 
     init() {
         if let data = UserDefaults.standard.data(forKey: nokkel),
            let lagret = try? JSONDecoder().decode([SkannetRom].self, from: data) {
             rom = lagret
+        }
+    }
+
+    /// Lager 3D-modellen med bilder i bakgrunnen (tar noen sekunder).
+    func lagFotomodell(_ r: CapturedRoom, bilder: [Fotobilde], id: UUID) {
+        guard bilder.count >= 2 else { return }
+        fotoUnderArbeid.insert(id)
+        let url = Fotomodell.url(id)
+        Task.detached(priority: .utility) {
+            Fotomodell.lag(rom: r, bilder: bilder, til: url)
+            await MainActor.run { _ = self.fotoUnderArbeid.remove(id) }
         }
     }
 

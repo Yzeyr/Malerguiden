@@ -20,14 +20,19 @@ enum Modell {
         try? rom.export(to: url(id))
     }
 
-    static func slett(_ id: UUID) { try? FileManager.default.removeItem(at: url(id)) }
+    static func slett(_ id: UUID) {
+        try? FileManager.default.removeItem(at: url(id))
+        Fotomodell.slett(id)
+    }
 
     /// En kopi med rommets navn, så fila får et forståelig navn når den deles.
     static func delbar(_ rom: SkannetRom) -> URL {
         let trygt = rom.navn.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
         let mal = FileManager.default.temporaryDirectory.appendingPathComponent((trygt.isEmpty ? "Rom" : trygt) + ".usdz")
         try? FileManager.default.removeItem(at: mal)
-        try? FileManager.default.copyItem(at: url(rom.id), to: mal)
+        // Versjonen med bilder er mest nyttig å dele, når den finnes.
+        let kilde = Fotomodell.finnes(rom.id) ? Fotomodell.url(rom.id) : url(rom.id)
+        try? FileManager.default.copyItem(at: kilde, to: mal)
         return mal
     }
 }

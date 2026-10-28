@@ -86,12 +86,13 @@ struct ContentView: View {
                 .background(.bar)
             }
             .fullScreenCover(isPresented: $skanner) {
-                SkannView { rom in
+                SkannView { rom, bilder in
                     DispatchQueue.main.async {
                         skanner = false
                         guard let rom else { return }
                         let nytt = Maling.rom(fra: rom, navn: "")
                         Modell.lagre(rom, id: nytt.id)
+                        lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                         ventende = nytt
                         navn = "Rom \(lager.rom.count + 1)"
                         // Vent til skanneskjermen er borte før spørsmålet vises.
