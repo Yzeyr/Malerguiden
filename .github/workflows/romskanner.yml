@@ -1,0 +1,55 @@
+name: Bygg Romskanner (iOS)
+
+# Bygger LiDAR-appen på en Mac hos GitHub og legger en usignert .ipa som
+# nedlasting under jobben («Artifacts»). Fila signeres og installeres på
+# iPhonen med Sideloadly og en gratis Apple-ID. Se ios/README.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/romskanner.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bygg:
+    runs-on: macos-15
+    steps:
+      - name: Sjekk ut kode
+        uses: actions/checkout@v4
+
+      - name: Velg nyeste Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)" && xcodebuild -version
+
+      - name: Lag Xcode-prosjektet
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Bygg (usignert)
+        working-directory: ios
+        run: |
+          xcodebuild -project Romskanner.xcodeproj -target Romskanner \
+            -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+          test -d build/Release-iphoneos/Romskanner.app
+
+      - name: Pakk som .ipa
+        working-directory: ios
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/Romskanner.app Payload/
+          zip -qry Romskanner.ipa Payload
+          ls -la Romskanner.ipa
+
+      - name: Last opp
+        uses: actions/upload-artifact@v4
+        with:
+          name: Romskanner-ipa
+          path: ios/Romskanner.ipa
+          retention-days: 30

@@ -93,6 +93,7 @@ export function rensKalkyle(k, klasse = '') {
       lengde: str(r.lengde), bredde: str(r.bredde), hoyde: str(r.hoyde),
       gulv: Number.isFinite(r.gulv) ? r.gulv : null,
       omkrets: Number.isFinite(r.omkrets) ? r.omkrets : null,
+      vegg: Number.isFinite(r.vegg) ? r.vegg : null,
       vinduer: str(r.vinduer), dorer: str(r.dorer),
       trapp: !!r.trapp,
       med: { ...MED_ALT, ...(r.med && typeof r.med === 'object' ? r.med : {}) },
@@ -138,7 +139,8 @@ export function romMengder(rom) {
     return { ok: false, gulv: 0, tak: 0, vegg: 0, lister: 0, omkrets: 0, hoyde: H, vinduer, dorer };
   }
   const brutto = omkrets * H;
-  const vegg = Math.max(0, brutto - vinduer * VINDU_M2 - dorer * DOR_M2);
+  // Fra LiDAR-skanning er veggarealet målt direkte, med vinduer og dører trukket fra.
+  const vegg = Number.isFinite(rom.vegg) && rom.vegg > 0 ? rom.vegg : Math.max(0, brutto - vinduer * VINDU_M2 - dorer * DOR_M2);
   const lister = Math.max(0, omkrets - dorer * DOR_BREDDE);
   return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer };
 }
@@ -210,8 +212,10 @@ export function beregn(kalkyle, lagredePriser) {
   // Timer for en flate der noen rom er trappehull: Σ m² × faktor.
   const vektet = (liste) => liste.reduce((s, x) => s + x.m2 * x.faktor, 0);
 
-  // Rigging per rom, og ekstra rigging (stige/stillas) per trappehull.
+  // Oppstart per jobb, rigging per rom, tildekking av gulvet og stige/stillas per trappehull.
+  if (mengder.rom > 0) leggTil('jobb-oppstart', 1, { detalj: 'Per jobb' });
   leggTil('rigging-rom', mengder.rom, { detalj: mengder.rom + ' rom' });
+  leggTil('dekking-gulv', mengder.gulv);
   const trapper = (k.rom || []).filter((r) => r.trapp && romMengder(r).ok).length;
   leggTil('rigging-trapp', trapper, { detalj: trapper + ' trappehull' });
 
@@ -221,13 +225,12 @@ export function beregn(kalkyle, lagredePriser) {
     if (!(m2 > 0)) continue;
     const v = vektet(flater[flate]);
     const ord = flate === 'vegg' ? 'vegg' : 'tak';
-    if (f.sparkling !== 'ingen') {
-      leggTil(flate + '-sparkling-' + f.sparkling.toLowerCase(), m2, { faktorTimer: v });
-      leggTil(flate + '-sliping', m2, { faktorTimer: v });
-    }
+    // Sparkletallene fra tariffen inkluderer sliping.
+    if (f.sparkling !== 'ingen') leggTil(flate + '-sparkling-' + f.sparkling.toLowerCase(), m2, { faktorTimer: v });
     if (f.grunning || f.sparkling !== 'ingen') leggTil(flate + '-grunning', m2, { faktorTimer: v });
+    // Første strøk tar lengre tid og bruker mer maling enn de neste.
     for (let s = 1; s <= f.strok; s++) {
-      leggTil(flate + '-maling-strok', m2, { faktorTimer: v, navn: 'Maling ' + ord + ', strøk ' + s });
+      leggTil(flate + (s === 1 ? '-maling-strok1' : '-maling-strok'), m2, { faktorTimer: v, navn: 'Maling ' + ord + ', strøk ' + s });
     }
   }
   for (let s = 1; s <= (a.lister?.strok || 0); s++) leggTil('lister-strok', mengder.lister, { navn: 'Lister, strøk ' + s });
@@ -261,4 +264,24 @@ export function beregn(kalkyle, lagredePriser) {
 /** Arbeidsdager med en gitt dagslengde, avrundet opp til halve dager. */
 export function arbeidsdager(timer, timerPerDag = 7.5) {
   return Math.ceil((timer / timerPerDag) * 2) / 2;
+}
+
+/** Leser eksporten fra Romskanner-appen. Returnerer rom uten id, eller kaster med norsk melding. */
+export function fraSkanning(tekst) {
+  let d;
+  try { d = JSON.parse(String(tekst || '').trim()); } catch { throw new Error('Dette ser ikke ut som en skanning fra Romskanner.'); }
+  if (!d || d.format !== 'malerguiden-rom' || !Array.isArray(d.rom)) throw new Error('Dette ser ikke ut som en skanning fra Romskanner.');
+  const tallEllerNull = (v) => (Number.isFinite(v) && v > 0 ? v : null);
+  const heltall = (v) => (Number.isInteger(v) && v >= 0 ? String(v) : '');
+  return d.rom.filter((r) => r && typeof r === 'object').map((r) => ({
+    navn: String(r.navn || 'Rom').slice(0, 40),
+    lengde: '', bredde: '',
+    hoyde: tallEllerNull(r.takhoyde) ? String(Math.round(r.takhoyde * 100) / 100).replace('.', ',') : '',
+    gulv: tallEllerNull(r.gulv),
+    omkrets: tallEllerNull(r.omkrets),
+    vegg: tallEllerNull(r.vegg),
+    vinduer: heltall(r.vinduer),
+    dorer: heltall(r.dorer),
+    kilde: 'skann',
+  })).filter((r) => r.gulv && r.omkrets);
 }

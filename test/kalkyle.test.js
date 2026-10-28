@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -108,11 +108,40 @@ test('rensKalkyle tåler rot', () => {
 test('alle operasjoner som beregningen bruker, finnes i normene', () => {
   const ider = new Set(NORMER.map((n) => n.id));
   for (const f of ['vegg', 'tak']) for (const s of ['skjot', 'k2', 'k3']) assert.ok(ider.has(f + '-sparkling-' + s));
-  for (const id of ['rigging-rom', 'rigging-trapp', 'vegg-sliping', 'tak-sliping', 'vegg-grunning', 'tak-grunning', 'vegg-maling-strok', 'tak-maling-strok', 'lister-strok', 'vindu-strok', 'dor-strok']) assert.ok(ider.has(id), id);
+  for (const id of ['jobb-oppstart', 'rigging-rom', 'dekking-gulv', 'rigging-trapp', 'vegg-grunning', 'tak-grunning', 'vegg-maling-strok1', 'vegg-maling-strok', 'tak-maling-strok1', 'tak-maling-strok', 'lister-strok', 'vindu-strok', 'dor-strok']) assert.ok(ider.has(id), id);
+});
+
+test('første strøk tar lengre tid enn andre', () => {
+  const r = beregn({ ...tomKalkyle(), rom: [rom()] }, {});
+  const s1 = r.linjer.find((l) => l.navn === 'Maling vegg, strøk 1');
+  const s2 = r.linjer.find((l) => l.navn === 'Maling vegg, strøk 2');
+  assert.ok(s1.timer > s2.timer);
+});
+
+test('stue med 2 strøk på vegg og tak lander på noen timer, ikke dager', () => {
+  // Kontrollen fra researchen: ca. 5 t uten oppstart; med oppstart og 1,5 t rigging ca. 7 t.
+  const r = beregn({ ...tomKalkyle(), rom: [rom({ lengde: '5', bredde: '5', vinduer: '1', dorer: '1' })] }, {});
+  assert.ok(r.sum.timer > 5 && r.sum.timer < 9, String(r.sum.timer));
 });
 
 test('arbeidsdager rundes opp til halve dager', () => {
   assert.equal(arbeidsdager(8), 1.5);
   assert.equal(arbeidsdager(7.5), 1);
   assert.equal(arbeidsdager(0.5), 0.5);
+});
+
+test('skanning fra Romskanner blir rom med målt veggareal', () => {
+  const tekst = JSON.stringify({ format: 'malerguiden-rom', versjon: 1, rom: [
+    { navn: 'Stue', gulv: 21.42, omkrets: 18.6, takhoyde: 2.43, vegg: 39.1, vinduer: 2, dorer: 1, apninger: 0 },
+    { navn: 'Tom', gulv: 0, omkrets: 0, takhoyde: 2.4, vegg: 0, vinduer: 0, dorer: 0 },
+  ] });
+  const rom = fraSkanning(tekst);
+  assert.equal(rom.length, 1, 'rom uten mål hoppes over');
+  const m = romMengder({ ...rom[0], id: 'x' });
+  assert.equal(m.gulv, 21.42);
+  assert.equal(m.vegg, 39.1);
+  assert.equal(m.hoyde, 2.43);
+  assert.equal(rom[0].kilde, 'skann');
+  assert.throws(() => fraSkanning('{"x":1}'), /Romskanner/);
+  assert.throws(() => fraSkanning('ikke json'), /Romskanner/);
 });

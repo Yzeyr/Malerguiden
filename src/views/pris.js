@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
 import { endreJobb, hentJobb } from '../jobs.js';
-import { tomKalkyle, romMengder, beregn, arbeidsdager, SPARKLING, MED_ALT, STANDARD_HOYDE } from '../kalkyle.js';
+import { tomKalkyle, romMengder, beregn, arbeidsdager, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -30,7 +30,9 @@ export function romPanel(j) {
   ut.append(h('div.bildeknapper', { style: { marginBottom: '6px' } },
     h('button.knapp', { type: 'button', onclick: () => apnePlantegning(j.id) }, ikon('kart'), 'Plantegning'),
     h('button.knapp.sekundar', { type: 'button', onclick: () => romArk(j.id, null) }, ikon('pluss'), 'Nytt rom')));
-  ut.append(h('button.knapp.sekundar.hel', { type: 'button', onclick: () => kiLes(j.id) }, '✨ Les plantegning med KI'));
+  ut.append(h('div.bildeknapper', { style: { marginTop: '8px' } },
+    h('button.knapp.sekundar', { type: 'button', onclick: () => kiLes(j.id) }, '✨ Les med KI'),
+    h('button.knapp.sekundar', { type: 'button', onclick: () => importerSkanning(j.id) }, ikon('lastned'), 'Skanning')));
 
   const ok = rom.map((r) => ({ r, m: romMengder(r) }));
   const vegg = ok.reduce((s, x) => s + (x.m.ok && x.r.med.vegg ? x.m.vegg : 0), 0);
@@ -47,7 +49,8 @@ export function romPanel(j) {
       m.vinduer > 0 && r.med.vinduer && flertall(m.vinduer, 'vindu', 'vinduer'), m.dorer > 0 && r.med.dorer && flertall(m.dorer, 'dør', 'dører'),
       r.trapp && 'Trappehull',
     ].filter(Boolean) : ['Mangler mål'];
-    const under = r.kilde === 'plan' ? 'Fra plantegning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 1) + ' m'
+    const under = r.kilde === 'skann' ? 'LiDAR-skanning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 2) + ' m'
+      : r.kilde === 'plan' ? 'Fra plantegning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 1) + ' m'
       : m.ok ? fmt(tallEl(r.lengde), 1) + ' × ' + fmt(tallEl(r.bredde), 1) + ' m · takhøyde ' + fmt(m.hoyde, 1) + ' m' : 'Trykk for å legge inn mål';
     ut.append(h('div.kort', { role: 'button', tabindex: '0', style: { marginBottom: '8px', cursor: 'pointer' }, onclick: () => romArk(j.id, r.id), onkeydown: (e) => { if (e.key === 'Enter') romArk(j.id, r.id); } },
       h('div', { style: { display: 'flex', gap: '12px', alignItems: 'center' } },
@@ -99,7 +102,8 @@ export function romArk(jobId, romId, forslag = null) {
       h('h2', finnes ? 'Endre rom' : 'Nytt rom'),
       h('label.felt', h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
       fraPlan
-        ? h('p.dempet.liten', { style: { margin: '0 2px 10px' } }, 'Gulv og omkrets er målt på plantegningen.')
+        ? h('p.dempet.liten', { style: { margin: '0 2px 10px' } }, verdi.kilde === 'skann'
+          ? 'Gulv, omkrets og veggareal er målt med LiDAR-skanning.' : 'Gulv og omkrets er målt på plantegningen.')
         : h('div', { style: { display: 'flex', gap: '10px' } }, felt('lengde', 'Lengde (m)'), felt('bredde', 'Bredde (m)')),
       h('div', { style: { display: 'flex', gap: '10px' } },
         felt('hoyde', 'Takhøyde (m)', { placeholder: fmt(STANDARD_HOYDE, 1) }),
@@ -282,5 +286,41 @@ function visKiResultat(jobId, bildeId, rom, merknad) {
       })),
       knapp,
       h('p.dempet.liten', { style: { textAlign: 'center', marginTop: '8px' } }, 'KI kan lese feil. Sjekk målene mot tegningen.'));
+  });
+}
+
+/* ---------- Import fra Romskanner (LiDAR) ---------- */
+
+function importerSkanning(jobId) {
+  ark((lukk) => {
+    const feil = h('p.feilmelding', { hidden: true });
+    const tekst = h('textarea', { rows: 3, placeholder: '{"format":"malerguiden-rom",…}' });
+    const leggInn = (innhold) => {
+      let rom;
+      try { rom = fraSkanning(innhold); } catch (e) { feil.textContent = e.message; feil.hidden = false; return; }
+      if (!rom.length) { feil.textContent = 'Skanningen har ingen rom med mål.'; feil.hidden = false; return; }
+      const nye = rom.map((r) => ({ ...r, id: nyId('r-'), trapp: false, med: { ...MED_ALT }, polygon: null, tegning: null }));
+      if (endreKalkyle(jobId, (k) => { k.rom.push(...nye); })) toast(flertall(nye.length, 'rom', 'rom') + ' fra skanningen er lagt til.');
+      lukk();
+    };
+    const fil = h('input', {
+      type: 'file', accept: 'application/json,.json', hidden: true,
+      onchange: async (e) => { const f = e.target.files[0]; if (f) leggInn(await f.text()); },
+    });
+    return h('div',
+      h('h2', 'Importer skanning'),
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Skann rommene med Romskanner-appen og trykk «Kopier til Malerguiden». Kom så tilbake hit og trykk «Lim inn».'),
+      h('button.knapp.hel', {
+        type: 'button',
+        onclick: async () => {
+          try { leggInn(await navigator.clipboard.readText()); }
+          catch { feil.textContent = 'Fikk ikke lest utklippstavla. Lim inn i feltet under i stedet.'; feil.hidden = false; tekst.focus(); }
+        },
+      }, ikon('kopier'), 'Lim inn'),
+      h('label.felt', { style: { marginTop: '12px' } }, h('span', 'Eller lim inn her'), tekst),
+      feil,
+      h('div.knapprad',
+        h('label.knapp.sekundar', ikon('lastned'), 'Velg fil', fil),
+        h('button.knapp.sekundar', { type: 'button', onclick: () => leggInn(tekst.value) }, 'Legg inn')));
   });
 }
