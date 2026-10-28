@@ -1,12 +1,11 @@
 name: Deploy Malerguiden til GitHub Pages
 
+# Kjører ved hver push til main. Tidligere kjørte den bare når index.html
+# endret seg, så endringer i sw.js, manifest og ikoner ble aldri publisert.
 on:
   push:
     branches:
       - main
-    paths:
-      - "index.html"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -27,6 +26,19 @@ jobs:
     steps:
       - name: Sjekk ut kode
         uses: actions/checkout@v4
+
+      - name: Sett opp Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Testene og versjonssjekken må bestå før noe publiseres. Versjonen i
+      # sw.js må stemme med filene, ellers får telefonene ikke den nye koden.
+      - name: Tester
+        run: node --test
+
+      - name: Sjekk at sw.js har riktig versjon
+        run: node tools/versjon.mjs --sjekk
 
       - name: Sett opp GitHub Pages
         uses: actions/configure-pages@v5

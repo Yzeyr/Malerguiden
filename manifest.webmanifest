@@ -1,34 +1,19 @@
 {
-  "name": "Malerguiden — faglig oppslagsverk",
+  "name": "Malerguiden",
   "short_name": "Malerguiden",
-  "description": "Oppslagsverk for malere og gulvleggere: fall til sluk, vinylbelegg, sparkling, maling og kalkulatorer. Fungerer uten nett.",
+  "description": "Jobber, kalkulatorer og fagstoff for malere og våtrom. Fungerer uten nett.",
   "lang": "no",
   "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#12333b",
-  "theme_color": "#12333b",
+  "background_color": "#F5EFE6",
+  "theme_color": "#1D1815",
   "categories": ["utilities", "productivity", "reference"],
   "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
