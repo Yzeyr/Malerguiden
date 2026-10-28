@@ -267,7 +267,7 @@ function regnSparkel(v) {
   const forbruk = tall(v['sp-forbruk']);
   const svinn = tall(v['sp-svinn']);
   const sekk = tall(v['sp-sekk']);
-  const merknad = 'Forbruket i kg/m² er totalt for alle strøk. 1,5 kg/m² er et vanlig snitt for helsparkling. Tommelfingerregel ellers: ca. 1 kg/m² per mm sjikt. K3 krever et ekstra finstrøk over hele flaten og bruker altså mer enn K2 — legg på selv etter hva du erfarer. Sjekk alltid sekken; produktene varierer.';
+  const merknad = 'Forbruket i kg/m² er totalt for alle strøk. 1,5 kg/m² er et vanlig snitt for helsparkling. Tommelfingerregel ellers: ca. 1 kg/m² per mm sjikt. Bare K3 er helsparkling; K2 er skjøt og flekk og bruker langt mindre — legg inn forbruket etter hva du gjør. Sjekk alltid sekken; produktene varierer.';
 
   if (![areal, forbruk, sekk].every((x) => Number.isFinite(x) && x > 0)) {
     return { ...ugyldig(['Masse inkl. svinn', 'Fordelt'], 'Fyll inn areal, forbruk og sekkestørrelse.', 'sekker'), merknad };

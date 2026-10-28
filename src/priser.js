@@ -9,6 +9,19 @@ export function lastPriser() {
   const r = lesJson(PRIS_NOKKEL);
   if (r.status === 'odelagt') reddOdelagt(PRIS_NOKKEL, r.raa);
   egne = r.status === 'ok' && r.verdi && typeof r.verdi === 'object' && !Array.isArray(r.verdi) ? r.verdi : {};
+  flyttGamleNormer(egne);
+}
+
+/* «Skjøtsparkling» er nå K2, og den gamle «K2» (helsparkling i ett strøk) finnes ikke lenger.
+   Egne tall for skjøtsparkling følger med til K2. Lagres neste gang en pris endres. */
+export function flyttGamleNormer(p) {
+  const n = p && p.normer;
+  if (!n || typeof n !== 'object') return p;
+  for (const f of ['vegg', 'tak']) {
+    const gammel = f + '-sparkling-skjot';
+    if (n[gammel]) { n[f + '-sparkling-k2'] = n[gammel]; delete n[gammel]; }
+  }
+  return p;
 }
 
 export function egnePriser() { return egne; }

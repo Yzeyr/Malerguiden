@@ -5,7 +5,7 @@
    job.kalkyle = {
      modus: 'timer' | 'enhet',          // timer × timepris, eller enhetspriser
      arbeid: {                           // hva som gjøres, felles for alle rom
-       vegg:  { sparkling: 'ingen'|'skjot'|'K2'|'K3', grunning: bool, strok: 0-3 },
+       vegg:  { sparkling: 'ingen'|'K1'|'K2'|'K3', grunning: bool, strok: 0-3 },  // estetisk klasse, NS 3420-T
        tak:   { sparkling, grunning, strok },
        lister:{ strok },  vinduer: { strok },  dorer: { strok },
      },
@@ -26,15 +26,20 @@ export const DOR_M2 = 1.6;      // samme som romkalkulatoren
 export const VINDU_M2 = 1.5;
 export const DOR_BREDDE = 0.9;  // trekkes fra gulvlist
 
+/* Estetiske klasser i NS 3420-T. K1: funksjonell, skjøter og hull tettes (bod, teknisk rom).
+   K2: skjøt- og flekksparklet, ikke helsparklet (vanlig standard). K3: helsparklet, krever
+   forsenkede platekanter, anbefalt i stue, kjøkken, soverom og gang. */
 export const SPARKLING = [
   { id: 'ingen', label: 'Ingen' },
-  { id: 'skjot', label: 'Skjøt' },
+  { id: 'K1', label: 'K1' },
   { id: 'K2', label: 'K2' },
   { id: 'K3', label: 'K3' },
 ];
+// Før het K2-arbeidet «skjøt» (strimling, fylling, flekk og sliping).
+const GAMLE_SPARKLING = { skjot: 'K2' };
 
 export function standardArbeid(klasse = '') {
-  const sp = klasse === 'K2' || klasse === 'K3' ? klasse : 'ingen';
+  const sp = ['K1', 'K2', 'K3'].includes(klasse) ? klasse : 'ingen';
   return {
     vegg: { sparkling: sp, grunning: false, strok: 2 },
     tak: { sparkling: 'ingen', grunning: false, strok: 2 },
@@ -70,7 +75,7 @@ const str = (v) => (v == null ? '' : String(v));
 function rensFlate(f, std) {
   f = f && typeof f === 'object' ? f : {};
   return {
-    sparkling: SPARKLING.some((s) => s.id === f.sparkling) ? f.sparkling : std.sparkling,
+    sparkling: SPARKLING.some((s) => s.id === f.sparkling) ? f.sparkling : GAMLE_SPARKLING[f.sparkling] || std.sparkling,
     grunning: bool(f.grunning, std.grunning),
     strok: Number.isInteger(f.strok) && f.strok >= 0 && f.strok <= 4 ? f.strok : std.strok,
   };
@@ -323,7 +328,8 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 }
 
 /** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
-export const SPARKEL_RUNDER = { skjot: 2, k2: 2, k3: 3, listefritt: 2, 'listefritt-vindu': 3 };
+// K1: strimling og fylling. K2: strimling, fyllstrøk og finstrøk. K3: K2-skjøtene pluss to strøk helsparkling.
+export const SPARKEL_RUNDER = { k1: 2, k2: 3, k3: 4, listefritt: 2, 'listefritt-vindu': 3 };
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn
@@ -335,7 +341,7 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const b = resultat || { linjer: [], sum: { timer: 0 } };
   let runder = 0, sparkel = 0;
   for (const l of b.linjer) {
-    const m = /-sparkling-(skjot|k2|k3)$/.exec(l.id);
+    const m = /-sparkling-(k1|k2|k3)$/.exec(l.id);
     // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
     const r = m ? SPARKEL_RUNDER[m[1]] : SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
     if (!r || !(l.timer > 0)) continue;

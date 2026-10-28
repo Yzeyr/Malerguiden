@@ -76,8 +76,9 @@ export const JOB_STATUS = [
 // Avtalt sparklingsklasse (`job.klasse`). Gamle linje 1220–1224.
 export const KLASSER = [
   { id: '', label: 'Ikke avtalt' },
-  { id: 'K2', label: 'K2 — helsparklet i ett strøk' },
-  { id: 'K3', label: 'K3 — ekstra finstrøk over hele flaten' }
+  { id: 'K1', label: 'K1 — funksjonell, for bod og teknisk rom' },
+  { id: 'K2', label: 'K2 — skjøt- og flekksparklet, vanlig standard' },
+  { id: 'K3', label: 'K3 — helsparklet, tåler sidelys' }
 ];
 /** Forklaringen under klassevalget (gamle linje 1226). */
 export const KLASSE_MERKNAD = 'Klassen avgjør pris, og om en synlig bulk er reklamasjon eller innenfor avtalen. Står den som «ikke avtalt», er det verdt å avklare den skriftlig før oppstart.';

@@ -166,7 +166,7 @@ export const SEKSJONER = [
     id: 'sparkling',
     tittel: 'Sparkling',
     ikon: '🧱',
-    undertittel: 'K2/K3-finish, sliping, sidelys',
+    undertittel: 'K1–K3, sliping, sidelys',
     fakta: ['sparkling'],
     blokker: [
       {
@@ -180,8 +180,8 @@ export const SEKSJONER = [
         tittel: '',
         steg: [
           {
-            tittel: 'Avklar klasse — K2 eller K3',
-            html: 'NS 3420-T deler overflater inn i estetiske klasser. <strong>K2</strong> er vanlig standard: helsparklet i ett strøk, dekker normalt godt for matt/halvblank maling i vanlig rombelysning. <strong>K3</strong> legger på et ekstra finstrøk over hele flaten (ikke bare skjøtene) — velges ved sterkt sidelys (store vinduer, spotter i taket), blank/skinnende maling, eller når kunden vil ha et tilnærmet speilblankt resultat. Avklar klassen skriftlig før oppstart: den avgjør hvor mange strøk du legger inn, hva jobben koster, og om en synlig bulk er en reklamasjon eller innenfor avtalen.'
+            tittel: 'Avklar klasse — K1, K2 eller K3',
+            html: 'NS 3420-T deler overflater inn i estetiske klasser. <strong>K1</strong> er funksjonell: skjøter og hull tettes, for bod og teknisk rom. <strong>K2</strong> er vanlig standard: skjøt- og flekksparklet, ikke helsparklet. Ser bra ut i vanlig lys. <strong>K3</strong> er helsparklet: først skjøtene, så hele flaten, vanligvis i to strøk. Velges ved sterkt sidelys (store vinduer, spotter i taket) og blank maling, og standarden anbefaler K3 i stue, kjøkken, soverom og gang. K3 krever forsenkede platekanter i alle skjøter. Perforerte plater og plater med V-fas kan høyst bli K2. Avklar klassen skriftlig før oppstart: den avgjør hvor mange strøk du legger inn, hva jobben koster, og om en synlig bulk er en reklamasjon eller innenfor avtalen.'
           },
           {
             tittel: 'Taping',
@@ -193,7 +193,7 @@ export const SEKSJONER = [
           },
           {
             tittel: 'Fintstrøk',
-            html: 'Siste strøk tas med en bred sparkel for penest resultat. Fukt sparkelen lett med vann før du drar det siste strøket — det gir bedre flyt i massen og mindre sliping etterpå. På K3 tas dette strøket over hele flaten, ikke bare skjøtene.'
+            html: 'Siste strøk tas med en bred sparkel for penest resultat. Fukt sparkelen lett med vann før du drar det siste strøket — det gir bedre flyt i massen og mindre sliping etterpå. På K3 helsparkles hele flaten etterpå, vanligvis i to strøk.'
           },
           {
             tittel: 'Sliping',

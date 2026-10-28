@@ -185,7 +185,7 @@ export function prisPanel(j) {
   const sett = (flate, felt, v) => endreKalkyle(j.id, (x, job) => {
     x.arbeid[flate][felt] = v;
     // Sparklingen på veggene og den avtalte klassen på jobben følger hverandre.
-    if (flate === 'vegg' && felt === 'sparkling' && (v === 'K2' || v === 'K3')) job.klasse = v;
+    if (flate === 'vegg' && felt === 'sparkling' && ['K1', 'K2', 'K3'].includes(v)) job.klasse = v;
   });
   const flateKort = (flate, tittel) => h('div.kort', { style: { marginBottom: '8px' } },
     h('h3', { style: { marginBottom: '8px' } }, tittel, h('span.dempet.liten', { style: { marginLeft: '8px', fontWeight: '500' } }, m2(r.mengder[flate]))),

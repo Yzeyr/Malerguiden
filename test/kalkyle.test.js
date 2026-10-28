@@ -48,8 +48,8 @@ test('K3 gir flere timer enn K2, som gir flere enn ingen sparkling', () => {
     return beregn(k, {}).sum.timer;
   };
   assert.ok(med('K3') > med('K2'));
-  assert.ok(med('K2') > med('skjot'));
-  assert.ok(med('skjot') > med('ingen'));
+  assert.ok(med('K2') > med('K1'));
+  assert.ok(med('K1') > med('ingen'));
 });
 
 test('sparklingsklassen på jobben blir standard for vegg', () => {
@@ -107,7 +107,7 @@ test('rensKalkyle tåler rot', () => {
 
 test('alle operasjoner som beregningen bruker, finnes i normene', () => {
   const ider = new Set(NORMER.map((n) => n.id));
-  for (const f of ['vegg', 'tak']) for (const s of ['skjot', 'k2', 'k3']) assert.ok(ider.has(f + '-sparkling-' + s));
+  for (const f of ['vegg', 'tak']) for (const s of ['k1', 'k2', 'k3']) assert.ok(ider.has(f + '-sparkling-' + s));
   for (const id of ['jobb-oppstart', 'rigging-rom', 'dekking-gulv', 'rigging-trapp', 'vegg-grunning', 'tak-grunning', 'vegg-maling-strok1', 'vegg-maling-strok', 'tak-maling-strok1', 'tak-maling-strok', 'lister-strok', 'vindu-strok', 'dor-strok']) assert.ok(ider.has(id), id);
 });
 
@@ -188,8 +188,8 @@ test('sparkel trenger et døgn tørk per runde', () => {
   assert.equal(dagerMedTork(uten).dager, dagerMedTork(uten).arbeidsdager);
   const k3 = beregn({ ...tomKalkyle('K3'), rom: [rom({ id: 'a' })] }, {});
   const d = dagerMedTork(k3);
-  assert.equal(d.runder, 3);
-  assert.ok(d.dager >= 3.5 && d.dager > d.arbeidsdager, JSON.stringify(d));
+  assert.equal(d.runder, 4);
+  assert.ok(d.dager >= 4.5 && d.dager > d.arbeidsdager, JSON.stringify(d));
 });
 
 test('listefritt vindu gir tre sparkelrunder', () => {
@@ -215,7 +215,14 @@ test('tørketid gir ikke ekstra dager når det er nok arbeid å fylle den med', 
   const store = Array.from({ length: 8 }, (_, i) => rom({ id: 'r' + i, lengde: '5', bredde: '4' }));
   const b = beregn({ ...tomKalkyle('K2'), rom: store }, {});
   const d = dagerMedTork(b);
-  assert.equal(d.runder, 2);
+  assert.equal(d.runder, 3);
   assert.ok(d.arbeidsdager >= 5, JSON.stringify(d));
   assert.ok(d.dager - d.arbeidsdager <= 0.5, JSON.stringify(d));
+});
+
+test('gammel «skjøt» blir K2, og egne tall for skjøtsparkling følger med', async () => {
+  assert.equal(rensKalkyle({ arbeid: { vegg: { sparkling: 'skjot' } } }).arbeid.vegg.sparkling, 'K2');
+  const { flyttGamleNormer } = await import('../src/priser.js');
+  const p = flyttGamleNormer({ normer: { 'vegg-sparkling-skjot': { timer: '0,2' }, 'vegg-sparkling-k2': { timer: '0,17' } } });
+  assert.deepEqual(p.normer, { 'vegg-sparkling-k2': { timer: '0,2' } });
 });

@@ -183,14 +183,14 @@ export const SJEKKLISTE_BY_TYPE = {
     hel: [
       { fase: 'Før oppstart', items: [
         { id: 'bilde-for', label: '📸 Før-bilde tatt' },
-        { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+        { id: 'klasse', label: 'Estetisk klasse (K1–K3) avtalt skriftlig' },
         { id: 'underlag', label: 'Underlag kontrollert' },
         { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' }
       ]},
       { fase: 'Utførelse', items: [
         { id: 'taping', label: 'Strimling i skjøter og hjørner — skruehull i samme omgang' },
-        { id: 'fyllstrok', label: 'Fyllstrøk — skruehull i samme omgang. Ett strøk ved K2' },
-        { id: 'fintstrok', label: 'Finstrøk — skruehull i samme omgang. Hele flaten ved K3' }
+        { id: 'fyllstrok', label: 'Fyll- og finstrøk på skjøtene — skruehull i samme omgang' },
+        { id: 'fintstrok', label: 'Helsparkling over hele flaten, vanligvis to strøk (K3)' }
       ]},
       { fase: 'Kontroll', items: [
         { id: 'torketid', label: 'Tørket fullt før sliping' },
@@ -207,7 +207,7 @@ export const SJEKKLISTE_BY_TYPE = {
     skjot: [
       { fase: 'Før oppstart', items: [
         { id: 'bilde-for', label: '📸 Før-bilde tatt' },
-        { id: 'klasse', label: 'Estetisk klasse (K2/K3) avtalt skriftlig' },
+        { id: 'klasse', label: 'Estetisk klasse (K1–K3) avtalt skriftlig' },
         { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' },
         { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' }
       ]},

@@ -73,7 +73,7 @@ export function normaliserJobb(j) {
           faktiskMengde: Number.isFinite(b.faktiskMengde) ? b.faktiskMengde : null,
         }))
       : [],
-    klasse: j.klasse === 'K2' || j.klasse === 'K3' ? j.klasse : '',
+    klasse: ['K1', 'K2', 'K3'].includes(j.klasse) ? j.klasse : '',
     maal: {},
     maalFritekst: str(j.maalFritekst),
     farger: Array.isArray(j.farger)
