@@ -308,7 +308,7 @@ async function verktoy(jobId, bildeId) {
       const f = forslag.find((r) => inni([x, y], r.polygon));
       if (f) {
         forslag = forslag.filter((r) => r !== f);
-        fraForslag = f; apnRom = { dorer: f.dorer.length, vinduer: f.vinduer.length };
+        fraForslag = f; apnRom = { dorer: f.dorer.length, vinduer: f.vinduer.length, trapp: !!f.trapp };
         punkter = f.polygon.map((p) => p.slice()); lukket = true;
         tegn();
         return;
@@ -434,9 +434,9 @@ async function verktoy(jobId, bildeId) {
       nullstill();
       return;
     }
-    const tellere = apnRom ? { vinduer: String(apnRom.vinduer), dorer: String(apnRom.dorer) } : {};
+    const tellere = apnRom ? { vinduer: String(apnRom.vinduer), dorer: String(apnRom.dorer), trapp: !!apnRom.trapp } : {};
     nullstill();
-    romArk(jobId, null, { navn: 'Rom ' + ((job().kalkyle?.rom.length || 0) + 1), ...mal, ...tellere, kilde: 'plan', polygon, tegning: bildeId });
+    romArk(jobId, null, { navn: tellere.trapp ? 'Trappehull' : 'Rom ' + ((job().kalkyle?.rom.length || 0) + 1), ...mal, ...tellere, kilde: 'plan', polygon, tegning: bildeId });
   }
 
   async function slettRommet() {
@@ -472,6 +472,7 @@ async function verktoy(jobId, bildeId) {
         polygon: r.polygon.map(tilbake),
         dorer: r.dorer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
         vinduer: r.vinduer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
+        trapp: !!r.trapp, // trinnstreker funnet: trappehull
       }))
       // Ikke foreslå rom som allerede er lagt inn
       .filter((r) => {
@@ -488,8 +489,8 @@ async function verktoy(jobId, bildeId) {
   function leggTilAlle() {
     const antall = job().kalkyle?.rom.length || 0;
     const nye = forslag.map((f, i) => ({
-      id: nyId('r-'), navn: 'Rom ' + (antall + i + 1), lengde: '', bredde: '', hoyde: '',
-      ...malFor(f.polygon), vinduer: String(f.vinduer.length), dorer: String(f.dorer.length), trapp: false,
+      id: nyId('r-'), navn: f.trapp ? 'Trappehull' : 'Rom ' + (antall + i + 1), lengde: '', bredde: '', hoyde: '',
+      ...malFor(f.polygon), vinduer: String(f.vinduer.length), dorer: String(f.dorer.length), trapp: !!f.trapp,
       med: { vegg: true, tak: true, lister: true, vinduer: true, dorer: true }, kilde: 'plan',
       polygon: f.polygon.map(([x, y]) => [Math.round(x), Math.round(y)]), tegning: bildeId,
     }));
@@ -521,7 +522,7 @@ async function verktoy(jobId, bildeId) {
       ny('polygon', { points: f.polygon.map((p) => p.join(',')).join(' '), fill: 'rgba(59,76,160,.14)', stroke: '#3B4CA0', 'stroke-width': STROK * k, 'stroke-dasharray': `${8 * k} ${6 * k}` });
       linjer(f.dorer, '#B9482A');
       linjer(f.vinduer, '#4F8FD1');
-      etikett(f.polygon, 'Forslag ' + (i + 1), '#3B4CA0');
+      etikett(f.polygon, 'Forslag ' + (i + 1) + (f.trapp ? ' · trapp' : ''), '#3B4CA0');
     });
     if (fraForslag) { linjer(fraForslag.dorer, '#B9482A'); linjer(fraForslag.vinduer, '#4F8FD1'); }
     const farge = modus === 'skala' ? '#3B4CA0' : '#B9482A';

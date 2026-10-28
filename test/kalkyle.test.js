@@ -234,3 +234,13 @@ test('flere plantegninger per jobb, og den gamle ene blir «1. etasje»', () => 
   assert.deepEqual(k.planer, [{ bilde: 'a', navn: 'Kjeller', skala: null }, { bilde: 'b', navn: '2. etasje', skala: null }]);
   assert.equal('plan' in k, false);
 });
+
+test('rom uten sparkling får bare maling', () => {
+  const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a' }), rom({ id: 'b', med: { sparkling: false } })] };
+  const b = beregn(k, {});
+  const sp = b.linjer.find((l) => l.id === 'vegg-sparkling-k2');
+  const mal = b.linjer.find((l) => l.id === 'vegg-maling-strok1');
+  assert.ok(Math.abs(sp.mengde * 2 - mal.mengde) < 0.01, sp.mengde + ' / ' + mal.mengde);
+  assert.equal(rensKalkyle({ rom: [{ id: 'x' }] }).rom[0].med.sparkling, true);
+  assert.equal(rensKalkyle({ rom: [{ id: 'x', med: { sparkling: false } }] }).rom[0].med.sparkling, false);
+});

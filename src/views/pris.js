@@ -50,7 +50,7 @@ export function romPanel(j) {
     const brikker = m.ok ? [etasje[r.tegning],
       r.med.vegg && 'Vegg ' + m2(m.vegg), r.med.tak && 'Tak ' + m2(m.tak), r.med.lister && 'Lister ' + fmt(m.lister, 1) + ' m',
       m.vinduer > 0 && r.med.vinduer && flertall(m.vinduer, 'vindu', 'vinduer'), m.dorer > 0 && r.med.dorer && flertall(m.dorer, 'dør', 'dører'),
-      r.trapp && 'Trappehull', r.mobler && 'Møbler',
+      r.trapp && 'Trappehull', r.mobler && 'Møbler', r.med.sparkling === false && 'Bare maling',
     ].filter(Boolean) : ['Mangler mål'];
     const under = r.kilde === 'skann' ? 'LiDAR-skanning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 2) + ' m'
       : r.kilde === 'plan' ? 'Fra plantegning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 1) + ' m'
@@ -125,7 +125,7 @@ export function romArk(jobId, romId, forslag = null) {
       h('label.tallfelt', h('span', 'Flytte møbler', h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Flytte og dekke til møbler i rommet')),
         h('input.bryter', { type: 'checkbox', checked: !!verdi.mobler, onchange: (e) => { verdi.mobler = e.target.checked; } })),
       h('details.flere', h('summary', 'Hva skal gjøres i dette rommet'),
-        bryter('vegg', 'Vegger'), bryter('tak', 'Tak'), bryter('lister', 'Lister'), bryter('vinduer', 'Vinduer'), bryter('dorer', 'Dører')),
+        bryter('vegg', 'Vegger'), bryter('tak', 'Tak'), bryter('sparkling', 'Sparkling (av: bare maling)'), bryter('lister', 'Lister'), bryter('vinduer', 'Vinduer'), bryter('dorer', 'Dører')),
       h('div.knapprad',
         finnes && h('button.knapp.fare', {
           type: 'button',

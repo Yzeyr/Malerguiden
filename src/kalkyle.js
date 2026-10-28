@@ -14,7 +14,7 @@
              vinduer, dorer,                          // antall (tekst)
              trapp: bool,                             // trappehull: høye flater, stillas
              mobler: bool,                            // møbler må flyttes og dekkes til
-             med: { vegg, tak, lister, vinduer, dorer }, // av/på per rom
+             med: { vegg, tak, lister, vinduer, dorer, sparkling }, // av/på per rom (sparkling av: bare maling)
              kilde: 'manuell'|'plan'|'ki'|'skann', polygon? }],
      tillegg: [{ id, tekst, timer, kr }],
    }
@@ -51,7 +51,7 @@ export function standardArbeid(klasse = '') {
   };
 }
 
-export const MED_ALT = { vegg: true, tak: true, lister: true, vinduer: true, dorer: true };
+export const MED_ALT = { vegg: true, tak: true, lister: true, vinduer: true, dorer: true, sparkling: true };
 
 export function tomKalkyle(klasse = '') {
   return { modus: 'timer', arbeid: standardArbeid(klasse), rom: [], tillegg: [], planer: [] };
@@ -221,9 +221,9 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
   const linjer = [];
-  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0 };
+  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0 };
   // Trappehull tar lengre tid per m²: samme mengde, men timene ganges med faktoren.
-  const flater = { vegg: [], tak: [], taklinje: [], hjorner: [] };
+  const flater = { vegg: [], tak: [], taklinje: [], hjorner: [], veggSparkles: [], takSparkles: [] };
   let manglerMal = 0;
 
   for (const rom of k.rom || []) {
@@ -234,6 +234,9 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
     mengder.gulv += m.gulv;
     const faktor = rom.trapp ? P.trappFaktor : 1;
     if (med.vegg) { mengder.vegg += m.vegg; flater.vegg.push({ m2: m.vegg, faktor }); }
+    // Rom der sparkling er huket av (står det av, males rommet bare)
+    if (med.vegg && med.sparkling) { mengder.veggSparkles += m.vegg; flater.veggSparkles.push({ m2: m.vegg, faktor }); }
+    if (med.tak && med.sparkling) { mengder.takSparkles += m.tak; flater.takSparkles.push({ m2: m.tak, faktor }); }
     // Overgangen tak/vegg følger omkretsen. Hjørnene: antall hjørner × takhøyde (4 i et firkantet rom).
     if (med.vegg || med.tak) { mengder.taklinje += m.omkrets; flater.taklinje.push({ m2: m.omkrets, faktor }); }
     if (med.vegg) {
@@ -272,9 +275,12 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true } = {}) {
     if (!(m2 > 0)) continue;
     const v = vektet(flater[flate]);
     const ord = flate === 'vegg' ? 'vegg' : 'tak';
-    // Sparkletallene fra tariffen inkluderer sliping.
-    if (f.sparkling !== 'ingen') leggTil(flate + '-sparkling-' + f.sparkling.toLowerCase(), m2, { faktorTimer: v });
-    if (f.grunning || f.sparkling !== 'ingen') leggTil(flate + '-grunning', m2, { faktorTimer: v });
+    // Sparkletallene fra tariffen inkluderer sliping. Bare rommene der sparkling er huket av.
+    const m2Sp = mengder[flate + 'Sparkles'], vSp = vektet(flater[flate + 'Sparkles']);
+    if (f.sparkling !== 'ingen') leggTil(flate + '-sparkling-' + f.sparkling.toLowerCase(), m2Sp, { faktorTimer: vSp });
+    // Grunning: hele flaten om det er valgt, ellers det som er sparklet
+    if (f.grunning) leggTil(flate + '-grunning', m2, { faktorTimer: v });
+    else if (f.sparkling !== 'ingen') leggTil(flate + '-grunning', m2Sp, { faktorTimer: vSp });
     // Første strøk tar lengre tid og bruker mer maling enn de neste.
     for (let s = 1; s <= f.strok; s++) {
       leggTil(flate + (s === 1 ? '-maling-strok1' : '-maling-strok'), m2, { faktorTimer: v, navn: 'Maling ' + ord + ', strøk ' + s });
