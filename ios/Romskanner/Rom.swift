@@ -21,6 +21,15 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     var utenforVegger: Int?
     /// Dører RoomPlan så som åpne under skanningen.
     var apneDorer: Int?
+    /// Prosjektet rommet hører til. nil: skannet før appen fikk prosjekter («Uten prosjekt»).
+    var prosjekt: UUID?
+}
+
+/// En samling rom, f.eks. én kunde eller én bolig.
+struct Prosjekt: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var navn: String
+    var dato = Date()
 }
 
 /// Plantegning i meter, sett ovenfra (x mot høyre, y nedover på skjermen).
@@ -215,6 +224,8 @@ struct Eksport: Codable {
     var format = "malerguiden-rom"
     var versjon = 1
     var laget = Date()
+    /// Navnet på prosjektet rommene kommer fra (Malerguiden trenger det ikke, men det står i fila).
+    var prosjekt: String?
     var rom: [Ut]
 
     struct Ut: Codable {
@@ -229,7 +240,8 @@ struct Eksport: Codable {
         var plan: Plan?
     }
 
-    init(rom: [SkannetRom]) {
+    init(rom: [SkannetRom], prosjekt: String? = nil) {
+        self.prosjekt = prosjekt
         self.rom = rom.map {
             Ut(navn: $0.navn, gulv: $0.gulv, omkrets: $0.omkrets, takhoyde: $0.takhoyde,
                vegg: $0.veggNetto, vinduer: $0.vinduer, dorer: $0.dorer, apninger: $0.apninger,
@@ -259,15 +271,45 @@ struct Eksport: Codable {
 @MainActor
 final class RomLager: ObservableObject {
     @Published var rom: [SkannetRom] = [] { didSet { lagre() } }
+    @Published var prosjekter: [Prosjekt] = [] { didSet { lagreProsjekter() } }
     /// Rom der 3D-modellen med bilder fortsatt lages.
     @Published var fotoUnderArbeid = Set<UUID>()
     private let nokkel = "skannede-rom"
+    private let prosjektNokkel = "prosjekter"
 
     init() {
         if let data = UserDefaults.standard.data(forKey: nokkel),
            let lagret = try? JSONDecoder().decode([SkannetRom].self, from: data) {
             rom = lagret
         }
+        if let data = UserDefaults.standard.data(forKey: prosjektNokkel),
+           let lagret = try? JSONDecoder().decode([Prosjekt].self, from: data) {
+            prosjekter = lagret
+        }
+    }
+
+    /// Rommene i et prosjekt. nil gir rommene uten prosjekt.
+    func rom(i prosjekt: UUID?) -> [SkannetRom] { rom.filter { $0.prosjekt == prosjekt } }
+    func navn(på prosjekt: UUID?) -> String { prosjekter.first { $0.id == prosjekt }?.navn ?? "Uten prosjekt" }
+
+    /// Sletter rommene og 3D-modellene deres.
+    func slett(rom ider: Set<UUID>) {
+        for id in ider { Modell.slett(id) }
+        rom.removeAll { ider.contains($0.id) }
+    }
+
+    /// Sletter prosjektet og alle rommene i det.
+    func slett(prosjekt id: UUID) {
+        slett(rom: Set(rom(i: id).map(\.id)))
+        prosjekter.removeAll { $0.id == id }
+    }
+
+    func flytt(_ ider: Set<UUID>, til prosjekt: UUID?) {
+        for i in rom.indices where ider.contains(rom[i].id) { rom[i].prosjekt = prosjekt }
+    }
+
+    private func lagreProsjekter() {
+        if let data = try? JSONEncoder().encode(prosjekter) { UserDefaults.standard.set(data, forKey: prosjektNokkel) }
     }
 
     /// Lager 3D-modellen med bilder i bakgrunnen (tar noen sekunder).
@@ -286,9 +328,10 @@ final class RomLager: ObservableObject {
     }
 
     /// Skriver rommene til en fil som kan deles til Filer eller Malerguiden.
-    func fil() -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("malerguiden-rom.json")
-        try? Eksport(rom: rom).json().write(to: url, atomically: true, encoding: .utf8)
+    func fil(_ utvalg: [SkannetRom], prosjekt: String? = nil) -> URL {
+        let trygt = (prosjekt ?? "rom").lowercased().map { $0.isLetter || $0.isNumber ? String($0) : "-" }.joined()
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("malerguiden-\(trygt).json")
+        try? Eksport(rom: utvalg, prosjekt: prosjekt).json().write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 }
