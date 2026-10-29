@@ -209,11 +209,22 @@ export function prisPanel(j) {
     a[flate].sparkling === 'ingen' && h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } }, h('span', 'Grunning'),
       h('input.bryter', { type: 'checkbox', checked: a[flate].grunning, onchange: (e) => sett(flate, 'grunning', e.target.checked) })));
   ut.append(h('div.seksjon', 'Hva skal gjøres', h('span.tall', 'alle rom')),
-    flateKort('vegg', 'Vegger'), flateKort('tak', 'Tak'),
+    flateKort('vegg', 'Vegger'), flateKort('tak', 'Tak'));
+
+  // Snekkermaling: maling av listverk, vinduer og dører. Av som standard.
+  const snekkerValg = STROK(2).map((s) => (s.id === 0 ? { ...s, label: 'Males ikke' } : s));
+  const snekker = [
+    ['lister', 'Gulv- og taklister', fmt(r.mengder.lister, 1) + ' m'],
+    ['vinduer', 'Vinduer med karm og foring', flertall(r.mengder.vinduer, 'vindu', 'vinduer')],
+    ['dorer', 'Dører, én side med karm', flertall(r.mengder.dorer, 'dør', 'dører')],
+  ];
+  const paa = snekker.filter(([id]) => a[id].strok > 0).length;
+  ut.append(h('div.seksjon', 'Maling av listverk, vinduer og dører', h('span.tall', paa ? paa + ' av 3 på' : 'av')),
     h('div.kort', { style: { marginBottom: '8px' } },
-      ...[['lister', 'Lister', fmt(r.mengder.lister, 1) + ' m'], ['vinduer', 'Vinduer', String(r.mengder.vinduer)], ['dorer', 'Dører', String(r.mengder.dorer)]].map(([id, navn, mengde]) =>
+      h('p.dempet.liten', { style: { margin: '0 0 10px' } }, 'Snekkermaling med egen pris per strøk. Står av til vanlig. Velg strøk bare når det er med i jobben.'),
+      ...snekker.map(([id, navn, mengde]) =>
         h('div', { style: { marginBottom: '8px' } }, h('div.liten', { style: { fontWeight: '650', margin: '0 0 5px' } }, navn, h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px' } }, mengde)),
-          velger(STROK(2), a[id].strok, (v) => endreKalkyle(j.id, (x) => { x.arbeid[id].strok = v; }))))));
+          velger(snekkerValg, a[id].strok, (v) => endreKalkyle(j.id, (x) => { x.arbeid[id].strok = v; }))))));
 
   // Listefritt: overganger som sparkles i stedet for å dekkes med list
   const lf = a.listefritt || {};
