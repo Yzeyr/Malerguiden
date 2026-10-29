@@ -72,6 +72,10 @@ enum Maling {
             p.utenfor = utenfor
         }
 
+        // En åpen dør ser RoomPlan ofte bare som et hull i veggen («åpning»). Er hullet på
+        // størrelse med en dør, regnes det som en dør som står åpen.
+        let somDor = dorstoreApninger(&p)
+
         func areal(_ l: Plan.Linje) -> Double { (l.bredde ?? 0) * (l.hoyde ?? 0) }
         let takhoyde = p.vegger.compactMap { $0.hoyde }.max() ?? 2.4
         let veggBrutto = p.vegger.reduce(0.0) { $0 + areal($1) }
@@ -87,7 +91,24 @@ enum Maling {
             gulv: avrund(gulv), omkrets: avrund(omkrets), takhoyde: avrund(takhoyde),
             veggBrutto: avrund(veggBrutto), veggNetto: avrund(max(0, veggBrutto - hull)),
             vinduer: p.vinduer.count, dorer: p.dorer.count, apninger: p.apninger.count,
-            plan: p, utenforVegger: utenfor.count, apneDorer: apne)
+            plan: p, utenforVegger: utenfor.count, apneDorer: apne + somDor)
+    }
+
+    /// Er åpningen på størrelse med en dør? 0,6–1,3 m bred, og minst 1,8 m høy (eller ukjent høyde).
+    static func erDorstor(_ l: Plan.Linje) -> Bool {
+        guard let b = l.bredde, b >= 0.6, b <= 1.3 else { return false }
+        if let h = l.hoyde { return h >= 1.8 }
+        return true
+    }
+
+    /// Flytter dørstore åpninger over til dørene i planen. Returnerer hvor mange som ble flyttet.
+    @discardableResult
+    static func dorstoreApninger(_ p: inout Plan) -> Int {
+        let dorer = p.apninger.filter(erDorstor)
+        guard !dorer.isEmpty else { return 0 }
+        p.apninger.removeAll(where: erDorstor)
+        p.dorer += dorer
+        return dorer.count
     }
 
     /// Ligger midten av linjen nær en av gulvets kanter? Veggen står litt utenfor
@@ -279,7 +300,17 @@ final class RomLager: ObservableObject {
 
     init() {
         if let data = UserDefaults.standard.data(forKey: nokkel),
-           let lagret = try? JSONDecoder().decode([SkannetRom].self, from: data) {
+           var lagret = try? JSONDecoder().decode([SkannetRom].self, from: data) {
+            // Rom skannet før åpne dører ble kjent igjen: dørstore åpninger blir dører
+            for i in lagret.indices {
+                guard var plan = lagret[i].plan else { continue }
+                let n = Maling.dorstoreApninger(&plan)
+                guard n > 0 else { continue }
+                lagret[i].plan = plan
+                lagret[i].dorer += n
+                lagret[i].apninger = max(0, lagret[i].apninger - n)
+                lagret[i].apneDorer = (lagret[i].apneDorer ?? 0) + n
+            }
             rom = lagret
         }
         if let data = UserDefaults.standard.data(forKey: prosjektNokkel),
