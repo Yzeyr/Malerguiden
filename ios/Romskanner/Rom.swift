@@ -23,6 +23,9 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     var apneDorer: Int?
     /// Prosjektet rommet hører til. nil: skannet før appen fikk prosjekter («Uten prosjekt»).
     var prosjekt: UUID?
+    /// Etasjeskanningen rommet ble skannet i. Rom fra samme skanning har samme koordinater
+    /// og kan tegnes sammen som én etasje.
+    var okt: UUID?
 }
 
 /// En samling rom, f.eks. én kunde eller én bolig.

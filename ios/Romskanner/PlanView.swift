@@ -99,6 +99,15 @@ struct Tilpasning {
     var utenfor: [(CGPoint, CGPoint)] = []
     var veggLengder: [Double] = []
     var senter = CGPoint.zero
+    // Omregningen fra meter til punkter på skjermen (rotasjon, skala og forskyvning)
+    private var ca: Double = 1, sa: Double = 0
+    private var skala: CGFloat = 1, fx: CGFloat = 0, fy: CGFloat = 0
+
+    /// Et punkt i planen (meter) på skjermen.
+    func punkt(_ q: Plan.Punkt) -> CGPoint {
+        let x = q.x * ca - q.y * sa, y = q.x * sa + q.y * ca
+        return CGPoint(x: CGFloat(x) * skala + fx, y: CGFloat(y) * skala + fy)
+    }
 
     init(plan: Plan, storrelse: CGSize, marg: CGFloat) {
         // Vinkelen til den lengste veggen
@@ -114,6 +123,7 @@ struct Tilpasning {
         let skala = min((storrelse.width - 2 * marg) / bredde, (storrelse.height - 2 * marg) / hoyde)
         let forskyvX = (storrelse.width - bredde * skala) / 2 - minX * skala
         let forskyvY = (storrelse.height - hoyde * skala) / 2 - minY * skala
+        ca = c; sa = s; self.skala = skala; fx = forskyvX; fy = forskyvY
         func til(_ q: Plan.Punkt) -> CGPoint { let r = rot(q); return CGPoint(x: r.x * skala + forskyvX, y: r.y * skala + forskyvY) }
         func linje(_ l: Plan.Linje) -> (CGPoint, CGPoint) { (til(l.a), til(l.b)) }
 
@@ -161,6 +171,58 @@ struct Tilpasning {
 }
 
 private func lengde(_ l: Plan.Linje) -> Double { hypot(l.b.x - l.a.x, l.b.y - l.a.y) }
+
+/// Hele etasjen: rommene fra én etasjeskanning tegnet sammen, med navn og gulvareal.
+struct EtasjePlanView: View {
+    let rom: [SkannetRom]
+
+    private let terrakotta = Color(red: 0.73, green: 0.28, blue: 0.16)
+    private let vindusblaa = Color(red: 0.35, green: 0.62, blue: 0.85)
+
+    var body: some View {
+        Canvas { ctx, size in
+            let planer = rom.compactMap { $0.plan }
+            // Én samlet plan bare for å finne rotasjon og skala som passer alle rommene
+            let samlet = Plan(gulv: planer.flatMap { $0.gulv }, vegger: planer.flatMap { $0.vegger },
+                              dorer: planer.flatMap { $0.dorer }, vinduer: planer.flatMap { $0.vinduer },
+                              apninger: planer.flatMap { $0.apninger })
+            let t = Tilpasning(plan: samlet, storrelse: size, marg: 14)
+            let bakgrunn = Color(uiColor: .systemBackground)
+            func linje(_ l: Plan.Linje) -> Path { var p = Path(); p.move(to: t.punkt(l.a)); p.addLine(to: t.punkt(l.b)); return p }
+
+            for r in rom {
+                guard let plan = r.plan, plan.gulv.count >= 3 else { continue }
+                var gulv = Path()
+                gulv.addLines(plan.gulv.map(t.punkt))
+                gulv.closeSubpath()
+                ctx.fill(gulv, with: .color(terrakotta.opacity(0.10)))
+            }
+            for v in samlet.vegger { ctx.stroke(linje(v), with: .color(.primary), style: StrokeStyle(lineWidth: 3, lineCap: .round)) }
+            for a in samlet.apninger {
+                ctx.stroke(linje(a), with: .color(bakgrunn), lineWidth: 6)
+                ctx.stroke(linje(a), with: .color(.secondary), style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+            }
+            for w in samlet.vinduer {
+                ctx.stroke(linje(w), with: .color(bakgrunn), lineWidth: 6)
+                ctx.stroke(linje(w), with: .color(vindusblaa), lineWidth: 3)
+            }
+            for d in samlet.dorer {
+                ctx.stroke(linje(d), with: .color(bakgrunn), lineWidth: 6)
+                ctx.stroke(linje(d), with: .color(terrakotta), lineWidth: 2)
+            }
+            // Navn og gulvareal midt i hvert rom
+            for r in rom {
+                guard let plan = r.plan, !plan.gulv.isEmpty else { continue }
+                let pkt = plan.gulv.map(t.punkt)
+                let midt = CGPoint(x: pkt.map(\.x).reduce(0, +) / CGFloat(pkt.count), y: pkt.map(\.y).reduce(0, +) / CGFloat(pkt.count))
+                let tekst = ctx.resolve(Text(r.navn + "\n" + r.gulv.formatted(.number.precision(.fractionLength(1))) + " m²")
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary))
+                ctx.draw(tekst, at: midt)
+            }
+        }
+        .accessibilityLabel("Plantegning av etasjen")
+    }
+}
 
 /// Ett rom: plantegningen og alle målene.
 struct RomDetalj: View {

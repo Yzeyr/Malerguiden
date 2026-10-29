@@ -140,6 +140,8 @@ struct ProsjektView: View {
     let prosjektId: UUID?
 
     @State private var skanner = false
+    @State private var skannerEtasje = false
+    @State private var etasjeOkt = UUID()
     @State private var ventende: SkannetRom?
     @State private var navn = ""
     @State private var sporNavn = false
@@ -154,8 +156,27 @@ struct ProsjektView: View {
     /// Det som kopieres eller deles: de valgte, eller alle når ingen er valgt.
     private var utvalg: [SkannetRom] { velger && !valgte.isEmpty ? rommene.filter { valgte.contains($0.id) } : rommene }
 
+    /// Etasjeskanninger med minst to rom, nyeste først: rommene tegnes sammen.
+    private var etasjer: [[SkannetRom]] {
+        let grupper = Dictionary(grouping: rommene.filter { $0.okt != nil }, by: { $0.okt! })
+        return grupper.values.filter { $0.count >= 2 }.sorted { ($0.first?.dato ?? .distantPast) > ($1.first?.dato ?? .distantPast) }
+    }
+
     var body: some View {
         List(selection: $valgte) {
+            if !velger {
+                ForEach(Array(etasjer.enumerated()), id: \.offset) { i, etasje in
+                    Section {
+                        EtasjePlanView(rom: etasje)
+                            .frame(height: 320)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                    } header: {
+                        Text(etasjer.count > 1 ? "Etasje \(etasjer.count - i)" : "Etasjen")
+                    } footer: {
+                        Text("\(etasje.count) rom · \(etasje.reduce(0.0) { $0 + $1.gulv }.formatted(.number.precision(.fractionLength(1)))) m² gulv")
+                    }
+                }
+            }
             if rommene.isEmpty {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
@@ -218,11 +239,17 @@ struct ProsjektView: View {
                     .controlSize(.large)
                 }
                 if !velger {
-                    Button { skanner = true } label: {
-                        Label("Skann rom", systemImage: "camera.viewfinder").frame(maxWidth: .infinity)
+                    HStack(spacing: 10) {
+                        Button { skanner = true } label: {
+                            Label("Skann rom", systemImage: "camera.viewfinder").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.73, green: 0.28, blue: 0.16))
+                        Button { etasjeOkt = UUID(); skannerEtasje = true } label: {
+                            Label("Skann etasje", systemImage: "square.split.2x2").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.73, green: 0.28, blue: 0.16))
                     .controlSize(.large)
                     .disabled(!stottet)
                 }
@@ -244,6 +271,22 @@ struct ProsjektView: View {
                     // Vent til skanneskjermen er borte før spørsmålet vises.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { sporNavn = true }
                 }
+            }
+            .ignoresSafeArea()
+        }
+        // Etasje: rom for rom i samme økt. Hvert rom lagres med en gang, med navn «Rom N».
+        .fullScreenCover(isPresented: $skannerEtasje) {
+            SkannView(etasje: true, nyttRom: { rom, bilder in
+                DispatchQueue.main.async {
+                    var nytt = Maling.rom(fra: rom, navn: "Rom \(rommene.count + 1)")
+                    nytt.prosjekt = prosjektId
+                    nytt.okt = etasjeOkt
+                    Modell.lagre(rom, id: nytt.id)
+                    lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
+                    lager.rom.append(nytt)
+                }
+            }) { _, _ in
+                DispatchQueue.main.async { skannerEtasje = false }
             }
             .ignoresSafeArea()
         }
