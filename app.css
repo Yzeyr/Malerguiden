@@ -61,7 +61,8 @@
 .k-ultramarin { --c: var(--ultramarin); --pa: #fff; }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+/* manipulation: raske trykk på knapper zoomer ikke inn (to-finger-zoom virker fortsatt) */
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 body {
   margin: 0;
   background: var(--lerret);
