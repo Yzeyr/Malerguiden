@@ -25,11 +25,14 @@ export const NORMER = [
   { id: 'dekking-gulv', gruppe: 'Rigging', navn: 'Tildekking av gulv med papp', enhet: 'm²', timer: 0.02, pris: 13, forbruk: 1.1, materialpris: 12, materialenhet: 'm²' },
   { id: 'rigging-trapp', gruppe: 'Rigging', navn: 'Stige og stillas i trappehull', enhet: 'stk', timer: 2, pris: 1300, forbruk: 0, materialpris: 0 }, // skjønn
 
-  // Sparkling i runder. K1: strimling og 2. strøk. K2: strimling, 2. og 3. strøk (skjøter og
-  // skruehull). K3: K2 pluss helsparkling av hele flaten til slutt. Sum K2 = 0,10 t/m², K3 = 0,25 t/m².
+  // Sparkling i runder. K1: strimling og 2. strøk. K2: strimling, 2. og 3. strøk og sliping (skjøter,
+  // hjørner, skruehull, rundt vinduer og dører). K3: K2 pluss helsparkling av hele flaten til slutt.
+  // 2. og 3. strøk er målt på jobb 29.10.2026 (Namsos, ca. 111 m² vegg og tak, med boks):
+  // 2. strøk ca. 6 t, 3. strøk ca. 8 t. Strimling og sliping er fortsatt skjønn.
   { id: 'vegg-sparkling-strimling', gruppe: 'Vegg', navn: 'Strimling vegg (skjøter, hjørner og skruehull)', enhet: 'm²', timer: 0.045, pris: 36, forbruk: 0.12, materialpris: 50, materialenhet: 'L' },
-  { id: 'vegg-sparkling-strok2', gruppe: 'Vegg', navn: 'Sparkling vegg, 2. strøk', enhet: 'm²', timer: 0.03, pris: 24, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
-  { id: 'vegg-sparkling-strok3', gruppe: 'Vegg', navn: 'Sparkling vegg, 3. strøk med sliping', enhet: 'm²', timer: 0.025, pris: 20, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
+  { id: 'vegg-sparkling-strok2', gruppe: 'Vegg', navn: 'Sparkling vegg, 2. strøk', enhet: 'm²', timer: 0.05, pris: 40, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'vegg-sparkling-strok3', gruppe: 'Vegg', navn: 'Sparkling vegg, 3. strøk (finstrøk)', enhet: 'm²', timer: 0.065, pris: 52, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
+  { id: 'vegg-sparkling-sliping', gruppe: 'Vegg', navn: 'Sliping av sparkel, vegg', enhet: 'm²', timer: 0.02, pris: 16, forbruk: 0, materialpris: 0 },
   { id: 'vegg-sparkling-hel', gruppe: 'Vegg', navn: 'Helsparkling vegg, hele flaten, med sliping (K3)', enhet: 'm²', timer: 0.15, pris: 145, forbruk: 0.8, materialpris: 50, materialenhet: 'L' },
   // Ytterhjørner (hjørner som stikker ut i rommet): hjørnelist og 3 strøk sparkel med sliping. Skjønn.
   { id: 'ytterhjorne', gruppe: 'Vegg', navn: 'Ytterhjørner: hjørnelist og 3 strøk sparkel med sliping', enhet: 'lm', timer: 0.2, pris: 150, forbruk: 1.05, materialpris: 25, materialenhet: 'lm' },
@@ -39,8 +42,9 @@ export const NORMER = [
 
   // Tak: ca. +20 % på tiden (skjønn).
   { id: 'tak-sparkling-strimling', gruppe: 'Tak', navn: 'Strimling tak (skjøter, hjørner og skruehull)', enhet: 'm²', timer: 0.054, pris: 43, forbruk: 0.12, materialpris: 50, materialenhet: 'L' },
-  { id: 'tak-sparkling-strok2', gruppe: 'Tak', navn: 'Sparkling tak, 2. strøk', enhet: 'm²', timer: 0.036, pris: 29, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
-  { id: 'tak-sparkling-strok3', gruppe: 'Tak', navn: 'Sparkling tak, 3. strøk med sliping', enhet: 'm²', timer: 0.03, pris: 23, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-strok2', gruppe: 'Tak', navn: 'Sparkling tak, 2. strøk', enhet: 'm²', timer: 0.06, pris: 48, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-strok3', gruppe: 'Tak', navn: 'Sparkling tak, 3. strøk (finstrøk)', enhet: 'm²', timer: 0.08, pris: 64, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
+  { id: 'tak-sparkling-sliping', gruppe: 'Tak', navn: 'Sliping av sparkel, tak', enhet: 'm²', timer: 0.025, pris: 20, forbruk: 0, materialpris: 0 },
   { id: 'tak-sparkling-hel', gruppe: 'Tak', navn: 'Helsparkling tak, hele flaten, med sliping (K3)', enhet: 'm²', timer: 0.18, pris: 175, forbruk: 0.8, materialpris: 50, materialenhet: 'L' },
   { id: 'tak-grunning', gruppe: 'Tak', navn: 'Grunning tak', enhet: 'm²', timer: 0.018, pris: 36, forbruk: 0.14, materialpris: 95, materialenhet: 'L' },
   { id: 'tak-maling-strok1', gruppe: 'Tak', navn: 'Maling tak, 1. strøk', enhet: 'm²', timer: 0.032, pris: 75, forbruk: 0.12, materialpris: 120, materialenhet: 'L' },

@@ -107,7 +107,7 @@ test('rensKalkyle tåler rot', () => {
 
 test('alle operasjoner som beregningen bruker, finnes i normene', () => {
   const ider = new Set(NORMER.map((n) => n.id));
-  for (const f of ['vegg', 'tak']) for (const s of ['strimling', 'strok2', 'strok3', 'hel']) assert.ok(ider.has(f + '-sparkling-' + s));
+  for (const f of ['vegg', 'tak']) for (const s of ['strimling', 'strok2', 'strok3', 'sliping', 'hel']) assert.ok(ider.has(f + '-sparkling-' + s));
   for (const id of ['jobb-oppstart', 'rigging-rom', 'dekking-gulv', 'rigging-trapp', 'vegg-grunning', 'tak-grunning', 'vegg-maling-strok1', 'vegg-maling-strok', 'tak-maling-strok1', 'tak-maling-strok', 'lister-strok', 'vindu-strok', 'dor-strok']) assert.ok(ider.has(id), id);
 });
 
@@ -293,14 +293,16 @@ test('per rom: tildekking kan slås av, og gulvbelegg hukes på', () => {
 
 test('sparkling i runder: K2 er strimling, 2. og 3. strøk; K3 har helsparkling i tillegg', () => {
   const ider = (kl) => beregn({ ...tomKalkyle(kl), rom: [rom({ id: 'a' })] }, {}).linjer.filter((l) => l.id.startsWith('vegg-sparkling')).map((l) => l.id);
-  assert.deepEqual(ider('K2'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3']);
+  assert.deepEqual(ider('K2'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3', 'vegg-sparkling-sliping']);
   assert.deepEqual(ider('K3'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3', 'vegg-sparkling-hel']);
   assert.deepEqual(ider('K1'), ['vegg-sparkling-strimling', 'vegg-sparkling-strok2']);
-  // Summen per m² er som før: K2 0,10 t og K3 0,25 t på vegg
+  // Timer per m² på vegg: K2 = 0,045 + 0,05 + 0,065 + 0,02 = 0,18; K3 = 0,045 + 0,05 + 0,065 + 0,15 = 0,31
   const vegg = romMengder(rom({ id: 'a' })).vegg;
   const t = (kl) => beregn({ ...tomKalkyle(kl), rom: [rom({ id: 'a' })] }, {}).linjer.filter((l) => l.id.startsWith('vegg-sparkling')).reduce((s, l) => s + l.timer, 0);
-  assert.ok(Math.abs(t('K2') - vegg * 0.10) < 0.05, String(t('K2')));
-  assert.ok(Math.abs(t('K3') - vegg * 0.25) < 0.05, String(t('K3')));
+  assert.ok(Math.abs(t('K2') - vegg * 0.18) < 0.05, String(t('K2')));
+  assert.ok(Math.abs(t('K3') - vegg * 0.31) < 0.05, String(t('K3')));
+  // Sliping gir ingen ekstra tørkerunde: K2 er fortsatt 3 runder
+  assert.equal(dagerMedTork(beregn({ ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] }, {})).runder, 3);
   // Timer per arbeid
   const per = timerPerArbeid(beregn({ ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] }, {}));
   assert.ok(per.strimling > 0 && per.strok2 > 0 && per.strok3 > 0 && per.maling > 0 && per.rigging > 0);

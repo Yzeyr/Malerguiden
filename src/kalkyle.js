@@ -440,6 +440,7 @@ export const ARBEID = [
   { id: 'strok2', navn: 'Sparkling 2. strøk' },
   { id: 'strok3', navn: 'Sparkling 3. strøk' },
   { id: 'hel', navn: 'Helsparkling' },
+  { id: 'sliping', navn: 'Sliping' },
   { id: 'ytterhjorner', navn: 'Ytterhjørner' },
   { id: 'listefritt', navn: 'Listefritt' },
   { id: 'grunning', navn: 'Grunning' },
@@ -451,7 +452,7 @@ export const ARBEID = [
 ];
 /** Hvilket arbeid en linje i beregningen hører til. */
 export function arbeidFor(id) {
-  const m = /^(?:vegg|tak)-sparkling-(strimling|strok2|strok3|hel)$/.exec(id);
+  const m = /^(?:vegg|tak)-sparkling-(strimling|strok2|strok3|hel|sliping)$/.exec(id);
   if (m) return m[1];
   if (id === 'ytterhjorne') return 'ytterhjorner';
   if (id.startsWith('listefritt-')) return 'listefritt';
@@ -476,7 +477,8 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 
 /** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
 // Sparkelrundene per klasse. K2 er strimling, 2. og 3. strøk; K3 er de pluss helsparkling til slutt.
-export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
+// Sliping av skjøtene etter 3. strøk; i K3 slipes det etter helsparklingen (med i den linjen).
+export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3', 'sliping'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
 export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3, ytterhjorne: 3 };
 
 /**
@@ -491,8 +493,9 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const perFlate = {}; // antall sparkelrunder på vegg og tak
   for (const l of b.linjer) {
     if (!(l.timer > 0)) continue;
-    const m = /^(vegg|tak)-sparkling-/.exec(l.id);
-    if (m) { perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
+    const m = /^(vegg|tak)-sparkling-(\w+)$/.exec(l.id);
+    // Sliping er ingen egen runde med tørk, men gjøres når sparkelen er tørr
+    if (m) { if (m[2] !== 'sliping') perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
     // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
     const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
     if (!r) continue;
