@@ -60,7 +60,7 @@ enum Maling {
     /// Regner ut målene fra RoomPlan sitt resultat.
     static func rom(fra r: CapturedRoom, navn: String) -> SkannetRom {
         var p = plan(r)
-        let (gulv, omkretsGulv) = gulvMal(r)
+        var (gulv, omkretsGulv) = gulvMal(r)
 
         // Står en dør åpen, kan RoomPlan få med vegger fra rommet bak. Bare vegger
         // (og vinduer og dører i dem) som ligger langs kanten av gulvet, regnes med.
@@ -79,6 +79,19 @@ enum Maling {
         // størrelse med en dør, regnes det som en dør som står åpen.
         let somDor = dorstoreApninger(&p)
 
+        // Nesten rette vinkler blir rette, og gulvarealet regnes ut fra det rettede gulvet
+        rettOpp(&p)
+        if p.gulv.count >= 3 {
+            var a = 0.0, o = 0.0
+            for i in p.gulv.indices {
+                let q = p.gulv[i], n = p.gulv[(i + 1) % p.gulv.count]
+                a += q.x * n.y - n.x * q.y
+                o += hypot(n.x - q.x, n.y - q.y)
+            }
+            gulv = abs(a) / 2
+            omkretsGulv = o
+        }
+
         func areal(_ l: Plan.Linje) -> Double { (l.bredde ?? 0) * (l.hoyde ?? 0) }
         let takhoyde = p.vegger.compactMap { $0.hoyde }.max() ?? 2.4
         let veggBrutto = p.vegger.reduce(0.0) { $0 + areal($1) }
@@ -95,6 +108,67 @@ enum Maling {
             veggBrutto: avrund(veggBrutto), veggNetto: avrund(max(0, veggBrutto - hull)),
             vinduer: p.vinduer.count, dorer: p.dorer.count, apninger: p.apninger.count,
             plan: p, utenforVegger: utenfor.count, apneDorer: apne + somDor)
+    }
+
+    /// RoomPlan legger ofte en vegg litt skjevt, særlig ved små fremspring. De fleste rom har rette
+    /// hjørner, så vinkler som er innenfor 6° av rett vinkel (i forhold til den lengste veggen)
+    /// blir rette. Veggene dreies om sitt eget midtpunkt og beholder lengden; gulvets kanter rettes
+    /// slik at hjørnene henger sammen. Større vinkler, som skråvegger, blir ikke rørt.
+    static func rettOpp(_ p: inout Plan) {
+        func lengde(_ l: Plan.Linje) -> Double { hypot(l.b.x - l.a.x, l.b.y - l.a.y) }
+        guard let lengste = p.vegger.max(by: { lengde($0) < lengde($1) }) else { return }
+        let grunn = atan2(lengste.b.y - lengste.a.y, lengste.b.x - lengste.a.x)
+        let kvart = Double.pi / 2, grense = 6.0 * Double.pi / 180
+
+        /// Hvor mye linjen må dreies for å bli parallell med eller vinkelrett på den lengste veggen
+        func avvik(_ v: Double) -> Double {
+            var d = v - grunn
+            while d > kvart / 2 { d -= kvart }
+            while d <= -kvart / 2 { d += kvart }
+            return d
+        }
+        func rett(_ l: Plan.Linje) -> Plan.Linje {
+            let d = avvik(atan2(l.b.y - l.a.y, l.b.x - l.a.x))
+            guard abs(d) <= grense, abs(d) > 1e-9 else { return l }
+            let mx = (l.a.x + l.b.x) / 2, my = (l.a.y + l.b.y) / 2
+            let c = cos(-d), s = sin(-d)
+            func rot(_ q: Plan.Punkt) -> Plan.Punkt {
+                let x = q.x - mx, y = q.y - my
+                return Plan.Punkt(x: mx + x * c - y * s, y: my + x * s + y * c)
+            }
+            var n = l
+            n.a = rot(l.a)
+            n.b = rot(l.b)
+            return n
+        }
+        p.vegger = p.vegger.map(rett)
+        p.dorer = p.dorer.map(rett)
+        p.vinduer = p.vinduer.map(rett)
+        p.apninger = p.apninger.map(rett)
+        p.utenfor = p.utenfor?.map(rett)
+
+        // Gulvet: drei så den lengste veggen ligger langs x-aksen, rett kantene, drei tilbake
+        guard p.gulv.count >= 3 else { return }
+        let c0 = cos(-grunn), s0 = sin(-grunn)
+        var q = p.gulv.map { Plan.Punkt(x: $0.x * c0 - $0.y * s0, y: $0.x * s0 + $0.y * c0) }
+        let terskel = sin(grense)
+        for _ in 0..<2 {
+            for i in q.indices {
+                let j = (i + 1) % q.count
+                let dx = q[j].x - q[i].x, dy = q[j].y - q[i].y
+                let l = hypot(dx, dy)
+                guard l > 0 else { continue }
+                if abs(dy) / l <= terskel {        // nesten vannrett
+                    let y = (q[i].y + q[j].y) / 2
+                    q[i].y = y; q[j].y = y
+                } else if abs(dx) / l <= terskel { // nesten loddrett
+                    let x = (q[i].x + q[j].x) / 2
+                    q[i].x = x; q[j].x = x
+                }
+            }
+        }
+        let c1 = cos(grunn), s1 = sin(grunn)
+        p.gulv = q.map { Plan.Punkt(x: $0.x * c1 - $0.y * s1, y: $0.x * s1 + $0.y * c1) }
     }
 
     /// Er åpningen på størrelse med en dør? 0,6–1,3 m bred, og minst 1,8 m høy (eller ukjent høyde).
