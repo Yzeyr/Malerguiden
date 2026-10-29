@@ -26,6 +26,8 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
     private var skanner = false
     private var lagret = 0 // rom lagret i denne etasjeskanningen
     private var feilet = false
+    /// Etasje: «Ferdig» trykket mens rommet bearbeides. Rommet lagres når det er klart, så avsluttes det.
+    private var avsluttNarKlar = false
     private let hovedknapp = UIButton(configuration: .filled())
     private let avbrytknapp = UIButton(configuration: .gray())
     private let tellerEtikett = UILabel()
@@ -125,9 +127,25 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
         super.viewWillDisappear(animated)
         stoppBilder()
         if skanner { captureView.captureSession.stop() }
+        captureView.captureSession.arSession.pause()
+    }
+
+    /// Avslutter skanneskjermen én gang: stopper kameraet og AR-økten.
+    private func avslutt(_ rom: CapturedRoom?, _ bilder: [Fotobilde]) {
+        guard !avsluttet else { return }
+        avsluttet = true
+        stoppBilder()
+        if skanner { captureView.captureSession.stop() }
+        skanner = false
+        captureView.captureSession.arSession.pause()
+        hovedknapp.isEnabled = false
+        avbrytknapp.isEnabled = false
+        ferdig(rom, bilder)
     }
 
     private func trykkHoved() {
+        // Et nytt trykk før skjermen er borte, skal ikke gi to rom
+        guard !avsluttet, !avsluttNarKlar else { return }
         if feilet {
             // Etasje: bearbeidingen feilet, skann samme rom på nytt
             feilet = false
@@ -147,10 +165,15 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
                 avbrytknapp.configuration?.title = "Ferdig"
                 oppdaterTeller()
                 start()
+                // Kort pause, så et dobbelttrykk ikke stopper det nye rommet med en gang
+                hovedknapp.isEnabled = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    guard let self, !self.avsluttet, self.skanner else { return }
+                    self.hovedknapp.isEnabled = true
+                }
             } else {
                 // Andre trykk: brukeren har sett modellen og vil beholde den.
-                avsluttet = true
-                ferdig(resultat, samler.bilder)
+                avslutt(resultat, samler.bilder)
             }
         } else {
             // Første trykk: stopp skanningen. RoomPlan bearbeider og viser 3D-modellen.
@@ -163,16 +186,41 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
         }
     }
 
-    /// Avbryt, eller i en etasje: «Ferdig». Et ferdig bearbeidet rom lagres først; et rom som
-    /// fortsatt skannes, forkastes.
+    /// Avbryt, eller i en etasje: «Ferdig». Et ferdig bearbeidet rom lagres først. Et rom som
+    /// bearbeides, lagres når det er klart. Et rom som fortsatt skannes, spørres det om.
     private func avbryt() {
-        guard !avsluttet else { return }
-        avsluttet = true
-        stoppBilder()
-        if skanner { captureView.captureSession.stop() }
-        skanner = false
-        if etasje, let resultat { nyttRom?(resultat, samler.bilder) }
-        ferdig(nil, [])
+        guard !avsluttet, !avsluttNarKlar else { return }
+        let ferdigKnapp = etasje && (lagret > 0 || resultat != nil)
+        guard ferdigKnapp else { avslutt(nil, []); return }
+        if let resultat {
+            nyttRom?(resultat, samler.bilder)
+            self.resultat = nil
+            avslutt(nil, [])
+        } else if feilet {
+            avslutt(nil, [])
+        } else if !skanner {
+            // Bearbeides: vent på rommet
+            avsluttNarKlar = true
+            hovedknapp.isEnabled = false
+            avbrytknapp.isEnabled = false
+            avbrytknapp.configuration?.title = "Lagrer …"
+        } else {
+            let sp = UIAlertController(title: "Lagre rommet du skanner nå?", message: "\(lagret) rom er allerede lagret.", preferredStyle: .alert)
+            sp.addAction(UIAlertAction(title: "Lagre rommet", style: .default) { [weak self] _ in
+                guard let self, !self.avsluttet else { return }
+                self.avsluttNarKlar = true
+                self.hovedknapp.configuration?.title = "Bearbeider …"
+                self.hovedknapp.isEnabled = false
+                self.avbrytknapp.isEnabled = false
+                self.avbrytknapp.configuration?.title = "Lagrer …"
+                self.stoppBilder()
+                self.skanner = false
+                self.captureView.captureSession.stop(pauseARSession: false)
+            })
+            sp.addAction(UIAlertAction(title: "Forkast det", style: .destructive) { [weak self] _ in self?.avslutt(nil, []) })
+            sp.addAction(UIAlertAction(title: "Fortsett å skanne", style: .cancel))
+            present(sp, animated: true)
+        }
     }
 
     // MARK: RoomCaptureViewDelegate
@@ -181,6 +229,12 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
 
     func captureView(didPresent processedResult: CapturedRoom, error: Error?) {
         guard !avsluttet else { return }
+        if avsluttNarKlar {
+            // «Ferdig» ble trykket mens rommet ble bearbeidet: lagre det (hvis det gikk) og avslutt
+            if error == nil { nyttRom?(processedResult, samler.bilder) }
+            avslutt(nil, [])
+            return
+        }
         if error != nil {
             feilet = etasje
             hovedknapp.configuration?.title = etasje ? "Skann rommet på nytt" : "Skanningen feilet"

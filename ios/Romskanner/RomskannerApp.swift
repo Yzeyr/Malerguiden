@@ -64,7 +64,7 @@ struct ContentView: View {
                     Section {
                         NavigationLink(value: Rute.prosjekt(nil)) { ProsjektRad(navn: "Uten prosjekt", rom: lager.rom(i: nil)) }
                     } footer: {
-                        Text("Rom skannet før appen fikk prosjekter. Åpne og hold inne på et rom for å flytte det til et prosjekt.")
+                        Text("Rom som ikke hører til et prosjekt. Åpne og hold inne på et rom for å flytte det til et prosjekt.")
                     }
                 }
             }
@@ -262,12 +262,15 @@ struct ProsjektView: View {
                 DispatchQueue.main.async {
                     skanner = false
                     guard let rom else { return }
-                    var nytt = Maling.rom(fra: rom, navn: "")
+                    // Lagres med en gang med navnet «Rom N», så rommet ikke blir borte om appen
+                    // lukkes mens navnet spørres om. «Forkast» sletter det igjen.
+                    var nytt = Maling.rom(fra: rom, navn: "Rom \(rommene.count + 1)")
                     nytt.prosjekt = prosjektId
                     Modell.lagre(rom, id: nytt.id)
+                    lager.rom.append(nytt)
                     lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                     ventende = nytt
-                    navn = "Rom \(rommene.count + 1)"
+                    navn = nytt.navn
                     // Vent til skanneskjermen er borte før spørsmålet vises.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { sporNavn = true }
                 }
@@ -282,8 +285,8 @@ struct ProsjektView: View {
                     nytt.prosjekt = prosjektId
                     nytt.okt = etasjeOkt
                     Modell.lagre(rom, id: nytt.id)
-                    lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                     lager.rom.append(nytt)
+                    lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                 }
             }) { _, _ in
                 DispatchQueue.main.async { skannerEtasje = false }
@@ -293,14 +296,14 @@ struct ProsjektView: View {
         .alert("Hva heter rommet?", isPresented: $sporNavn, presenting: ventende) { _ in
             TextField("Navn", text: $navn)
             Button("Lagre") {
-                if var r = ventende {
-                    r.navn = navn.trimmingCharacters(in: .whitespaces).isEmpty ? "Rom" : navn
-                    lager.rom.append(r)
+                let nyttNavn = navn.trimmingCharacters(in: .whitespaces)
+                if let v = ventende, !nyttNavn.isEmpty, let i = lager.rom.firstIndex(where: { $0.id == v.id }) {
+                    lager.rom[i].navn = nyttNavn
                 }
                 ventende = nil
             }
-            Button("Forkast", role: .cancel) {
-                if let v = ventende { Modell.slett(v.id) }
+            Button("Forkast", role: .destructive) {
+                if let v = ventende { lager.slett(rom: [v.id]) }
                 ventende = nil
             }
         } message: { r in

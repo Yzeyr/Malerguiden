@@ -75,6 +75,13 @@ enum Maling {
             p.utenfor = utenfor
         }
 
+        // Åpne dører: bare de som er med i rommet (langs kanten av gulvet) telles
+        let apneDorer = r.doors.filter { d in
+            if case .door(let erApen) = d.category { return erApen }
+            return false
+        }.map(linje)
+        let apne = p.gulv.count >= 3 ? apneDorer.filter { langsKanten($0, p.gulv) }.count : apneDorer.count
+
         // En åpen dør ser RoomPlan ofte bare som et hull i veggen («åpning»). Er hullet på
         // størrelse med en dør, regnes det som en dør som står åpen.
         let somDor = dorstoreApninger(&p)
@@ -97,10 +104,6 @@ enum Maling {
         let veggBrutto = p.vegger.reduce(0.0) { $0 + areal($1) }
         let hull = (p.dorer + p.vinduer + p.apninger).reduce(0.0) { $0 + areal($1) }
         let omkrets = p.gulv.count >= 3 ? omkretsGulv : p.vegger.reduce(0.0) { $0 + ($1.bredde ?? 0) }
-        var apne = 0
-        for d in r.doors {
-            if case .door(let erApen) = d.category, erApen { apne += 1 }
-        }
 
         return SkannetRom(
             navn: navn,
@@ -127,24 +130,47 @@ enum Maling {
             while d <= -kvart / 2 { d += kvart }
             return d
         }
-        func rett(_ l: Plan.Linje) -> Plan.Linje {
+        /// Hvor mye linjen dreies for å bli rett, eller 0 når den skal stå som den er
+        func dreining(_ l: Plan.Linje) -> Double {
             let d = avvik(atan2(l.b.y - l.a.y, l.b.x - l.a.x))
-            guard abs(d) <= grense, abs(d) > 1e-9 else { return l }
-            let mx = (l.a.x + l.b.x) / 2, my = (l.a.y + l.b.y) / 2
+            return abs(d) <= grense && abs(d) > 1e-9 ? d : 0
+        }
+        func midt(_ l: Plan.Linje) -> Plan.Punkt { Plan.Punkt(x: (l.a.x + l.b.x) / 2, y: (l.a.y + l.b.y) / 2) }
+        func drei(_ l: Plan.Linje, _ d: Double, om m: Plan.Punkt) -> Plan.Linje {
+            guard d != 0 else { return l }
             let c = cos(-d), s = sin(-d)
             func rot(_ q: Plan.Punkt) -> Plan.Punkt {
-                let x = q.x - mx, y = q.y - my
-                return Plan.Punkt(x: mx + x * c - y * s, y: my + x * s + y * c)
+                let x = q.x - m.x, y = q.y - m.y
+                return Plan.Punkt(x: m.x + x * c - y * s, y: m.y + x * s + y * c)
             }
             var n = l
             n.a = rot(l.a)
             n.b = rot(l.b)
             return n
         }
-        p.vegger = p.vegger.map(rett)
-        p.dorer = p.dorer.map(rett)
-        p.vinduer = p.vinduer.map(rett)
-        p.apninger = p.apninger.map(rett)
+        func rett(_ l: Plan.Linje) -> Plan.Linje { drei(l, dreining(l), om: midt(l)) }
+        /// Avstand fra et punkt til veggen (linjestykket)
+        func avstand(_ q: Plan.Punkt, _ v: Plan.Linje) -> Double {
+            let dx = v.b.x - v.a.x, dy = v.b.y - v.a.y, l2 = dx * dx + dy * dy
+            let t = l2 > 0 ? max(0, min(1, ((q.x - v.a.x) * dx + (q.y - v.a.y) * dy) / l2)) : 0
+            return hypot(q.x - (v.a.x + t * dx), q.y - (v.a.y + t * dy))
+        }
+        func parallell(_ l: Plan.Linje, _ v: Plan.Linje) -> Bool {
+            let a = atan2(l.b.y - l.a.y, l.b.x - l.a.x), b = atan2(v.b.y - v.a.y, v.b.x - v.a.x)
+            return abs(sin(a - b)) < 0.2
+        }
+        let gamleVegger = p.vegger
+        /// Dører, vinduer og åpninger dreies sammen med veggen de sitter i, så de blir liggende i den
+        func folgVegg(_ l: Plan.Linje) -> Plan.Linje {
+            let m = midt(l)
+            let kandidater = gamleVegger.filter { parallell(l, $0) && avstand(m, $0) < 0.3 }
+            guard let v = kandidater.min(by: { avstand(m, $0) < avstand(m, $1) }) else { return rett(l) }
+            return drei(l, dreining(v), om: midt(v))
+        }
+        p.vegger = gamleVegger.map(rett)
+        p.dorer = p.dorer.map(folgVegg)
+        p.vinduer = p.vinduer.map(folgVegg)
+        p.apninger = p.apninger.map(folgVegg)
         p.utenfor = p.utenfor?.map(rett)
 
         // Gulvet: drei så den lengste veggen ligger langs x-aksen, rett kantene, drei tilbake
@@ -367,6 +393,12 @@ struct Eksport: Codable {
 
 /// Lagrer rommene på telefonen mellom hver gang appen åpnes.
 @MainActor
+/// Leser ett element i en liste. Er elementet ødelagt, blir det nil i stedet for at hele lista feiler.
+private struct Kanskje<T: Decodable>: Decodable {
+    let verdi: T?
+    init(from decoder: Decoder) throws { verdi = try? T(from: decoder) }
+}
+
 final class RomLager: ObservableObject {
     @Published var rom: [SkannetRom] = [] { didSet { lagre() } }
     @Published var prosjekter: [Prosjekt] = [] { didSet { lagreProsjekter() } }
@@ -375,9 +407,21 @@ final class RomLager: ObservableObject {
     private let nokkel = "skannede-rom"
     private let prosjektNokkel = "prosjekter"
 
+    /// Leser en lagret liste rom for rom. Kan noe ikke leses, tas en kopi av det lagrede først,
+    /// så ingenting forsvinner når lista lagres på nytt.
+    private static func les<T: Decodable>(_ type: T.Type, nokkel: String) -> [T]? {
+        guard let data = UserDefaults.standard.data(forKey: nokkel) else { return nil }
+        let liste = (try? JSONDecoder().decode([Kanskje<T>].self, from: data)) ?? []
+        let lest = liste.compactMap(\.verdi)
+        if lest.count != liste.count || (liste.isEmpty && data.count > 2) {
+            let reserve = nokkel + "-reserve"
+            if UserDefaults.standard.data(forKey: reserve) == nil { UserDefaults.standard.set(data, forKey: reserve) }
+        }
+        return lest
+    }
+
     init() {
-        if let data = UserDefaults.standard.data(forKey: nokkel),
-           var lagret = try? JSONDecoder().decode([SkannetRom].self, from: data) {
+        if var lagret = RomLager.les(SkannetRom.self, nokkel: nokkel) {
             // Rom skannet før åpne dører ble kjent igjen: dørstore åpninger blir dører
             for i in lagret.indices {
                 guard var plan = lagret[i].plan else { continue }
@@ -390,14 +434,18 @@ final class RomLager: ObservableObject {
             }
             rom = lagret
         }
-        if let data = UserDefaults.standard.data(forKey: prosjektNokkel),
-           let lagret = try? JSONDecoder().decode([Prosjekt].self, from: data) {
+        if let lagret = RomLager.les(Prosjekt.self, nokkel: prosjektNokkel) {
             prosjekter = lagret
         }
     }
 
-    /// Rommene i et prosjekt. nil gir rommene uten prosjekt.
-    func rom(i prosjekt: UUID?) -> [SkannetRom] { rom.filter { $0.prosjekt == prosjekt } }
+    /// Rommene i et prosjekt. nil gir rommene uten prosjekt, også rom med et prosjekt som ikke
+    /// finnes lenger, så ingen rom blir borte fra lista.
+    func rom(i prosjekt: UUID?) -> [SkannetRom] {
+        if let prosjekt { return rom.filter { $0.prosjekt == prosjekt } }
+        let kjente = Set(prosjekter.map(\.id))
+        return rom.filter { r in r.prosjekt.map { !kjente.contains($0) } ?? true }
+    }
     func navn(på prosjekt: UUID?) -> String { prosjekter.first { $0.id == prosjekt }?.navn ?? "Uten prosjekt" }
 
     /// Sletter rommene og 3D-modellene deres.
@@ -427,7 +475,11 @@ final class RomLager: ObservableObject {
         let url = Fotomodell.url(id)
         Task.detached(priority: .utility) {
             Fotomodell.lag(rom: r, bilder: bilder, til: url)
-            await MainActor.run { _ = self.fotoUnderArbeid.remove(id) }
+            await MainActor.run {
+                _ = self.fotoUnderArbeid.remove(id)
+                // Rommet ble forkastet eller slettet mens modellen ble laget: ikke la fila ligge igjen
+                if !self.rom.contains(where: { $0.id == id }) { Fotomodell.slett(id) }
+            }
         }
     }
 
