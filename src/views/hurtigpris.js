@@ -4,7 +4,7 @@
 
 import { h, tom, ikon, toast, ark, velg, bekreft } from '../dom.js';
 import { flertall } from '../util.js';
-import { hentJobb, alleJobber, vedEndring, KLADD_ID, kladdTilJobb, tomKladd, jobbNavn } from '../jobs.js';
+import { hentJobb, alleJobber, vedEndring, KLADD_ID, kladdTilJobb, tomKladd, jobbNavn, bildeIBruk } from '../jobs.js';
 import { slettBilde, slippUrler } from '../photos.js';
 import { gaTil, tilbake } from '../nav.js';
 import { romPanel, prisPanel } from './pris.js';
@@ -83,8 +83,7 @@ export function visHurtigpris(rot, fane = 'maal') {
   }
 
   function tomOgSlett() {
-    const brukt = new Set(alleJobber().flatMap((j) => j.bilder.map((b) => b.id)));
-    for (const b of tomKladd()) if (!brukt.has(b.id)) slettBilde(b.id).catch(() => {});
+    for (const b of tomKladd()) if (!bildeIBruk(b.id)) slettBilde(b.id).catch(() => {});
   }
   async function tom_() {
     if (!await bekreft({ tittel: 'Tømme hurtigprisen?', tekst: 'Rommene, tegningene og prisvalgene her fjernes. Jobber du har kopiert til, beholder sine.', ja: 'Tøm', fare: true })) return;

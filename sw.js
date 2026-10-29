@@ -3,14 +3,17 @@
  *
  * Appen skal åpne i en kjeller med svak eller ingen dekning, og samtidig få
  * nye versjoner uten at noe blir hengende. Derfor:
- * - Appens egne filer: nettet først, men aldri lenger enn 2,5 sekunder.
- *   Svarer ikke nettet innen da, brukes lagret kopi med en gang.
+ * - En ny versjon lagres helt eller ikke i det hele tatt. Feiler én fil under
+ *   installeringen, beholdes forrige versjon, og det prøves igjen senere.
+ * - Siden (index.html): nettet først, men aldri lenger enn 2,5 sekunder.
+ * - Resten av appens filer hentes fra lagret kopi av samme versjon, så filer
+ *   fra to versjoner aldri blandes. Nye versjoner kommer via installeringen.
  * - Bare vellykkede svar (200, eget opphav) lagres. En feilside fra
  *   GitHub Pages blir aldri lagret som appen.
  *
  * VERSJON oppdateres av tools/versjon.mjs (kjøres før hver publisering).
  */
-const VERSJON = 'malerguiden-6f302184';
+const VERSJON = 'malerguiden-26c7c8fb';
 const FILER = [
   './',
   './index.html',
@@ -53,14 +56,20 @@ const VENT_MS = 2500;
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    const cache = await caches.open(VERSJON);
-    // Hver for seg, og forbi HTTP-cachen, så ingen gammel fil blandes inn.
-    await Promise.all(FILER.map(async (url) => {
-      try {
-        const res = await fetch(url, { cache: 'no-cache' });
-        if (res.ok) await cache.put(url, res);
-      } catch { /* prøves igjen ved neste bruk */ }
+    // Alle filene forbi HTTP-cachen, så ingen gammel fil blandes inn. Mangler én, feiler
+    // installeringen, og forrige versjon fortsetter å virke.
+    const svar = await Promise.all(FILER.map(async (url) => {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (!godtSvar(res)) throw new Error('Fikk ikke hentet ' + url);
+      return [url, res];
     }));
+    const cache = await caches.open(VERSJON);
+    try {
+      for (const [url, res] of svar) await cache.put(url, res);
+    } catch (e) {
+      await caches.delete(VERSJON); // halvfull kopi skal ikke brukes
+      throw e;
+    }
     await self.skipWaiting();
   })());
 });
@@ -94,6 +103,16 @@ async function nettForst(req, nokkel) {
   return nett; // ingen kopi: vent på nettet likevel
 }
 
+/** Appens filer: lagret kopi av denne versjonen. Mangler den, hentes filen fra nettet. */
+async function fraKopi(req, nokkel) {
+  const cache = await caches.open(VERSJON);
+  const lagret = await cache.match(nokkel);
+  if (lagret) return lagret;
+  const res = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+  if (godtSvar(res)) await cache.put(nokkel, res.clone());
+  return res;
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -108,5 +127,5 @@ self.addEventListener('fetch', (event) => {
   }
   // Egen fil: nøkkel uten søkestreng, så ?v= og lignende ikke gir doble kopier.
   const nokkel = '.' + url.pathname.slice(scope.pathname.length - 1);
-  event.respondWith(nettForst(req, nokkel));
+  event.respondWith(fraKopi(req, nokkel));
 });

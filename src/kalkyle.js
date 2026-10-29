@@ -314,7 +314,9 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     if (egenMengde >= 0) { timer = beregnet > 0 ? timer * (egenMengde / beregnet) : egenMengde * n.timer; mengde = egenMengde; }
     const egneTimer = medJustering === true && j ? tall(j.timer) : NaN;
     if (egneTimer >= 0) timer = egneTimer;
-    let arbeid = k.modus === 'enhet' ? mengde * n.pris : timer * P.timepris;
+    // Enhetspris: trappehull o.l. med påslag (faktorTimer) gir samme påslag på prisen
+    const faktor = faktorTimer != null && beregnet > 0 ? faktorTimer / beregnet : 1;
+    let arbeid = k.modus === 'enhet' ? mengde * n.pris * faktor : timer * P.timepris;
     const egneKr = medJustering === true && j ? tall(j.kr) : NaN;
     if (egneKr >= 0) arbeid = egneKr;
     const materialer = mengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);

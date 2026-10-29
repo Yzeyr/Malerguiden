@@ -9,7 +9,7 @@
 
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall } from '../util.js';
-import { hentJobb, endreJobb, vedEndring } from '../jobs.js';
+import { hentJobb, endreJobb, vedEndring, bildeIBruk } from '../jobs.js';
 import { lagreNyttBilde, hentBilde, slettBilde } from '../photos.js';
 import { polygonMal, STANDARD_HOYDE, tall } from '../kalkyle.js';
 import { endreKalkyle, romArk } from './pris.js';
@@ -20,7 +20,24 @@ const TEGNING_MAKS = 2600; // høyere enn vanlige bilder, så små mål på tegn
 const planer = (jobId) => hentJobb(jobId)?.kalkyle?.planer || [];
 const romPa = (jobId, bilde) => (hentJobb(jobId)?.kalkyle?.rom || []).filter((r) => r.tegning === bilde).length;
 /** Setter målestokken på én av tegningene. */
-const settSkala = (k, bilde, skala) => { const p = (k.planer || []).find((x) => x.bilde === bilde); if (p) p.skala = skala; };
+const settSkala = (k, bilde, skala) => {
+  const p = (k.planer || []).find((x) => x.bilde === bilde);
+  const gammel = p?.skala;
+  if (p) p.skala = skala;
+  // Rom som er tegnet på denne tegningen, får målene regnet om med den nye målestokken.
+  // Har noen skrevet inn et annet gulvareal for hånd, beholdes det.
+  const mal = (poly, sk) => polygonMal(poly.map(([x, y]) => [x * sk, y * sk]));
+  for (const r of k.rom || []) {
+    if (r.tegning !== bilde || !Array.isArray(r.polygon) || r.polygon.length < 3) continue;
+    if (gammel > 0 && Number.isFinite(r.gulv)) {
+      const forrige = mal(r.polygon, gammel).areal;
+      if (Math.abs(r.gulv - forrige) > Math.max(0.05, forrige * 0.02)) continue;
+    }
+    const { areal, omkrets } = mal(r.polygon, skala);
+    r.gulv = Math.round(areal * 100) / 100;
+    r.omkrets = Math.round(omkrets * 100) / 100;
+  }
+};
 
 /** Plantegning-knappen: ingen tegning ennå → velg en. Ellers en liste: åpne, gi nytt navn, fjern eller legg til. */
 export function apnePlantegning(jobId) {
@@ -63,7 +80,7 @@ async function tegningValg(jobId, p, oppdater) {
       for (const r of k.rom) if (r.tegning === p.bilde) { r.tegning = null; r.polygon = null; }
     });
     endreJobb(jobId, (j) => { j.bilder = j.bilder.filter((b) => b.id !== p.bilde); });
-    slettBilde(p.bilde).catch(() => {});
+    if (!bildeIBruk(p.bilde)) slettBilde(p.bilde).catch(() => {});
     toast('Tegningen er fjernet.');
     oppdater();
   }
@@ -120,7 +137,14 @@ async function velgTegning(jobId) {
 }
 
 async function verktoy(jobId, bildeId) {
-  const blob = await hentBilde(bildeId).catch(() => null);
+  // Én ny runde hvis lesingen feiler (IndexedDB kan være treg rett etter oppstart). Bare når
+  // tegningen faktisk mangler, fjernes den fra jobben; en lesefeil lar den ligge.
+  let blob, feil = false;
+  for (let forsok = 0; forsok < 2; forsok++) {
+    try { blob = await hentBilde(bildeId); feil = false; break; }
+    catch { feil = true; await new Promise((r) => setTimeout(r, 400)); }
+  }
+  if (feil) { toast('Fikk ikke lest tegningen. Prøv igjen om litt.'); return; }
   if (!blob) { toast('Fant ikke tegningen. Velg den på nytt.'); endreKalkyle(jobId, (k) => { k.planer = (k.planer || []).filter((p) => p.bilde !== bildeId); }); velgTegning(jobId); return; }
   const url = URL.createObjectURL(blob);
   const img = new Image();
@@ -226,7 +250,8 @@ async function verktoy(jobId, bildeId) {
     // Én finger på et hjørne: dra hjørnet i stedet for å flytte tegningen
     dra = pekere.size === 1 && modus === 'rom' ? nesteHjorne(p[0], p[1]) : -1;
     if (dra < 0) dra = null;
-    start = { tx, ty, s, flyttet: pekere.size > 1 || dra != null, ...maal() };
+    // Hjørnet dras først når fingeren flytter seg litt, så et trykk på første hjørne kan lukke rommet
+    start = { tx, ty, s, flyttet: pekere.size > 1, hjorne: dra, drar: false, ...maal() };
   });
   vindu.addEventListener('pointermove', (e) => {
     if (!pekere.has(e.pointerId) || !start) return;
@@ -234,7 +259,8 @@ async function verktoy(jobId, bildeId) {
     pekere.set(e.pointerId, [e.clientX - r.left, e.clientY - r.top]);
     const m = maal();
     if (dra != null && pekere.size === 1) {
-      flyttHjorne(dra, ...tilBilde(m.midt[0], m.midt[1]));
+      if (!start.drar && Math.hypot(m.midt[0] - start.midt[0], m.midt[1] - start.midt[1]) > 6) { start.drar = true; start.flyttet = true; }
+      if (start.drar) flyttHjorne(dra, ...tilBilde(m.midt[0], m.midt[1]));
       return;
     }
     if (pekere.size === 1) {
@@ -255,7 +281,11 @@ async function verktoy(jobId, bildeId) {
     if (!pekere.has(e.pointerId)) return;
     const [x, y] = pekere.get(e.pointerId);
     pekere.delete(e.pointerId);
-    if (start && !start.flyttet && pekere.size === 0) trykk(...tilBilde(x, y));
+    if (start && !start.flyttet && pekere.size === 0) {
+      if (start.hjorne == null) trykk(...tilBilde(x, y));
+      // Trykk på første hjørne lukker rommet; trykk på de andre hjørnene gjør ingenting
+      else if (start.hjorne === 0 && !lukket && punkter.length >= 3) { lukket = true; tegn(); }
+    }
     if (pekere.size === 0) dra = null;
     start = pekere.size ? { tx, ty, s, flyttet: true, ...maal() } : null;
   };

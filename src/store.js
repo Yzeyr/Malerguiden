@@ -63,6 +63,13 @@ export function skrivJson(nokkel, verdi) { return skriv(nokkel, JSON.stringify(v
 
 /** Tar vare på data som ikke kunne leses, så de aldri blir skrevet over. */
 export function reddOdelagt(nokkel, raa) {
+  // Samme ødelagte innhold reddes bare én gang, ellers fylles lagringen opp ved hver oppstart
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const n = localStorage.key(i);
+      if (n && n.startsWith(nokkel + ':odelagt-') && localStorage.getItem(n) === raa) return n;
+    }
+  } catch { /* lagringen kan ikke leses: prøv å lagre kopien likevel */ }
   const kopi = nokkel + ':odelagt-' + Date.now();
   try { localStorage.setItem(kopi, raa); return kopi; } catch { return null; }
 }

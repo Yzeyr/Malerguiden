@@ -110,6 +110,25 @@ test('duplikat får ny id, blank sjekkliste og ingen bilder', () => {
   assert.equal(d.kunde.tlf, '1');
 });
 
+test('duplikat tar ikke med plantegninger eller justeringer fra den målte jobben', () => {
+  const j = jobs.normaliserJobb({ id: 'j-1', deler: [{ fag: 'maling' }], bilder: [{ id: 'img-1', kategori: 'tegning' }],
+    kalkyle: { modus: 'timer', rom: [], tillegg: [], planer: [{ bilde: 'img-1', navn: 'Plan', skala: 0.01 }], justering: { 'dekking-gulv': { av: true } } } });
+  const d = jobs.dupliserJobb(j);
+  assert.deepEqual(d.kalkyle.planer, []);
+  assert.deepEqual(d.kalkyle.justering, {});
+});
+
+test('bildeIBruk ser bilder og plantegninger i alle jobber', () => {
+  jobs.lastJobber();
+  const j = jobs.nyJobb({ navn: 'A', fag: 'maling' });
+  j.kalkyle = { modus: 'timer', rom: [], tillegg: [], planer: [{ bilde: 'img-plan', navn: 'Plan', skala: 0.01 }], justering: {} };
+  j.bilder = [{ id: 'img-foto', kategori: 'for', tatt: 1 }];
+  jobs.leggTilJobb(jobs.normaliserJobb(j));
+  assert.equal(jobs.bildeIBruk('img-plan'), true);
+  assert.equal(jobs.bildeIBruk('img-foto'), true);
+  assert.equal(jobs.bildeIBruk('img-annet'), false);
+});
+
 test('hurtigprisen lagres for seg og kan kopieres til en ny eller eksisterende jobb', () => {
   jobs.lastJobber();
   const K = jobs.KLADD_ID;

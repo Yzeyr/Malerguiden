@@ -65,6 +65,14 @@ test('trappehull: flere timer for samme m², pluss stige og stillas', () => {
   assert.ok(trapp.linjer.some((l) => l.id === 'rigging-trapp'));
 });
 
+test('trappehull: enhetspris får samme påslag som timene', () => {
+  const k = (trapp) => ({ ...tomKalkyle(), modus: 'enhet', rom: [rom({ trapp })] });
+  const vanlig = beregn(k(false), {}).linjer.find((l) => l.id === 'vegg-maling-strok1');
+  const trapp = beregn(k(true), { trappFaktor: 2 }).linjer.find((l) => l.id === 'vegg-maling-strok1');
+  assert.equal(trapp.mengde, vanlig.mengde);
+  assert.ok(Math.abs(trapp.arbeid - vanlig.arbeid * 2) < 0.01, trapp.arbeid + ' vs ' + vanlig.arbeid);
+});
+
 test('rom kan slå av tak', () => {
   const r = beregn({ ...tomKalkyle(), rom: [rom({ med: { tak: false } })] }, {});
   assert.equal(r.mengder.tak, 0);

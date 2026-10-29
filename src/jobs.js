@@ -210,6 +210,12 @@ export function kladdTilJobb(tilId, navn = '') {
 export function timerBrukt(job) { return (job?.timeforing || []).reduce((s, t) => s + t.timer, 0); }
 
 export function alleJobber() { return jobber; }
+
+/** Brukes bildet fortsatt av en jobb eller hurtigprisen, som bilde eller som plantegning? */
+export function bildeIBruk(id) {
+  return [...jobber, hentJobb(KLADD_ID)].some((j) => j && (
+    (j.bilder || []).some((b) => b.id === id) || (j.kalkyle?.planer || []).some((p) => p.bilde === id)));
+}
 export function hentJobb(id) {
   if (id === KLADD_ID) { if (!kladd) lastKladd(); return kladd; }
   return jobber.find((j) => j.id === id) || null;
@@ -282,7 +288,7 @@ export function dupliserJobb(kilde, { notat = false, beregninger = false } = {})
       ? kilde.beregninger.map((b) => ({ ...b, id: nyId('b-'), tidspunkt: Date.now(), faktiskMengde: null }))
       : [],
     // Valgene for arbeidet følger med, men rommene hører til jobben som ble målt opp.
-    kalkyle: kilde.kalkyle ? { ...kilde.kalkyle, rom: [], tillegg: [] } : null,
+    kalkyle: kilde.kalkyle ? { ...kilde.kalkyle, rom: [], tillegg: [], planer: [], justering: {} } : null,
   });
 }
 
