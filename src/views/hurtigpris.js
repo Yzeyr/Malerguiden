@@ -1,10 +1,11 @@
 /* Hurtigpris: rom, plantegning, skanning og pris uten å lage en jobb først.
    Når prisen ser riktig ut, kopieres alt over til en ny eller eksisterende jobb.
-   Siden kan også vises inne i Malerkalk-appen (samme nettsted, samme data). */
+   Siden kan også vises inne i Malerkalk-appen. På iPhone har hver app på hjemskjermen sin egen
+   lagring, så derfra sendes hurtigprisen over som tekst, og limes inn her i Malerguiden. */
 
-import { h, tom, ikon, toast, ark, velg, bekreft } from '../dom.js';
+import { h, tom, ikon, toast, ark, velg, bekreft, kopierTekst } from '../dom.js';
 import { flertall } from '../util.js';
-import { hentJobb, alleJobber, vedEndring, KLADD_ID, kladdTilJobb, tomKladd, jobbNavn, bildeIBruk } from '../jobs.js';
+import { hentJobb, alleJobber, vedEndring, KLADD_ID, kladdTilJobb, tomKladd, jobbNavn, bildeIBruk, hurtigprisSomTekst, hurtigprisFraTekst } from '../jobs.js';
 import { slettBilde, slippUrler } from '../photos.js';
 import { gaTil, tilbake } from '../nav.js';
 import { romPanel, prisPanel } from './pris.js';
@@ -37,8 +38,12 @@ export function visHurtigpris(rot, fane = 'maal') {
         antall > 0 && h('button.statusknapp', { type: 'button', onclick: tom_ }, 'Tøm')),
       h('h1', 'Hurtigpris'),
       h('div.under', antall ? flertall(antall, 'rom', 'rom') + ' · ' + fmt(sum.eksMva, 0) + ' kr eks. mva · ' + fmt(sum.timer, 1) + ' t' : 'Rask pris uten å lage en jobb. Legg inn rommene, så kommer prisen.'),
-      h('div.handlinger', { style: { gridTemplateColumns: '1fr' } },
-        h('button', { type: 'button', 'aria-disabled': antall ? null : 'true', onclick: kopier }, ikon('kopier'), 'Kopier til jobb'))));
+      innebygd
+        ? h('div.handlinger', { style: { gridTemplateColumns: '1fr' } },
+          h('button', { type: 'button', 'aria-disabled': antall ? null : 'true', onclick: send }, ikon('kopier'), 'Send til Malerguiden'))
+        : h('div.handlinger', { style: { gridTemplateColumns: '1fr 1fr' } },
+          h('button', { type: 'button', 'aria-disabled': antall ? null : 'true', onclick: kopier }, ikon('kopier'), 'Kopier til jobb'),
+          h('button', { type: 'button', onclick: limInn }, ikon('kopier'), 'Lim inn fra Malerkalk'))));
   };
   const tegnFaner = () => tom(fanerEl, FANER.map((x) => h('button', {
     type: 'button', role: 'tab', 'aria-selected': String(x.id === fane),
@@ -76,10 +81,45 @@ export function visHurtigpris(rot, fane = 'maal') {
     const id = kladdTilJobb(valg === 'ny' ? null : valg, navn);
     if (!id) { toast('Klarte ikke kopiere.'); return; }
     if (await bekreft({ tittel: 'Kopiert til jobben', tekst: 'Vil du tømme hurtigprisen? Rommene ligger nå i jobben.', ja: 'Tøm', nei: 'Behold' })) tomOgSlett();
-    if (innebygd) {
-      // Inne i Malerkalk: åpne jobben i Malerguiden i hele vinduet
-      window.top.location.href = new URL('./#jobb-' + id + '/pris', location.href).href;
-    } else gaTil('jobb-' + id + '/pris');
+    gaTil('jobb-' + id + '/pris');
+  }
+
+  /** Inne i Malerkalk: kopier hurtigprisen som tekst, så den kan limes inn i Malerguiden-appen. */
+  async function send() {
+    const tekst = hurtigprisSomTekst();
+    if (!tekst) { toast('Legg inn minst ett rom først.'); return; }
+    const ok = await kopierTekst(tekst);
+    ark((lukk) => h('div',
+      h('h2', ok ? 'Kopiert' : 'Klarte ikke kopiere'),
+      ok
+        ? h('p', 'Åpne Malerguiden, gå til Regn → Hurtigpris og trykk «Lim inn fra Malerkalk». Der kan du kopiere rommene til en jobb.')
+        : h('p', 'Utklippstavla er stengt. Prøv igjen, eller legg inn rommene i Malerguiden direkte.'),
+      ok && h('p.dempet', 'Plantegningene følger ikke med, men rommene beholder målene.'),
+      h('div.knapprad', h('button.knapp', { type: 'button', onclick: () => lukk() }, 'OK'))));
+  }
+
+  /** Malerguiden: hent hurtigprisen som ble sendt fra Malerkalk. */
+  async function limInn() {
+    let tekst = '';
+    try { tekst = await navigator.clipboard.readText(); } catch { tekst = ''; }
+    if (leggInn(tekst)) return;
+    // Utklippstavla kunne ikke leses (eller inneholdt noe annet): lim inn for hånd
+    ark((lukk) => {
+      const felt = h('textarea', { rows: 4, placeholder: 'Hold inne her og velg Lim inn', autocomplete: 'off' });
+      const feil = h('p.dempet', { hidden: !tekst }, 'Det som ligger på utklippstavla, er ikke en hurtigpris fra Malerkalk. Trykk «Send til Malerguiden» i Malerkalk først.');
+      setTimeout(() => felt.focus(), 250);
+      return h('form', { onsubmit: (e) => { e.preventDefault(); if (leggInn(felt.value)) lukk(); else { feil.textContent = 'Det er ikke en hurtigpris fra Malerkalk.'; feil.hidden = false; } } },
+        h('h2', 'Lim inn fra Malerkalk'),
+        h('p.dempet', { style: { marginTop: '-6px' } }, 'Trykk «Send til Malerguiden» i Pris-fanen i Malerkalk, og lim inn her.'),
+        feil,
+        h('label.felt', h('span', 'Hurtigprisen'), felt),
+        h('div.knapprad', h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Avbryt'), h('button.knapp', { type: 'submit' }, 'Legg inn')));
+    });
+  }
+  function leggInn(tekst) {
+    const n = hurtigprisFraTekst(tekst);
+    if (n) toast(flertall(n, 'rom', 'rom') + ' fra Malerkalk er lagt inn.');
+    return n > 0;
   }
 
   function tomOgSlett() {

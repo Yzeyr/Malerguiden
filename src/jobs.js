@@ -206,6 +206,39 @@ export function kladdTilJobb(tilId, navn = '') {
   return ok ? tilId : null;
 }
 
+/* ---------- Hurtigprisen mellom apper ----------
+   På iPhone har hver app på hjemskjermen sin egen lagring, også på samme nettsted. Hurtigprisen
+   i Malerkalk flyttes derfor over til Malerguiden som tekst på utklippstavla. Tegningene
+   (bildene) følger ikke med, men rommene beholder målene. */
+export const HURTIGPRIS_MERKE = 'malerguiden-hurtigpris';
+export function hurtigprisSomTekst() {
+  const k = hentJobb(KLADD_ID);
+  if (!k?.kalkyle?.rom.length) return null;
+  const kalkyle = JSON.parse(JSON.stringify(k.kalkyle));
+  for (const r of kalkyle.rom) r.tegning = null;
+  kalkyle.planer = [];
+  return JSON.stringify({ type: HURTIGPRIS_MERKE, versjon: 1, klasse: k.klasse || '', kalkyle });
+}
+/** Leser en hurtigpris fra Malerkalk inn i hurtigprisen her. Rommene legges til de som er der.
+ *  Er hurtigprisen tom, følger prisvalgene med. Returnerer antall rom, eller 0. */
+export function hurtigprisFraTekst(tekst) {
+  let d;
+  try { d = JSON.parse(String(tekst || '').trim()); } catch { return 0; }
+  if (!d || d.type !== HURTIGPRIS_MERKE || !d.kalkyle || !Array.isArray(d.kalkyle.rom)) return 0;
+  const inn = rensKalkyle(d.kalkyle, typeof d.klasse === 'string' ? d.klasse : '');
+  if (!inn || !inn.rom.length) return 0;
+  for (const r of inn.rom) { r.id = nyId('r-'); r.tegning = null; }
+  inn.planer = [];
+  const ok = endreJobb(KLADD_ID, (k) => {
+    if (!k.kalkyle || !k.kalkyle.rom.length) { k.kalkyle = inn; if (d.klasse) k.klasse = d.klasse; }
+    else {
+      k.kalkyle.rom.push(...inn.rom);
+      k.kalkyle.tillegg.push(...inn.tillegg.map((t) => ({ ...t, id: nyId('t-') })));
+    }
+  });
+  return ok ? inn.rom.length : 0;
+}
+
 /** Timer ført på jobben til sammen. */
 export function timerBrukt(job) { return (job?.timeforing || []).reduce((s, t) => s + t.timer, 0); }
 

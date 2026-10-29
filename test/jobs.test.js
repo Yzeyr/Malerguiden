@@ -118,6 +118,29 @@ test('duplikat tar ikke med plantegninger eller justeringer fra den målte jobbe
   assert.deepEqual(d.kalkyle.justering, {});
 });
 
+test('hurtigprisen kan flyttes som tekst (Malerkalk → Malerguiden), uten tegningene', () => {
+  jobs.lastJobber();
+  const K = jobs.KLADD_ID;
+  jobs.endreJobb(K, (j) => {
+    j.kalkyle = { modus: 'enhet', rom: [{ id: 'r-1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', tegning: 'img-1', polygon: [[0, 0], [400, 0], [400, 300], [0, 300]], med: {} }], tillegg: [], planer: [{ bilde: 'img-1', navn: 'Plan', skala: 0.01 }], justering: {} };
+  });
+  const tekst = jobs.hurtigprisSomTekst();
+  assert.ok(tekst.includes(jobs.HURTIGPRIS_MERKE));
+  jobs.tomKladd();
+  assert.equal(jobs.hurtigprisFraTekst('noe annet'), 0);
+  assert.equal(jobs.hurtigprisFraTekst(tekst), 1);
+  const k = jobs.hentJobb(K).kalkyle;
+  assert.equal(k.modus, 'enhet', 'prisvalgene følger med når hurtigprisen er tom');
+  assert.equal(k.rom[0].navn, 'Stue');
+  assert.equal(k.rom[0].tegning, null);
+  assert.deepEqual(k.planer, []);
+  // En gang til: rommene legges til
+  assert.equal(jobs.hurtigprisFraTekst(tekst), 1);
+  assert.equal(jobs.hentJobb(K).kalkyle.rom.length, 2);
+  assert.notEqual(jobs.hentJobb(K).kalkyle.rom[0].id, jobs.hentJobb(K).kalkyle.rom[1].id);
+  jobs.tomKladd();
+});
+
 test('bildeIBruk ser bilder og plantegninger i alle jobber', () => {
   jobs.lastJobber();
   const j = jobs.nyJobb({ navn: 'A', fag: 'maling' });
