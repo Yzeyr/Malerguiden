@@ -104,6 +104,7 @@ export function rensKalkyle(k, klasse = '') {
       omkrets: Number.isFinite(r.omkrets) ? r.omkrets : null,
       vegg: Number.isFinite(r.vegg) ? r.vegg : null,
       vinduer: str(r.vinduer), dorer: str(r.dorer),
+      ytterhjorner: str(r.ytterhjorner), // tomt: tell fra formen på rommet
       trapp: !!r.trapp,
       mobler: r.mobler === true,
       med: { ...MED_ALT, ...(r.med && typeof r.med === 'object' ? r.med : {}) },
@@ -180,6 +181,33 @@ export function polygonMal(punkter) {
 }
 
 /** Mengdene for ett rom. ok:false når målene mangler. */
+/**
+ * Ytterhjørner i et rom med kjent form: hjørnene som stikker inn i rommet (innover-knekk i
+ * omrisset). Et rektangulært rom har ingen; et L-formet rom har ett. Punkter som [x, y] eller {x, y}.
+ */
+export function ytterhjornerAuto(poly) {
+  const p = (poly || []).map((q) => (Array.isArray(q) ? q : [q.x, q.y])).filter((q) => q.every(Number.isFinite));
+  if (p.length < 4) return 0;
+  let areal = 0;
+  for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; areal += x1 * y2 - x2 * y1; }
+  const retning = Math.sign(areal);
+  // Små hakk (rester av en døråpning, en smyg) teller ikke: begge veggene må være minst
+  // 2,5 % av omkretsen, som for et pipeløp eller en vegg som stikker fram.
+  let omkrets = 0;
+  for (let i = 0; i < p.length; i++) omkrets += Math.hypot(p[(i + 1) % p.length][0] - p[i][0], p[(i + 1) % p.length][1] - p[i][1]);
+  const kortest = omkrets * 0.025;
+  let n = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[(i + p.length - 1) % p.length], b = p[i], c = p[(i + 1) % p.length];
+    const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
+    const lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+    if (lu < kortest || lv < kortest) continue;
+    const knekk = (ux * vy - uy * vx) / (lu * lv); // sinus til vinkelen
+    if (knekk * retning < -0.3) n++; // bøyer motsatt vei av rommet: et hjørne som stikker inn
+  }
+  return n;
+}
+
 export function romMengder(rom) {
   const L = tall(rom.lengde), B = tall(rom.bredde);
   const H = ellers(tall(rom.hoyde), STANDARD_HOYDE);
@@ -194,7 +222,10 @@ export function romMengder(rom) {
   // Fra LiDAR-skanning er veggarealet målt direkte, med vinduer og dører trukket fra.
   const vegg = Number.isFinite(rom.vegg) && rom.vegg > 0 ? rom.vegg : Math.max(0, brutto - vinduer * VINDU_M2 - dorer * DOR_M2);
   const lister = Math.max(0, omkrets - dorer * DOR_BREDDE);
-  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer };
+  // Ytterhjørner: det som er skrevet inn, ellers talt fra formen på rommet (plantegning eller skanning)
+  const skrevet = tall(rom.ytterhjorner);
+  const ytterhjorner = Number.isFinite(skrevet) ? Math.max(0, Math.round(skrevet)) : ytterhjornerAuto(rom.polygon || rom.skannplan?.gulv);
+  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H };
 }
 
 /* ---------- Priser og normtall ---------- */
@@ -234,9 +265,9 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
   const linjer = [];
-  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0, dekking: 0, gulvbelegg: 0 };
+  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0, dekking: 0, gulvbelegg: 0, ytter: 0 };
   // Trappehull tar lengre tid per m²: samme mengde, men timene ganges med faktoren.
-  const flater = { vegg: [], tak: [], taklinje: [], hjorner: [], veggSparkles: [], takSparkles: [] };
+  const flater = { vegg: [], tak: [], taklinje: [], hjorner: [], veggSparkles: [], takSparkles: [], ytter: [] };
   let manglerMal = 0;
 
   for (const rom of k.rom || []) {
@@ -251,7 +282,10 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     const faktor = rom.trapp ? P.trappFaktor : 1;
     if (med.vegg) { mengder.vegg += m.vegg; flater.vegg.push({ m2: m.vegg, faktor }); }
     // Rom der sparkling er huket av (står det av, males rommet bare)
-    if (med.vegg && med.sparkling) { mengder.veggSparkles += m.vegg; flater.veggSparkles.push({ m2: m.vegg, faktor }); }
+    if (med.vegg && med.sparkling) {
+      mengder.veggSparkles += m.vegg; flater.veggSparkles.push({ m2: m.vegg, faktor });
+      if (m.ytterLm > 0) { mengder.ytter += m.ytterLm; flater.ytter.push({ m2: m.ytterLm, faktor }); }
+    }
     if (med.tak && med.sparkling) { mengder.takSparkles += m.tak; flater.takSparkles.push({ m2: m.tak, faktor }); }
     // Overgangen tak/vegg følger omkretsen. Hjørnene: antall hjørner × takhøyde (4 i et firkantet rom).
     if (med.vegg || med.tak) { mengder.taklinje += m.omkrets; flater.taklinje.push({ m2: m.omkrets, faktor }); }
@@ -317,6 +351,8 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
       leggTil(flate + (s === 1 ? '-maling-strok1' : '-maling-strok'), m2, { faktorTimer: v, navn: 'Maling ' + ord + ', strøk ' + s });
     }
   }
+  // Ytterhjørner sparkles når veggene sparkles
+  if (a.vegg?.sparkling !== 'ingen') leggTil('ytterhjorne', mengder.ytter, { faktorTimer: vektet(flater.ytter) });
   const lf = a.listefritt || {};
   if (lf.tak) leggTil('listefritt-tak', mengder.taklinje, { faktorTimer: vektet(flater.taklinje) });
   if (lf.hjorner) leggTil('listefritt-hjorne', mengder.hjorner, { faktorTimer: vektet(flater.hjorner) });
@@ -376,6 +412,7 @@ const MATERIALGRUPPER = [
   { navn: 'Grunning', test: (id) => id.endsWith('-grunning') },
   { navn: 'Sparkel', test: (id) => id.includes('-sparkling-') || id.startsWith('listefritt-') },
   { navn: 'Snekkermaling (lister, vinduer, dører)', test: (id) => id === 'lister-strok' || id === 'vindu-strok' || id === 'dor-strok' },
+  { navn: 'Hjørnelist', test: (id) => id === 'ytterhjorne' },
   { navn: 'Dekkpapp', test: (id) => id === 'dekking-gulv' },
   { navn: 'Gulvbelegg', test: (id) => id === 'gulvbelegg' },
   { navn: 'Tape og plast', test: (id) => id === 'rigging-rom' || id === 'mobler-rom', enhet: 'rom' },
@@ -403,6 +440,7 @@ export const ARBEID = [
   { id: 'strok2', navn: 'Sparkling 2. strøk' },
   { id: 'strok3', navn: 'Sparkling 3. strøk' },
   { id: 'hel', navn: 'Helsparkling' },
+  { id: 'ytterhjorner', navn: 'Ytterhjørner' },
   { id: 'listefritt', navn: 'Listefritt' },
   { id: 'grunning', navn: 'Grunning' },
   { id: 'maling', navn: 'Maling vegg og tak' },
@@ -415,6 +453,7 @@ export const ARBEID = [
 export function arbeidFor(id) {
   const m = /^(?:vegg|tak)-sparkling-(strimling|strok2|strok3|hel)$/.exec(id);
   if (m) return m[1];
+  if (id === 'ytterhjorne') return 'ytterhjorner';
   if (id.startsWith('listefritt-')) return 'listefritt';
   if (id.endsWith('-grunning')) return 'grunning';
   if (/^(vegg|tak)-maling/.test(id)) return 'maling';
@@ -438,7 +477,7 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 /** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
 // Sparkelrundene per klasse. K2 er strimling, 2. og 3. strøk; K3 er de pluss helsparkling til slutt.
 export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
-export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3 };
+export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3, ytterhjorne: 3 };
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn

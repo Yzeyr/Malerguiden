@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -306,4 +306,24 @@ test('sparkling i runder: K2 er strimling, 2. og 3. strøk; K3 har helsparkling 
   assert.ok(per.strimling > 0 && per.strok2 > 0 && per.strok3 > 0 && per.maling > 0 && per.rigging > 0);
   assert.equal(arbeidFor('tak-sparkling-hel'), 'hel');
   assert.equal(arbeidFor('tillegg-x'), 'annet');
+});
+
+test('ytterhjørner: talt fra formen, eller skrevet inn, og regnet når veggene sparkles', () => {
+  // Rektangel: ingen. L-form: ett (hjørnet som stikker inn).
+  assert.equal(ytterhjornerAuto([[0, 0], [4, 0], [4, 3], [0, 3]]), 0);
+  const L = [[0, 0], [5, 0], [5, 2], [3, 2], [3, 4], [0, 4]];
+  assert.equal(ytterhjornerAuto(L), 1);
+  assert.equal(ytterhjornerAuto([...L].reverse()), 1, 'samme uansett retning');
+  assert.equal(ytterhjornerAuto([{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 2 }, { x: 3, y: 2 }, { x: 3, y: 4 }, { x: 0, y: 4 }]), 1);
+  // Et lite hakk (døråpning) i et ellers rektangulært rom er ikke et ytterhjørne
+  assert.equal(ytterhjornerAuto([[0, 0], [4, 0], [4, 1.5], [3.9, 1.5], [3.9, 2.3], [4, 2.3], [4, 3], [0, 3]]), 0);
+  const r = rom({ id: 'a', ytterhjorner: '2', hoyde: '2,5' });
+  assert.equal(romMengder(r).ytterLm, 5);
+  const b = beregn({ ...tomKalkyle('K2'), rom: [r] }, {});
+  const linje = b.linjer.find((l) => l.id === 'ytterhjorne');
+  assert.equal(linje.mengde, 5);
+  assert.ok(materialer(b).some((m) => m.navn === 'Hjørnelist'));
+  assert.equal(arbeidFor('ytterhjorne'), 'ytterhjorner');
+  // Uten sparkling: ingen ytterhjørner i prisen
+  assert.ok(!beregn({ ...tomKalkyle(''), rom: [r] }, {}).linjer.some((l) => l.id === 'ytterhjorne'));
 });

@@ -31,6 +31,8 @@ export const NORMER = [
   { id: 'vegg-sparkling-strok2', gruppe: 'Vegg', navn: 'Sparkling vegg, 2. strøk', enhet: 'm²', timer: 0.03, pris: 24, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'vegg-sparkling-strok3', gruppe: 'Vegg', navn: 'Sparkling vegg, 3. strøk med sliping', enhet: 'm²', timer: 0.025, pris: 20, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
   { id: 'vegg-sparkling-hel', gruppe: 'Vegg', navn: 'Helsparkling vegg, hele flaten, med sliping (K3)', enhet: 'm²', timer: 0.15, pris: 145, forbruk: 0.8, materialpris: 50, materialenhet: 'L' },
+  // Ytterhjørner (hjørner som stikker ut i rommet): hjørnelist og 3 strøk sparkel med sliping. Skjønn.
+  { id: 'ytterhjorne', gruppe: 'Vegg', navn: 'Ytterhjørner: hjørnelist og 3 strøk sparkel med sliping', enhet: 'lm', timer: 0.2, pris: 150, forbruk: 1.05, materialpris: 25, materialenhet: 'lm' },
   { id: 'vegg-grunning', gruppe: 'Vegg', navn: 'Grunning vegg', enhet: 'm²', timer: 0.015, pris: 30, forbruk: 0.14, materialpris: 95, materialenhet: 'L' },
   { id: 'vegg-maling-strok1', gruppe: 'Vegg', navn: 'Maling vegg, 1. strøk', enhet: 'm²', timer: 0.027, pris: 60, forbruk: 0.12, materialpris: 130, materialenhet: 'L' },
   { id: 'vegg-maling-strok', gruppe: 'Vegg', navn: 'Maling vegg, neste strøk', enhet: 'm²', timer: 0.022, pris: 50, forbruk: 0.10, materialpris: 130, materialenhet: 'L' },

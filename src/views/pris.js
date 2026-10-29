@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
-import { tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -50,7 +50,7 @@ export function romPanel(j) {
     const brikker = m.ok ? [etasje[r.tegning],
       r.med.vegg && 'Vegg ' + m2(m.vegg), r.med.tak && 'Tak ' + m2(m.tak), r.med.lister && 'Lister ' + fmt(m.lister, 1) + ' m',
       m.vinduer > 0 && r.med.vinduer && flertall(m.vinduer, 'vindu', 'vinduer'), m.dorer > 0 && r.med.dorer && flertall(m.dorer, 'dør', 'dører'),
-      r.trapp && 'Trappehull', r.mobler && 'Møbler', r.med.sparkling === false && 'Bare maling', r.med.gulvbelegg && 'Gulvbelegg', r.med.dekking === false && 'Ikke dekk gulv',
+      r.trapp && 'Trappehull', r.mobler && 'Møbler', m.ytterhjorner > 0 && flertall(m.ytterhjorner, 'ytterhjørne', 'ytterhjørner'), r.med.sparkling === false && 'Bare maling', r.med.gulvbelegg && 'Gulvbelegg', r.med.dekking === false && 'Ikke dekk gulv',
     ].filter(Boolean) : ['Mangler mål'];
     const under = r.kilde === 'skann' ? 'LiDAR-skanning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 2) + ' m'
       : r.kilde === 'plan' ? 'Fra plantegning · ' + m2(m.gulv) + ' gulv · takhøyde ' + fmt(m.hoyde, 1) + ' m'
@@ -120,6 +120,9 @@ export function romArk(jobId, romId, forslag = null) {
         felt('hoyde', 'Takhøyde (m)', { placeholder: fmt(STANDARD_HOYDE, 1) }),
         felt('vinduer', 'Vinduer', { inputmode: 'numeric', placeholder: '0' }),
         felt('dorer', 'Dører', { inputmode: 'numeric', placeholder: '0' })),
+      // Ytterhjørner: tomt feltet teller dem fra formen på rommet (plantegning eller skanning)
+      h('div', { style: { display: 'flex', gap: '10px' } },
+        felt('ytterhjorner', 'Ytterhjørner', { inputmode: 'numeric', placeholder: String(ytterhjornerAuto(verdi.polygon || verdi.skannplan?.gulv)) })),
       resultat,
       h('label.tallfelt', h('span', 'Trappehull', h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Høye flater, stige eller stillas')),
         h('input.bryter', { type: 'checkbox', checked: verdi.trapp, onchange: (e) => { verdi.trapp = e.target.checked; } })),
