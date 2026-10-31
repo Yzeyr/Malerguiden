@@ -11,6 +11,7 @@ import { tolkSok, KALKULATORER } from '../calc.js';
 import { gaTil, tilbake } from '../nav.js';
 import { topp } from './felles.js';
 import { apneKalkulator } from './regn.js';
+import { blokk as delBlokk } from './blokk.js';
 
 const FARGE = { gulvfall: 'ultramarin', vatrom: 'petrol', sparkling: 'oker', maling: 'terrakotta', fasade: 'salvie', feil: 'plomme', maltall: 'terrakotta', kilder: 'plomme' };
 const GRUPPEFARGE = { fall: 'petrol', vinyl: 'petrol', gulv: 'ultramarin', sparkling: 'oker', maling: 'terrakotta', fasade: 'salvie' };
@@ -175,13 +176,21 @@ export function faktumKort(f, { kanonisk = true } = {}) {
 function maltall(side, uthev) {
   side.append(tilbakeRad(), topp('Med hjemmel', 'Måltall'), h('p.dempet', { style: { margin: '-6px 2px 8px' } }, 'Trykk på et tall for forklaring og kilde.'));
   let mål = null;
-  for (const g of FACT_GROUPS) {
-    side.append(h('div.seksjon', g.tittel, h('span.tall', g.tag)));
-    side.append(h('div.fakta', g.grupper.flatMap((id) => FACTS[id] || []).map((f) => {
+  // Maling og sparkling først: det er det som slås opp mest. Resten i samme rekkefølge som før.
+  const forst = ['maling', 'sparkling'];
+  const grupper = [...forst.map((id) => FACT_GROUPS.find((g) => g.id === id)).filter(Boolean), ...FACT_GROUPS.filter((g) => !forst.includes(g.id))];
+  side.append(h('nav.hopp', { 'aria-label': 'Hopp til' }, grupper.map((g) => h('a', {
+    href: '#', onclick: (e) => { e.preventDefault(); document.getElementById('mg-' + g.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); },
+  }, g.tittel))));
+  for (const g of grupper) {
+    const b = delBlokk(g.tittel, g.tag, h('div.fakta', g.grupper.flatMap((id) => FACTS[id] || []).map((f) => {
       const k = faktumKort(f);
       if (f.id === uthev) mål = k;
       return k;
     })));
+    b.id = 'mg-' + g.id;
+    b.style.scrollMarginTop = '12px';
+    side.append(b);
   }
   if (mål) {
     mål.apne();

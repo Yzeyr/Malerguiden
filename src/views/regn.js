@@ -106,7 +106,7 @@ export function visRegn(rot, sti) {
     // Korte hint står rett under navnet. Lange forklaringer ligger bak ⓘ, så skjermen holder seg ren.
     const kortHint = f.hint && f.hint.length <= 32 ? f.hint : '';
     const langHint = f.hint && !kortHint ? h('p.dempet.liten', { hidden: true, style: { margin: '-4px 0 8px' } }, f.hint) : null;
-    const info = langHint && h('button.lenkeknapp', { type: 'button', 'aria-label': 'Forklaring', style: { padding: '0 4px', fontSize: '15px' }, onclick: () => { langHint.hidden = !langHint.hidden; } }, 'ⓘ');
+    const info = langHint && h('button.lenkeknapp', { type: 'button', 'aria-label': 'Forklaring', style: { padding: '11px 12px', margin: '-11px -6px', fontSize: '17px', minWidth: '44px', minHeight: '44px', justifyContent: 'center' }, onclick: () => { langHint.hidden = !langHint.hidden; } }, 'ⓘ');
     const inn = h('input', {
       type: 'text', inputmode: f.type === 'heltall' ? 'numeric' : 'decimal', autocomplete: 'off',
       value: String(verdier[f.id] ?? ''), 'aria-label': f.label,

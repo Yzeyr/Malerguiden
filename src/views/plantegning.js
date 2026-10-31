@@ -41,7 +41,10 @@ const settSkala = (k, bilde, skala) => {
 
 /** Plantegning-knappen: ingen tegning ennå → velg en. Ellers en liste: åpne, gi nytt navn, fjern eller legg til. */
 export function apnePlantegning(jobId) {
-  if (!planer(jobId).length) { velgTegning(jobId); return; }
+  const alle = planer(jobId);
+  if (!alle.length) { velgTegning(jobId); return; }
+  // Bare én tegning: rett inn. Lista nås fra navnet øverst i verktøyet.
+  if (alle.length === 1) { verktoy(jobId, alle[0].bilde); return; }
   tegningsListe(jobId);
 }
 
@@ -171,7 +174,8 @@ async function verktoy(jobId, bildeId) {
   const el = h('div.planverktoy', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Måling på plantegning' },
     h('div.plinje',
       h('button', { type: 'button', onclick: () => lukk() }, 'Lukk'),
-      h('span', { style: { flex: '1', color: '#fff', fontWeight: '650', fontSize: '15px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, denne()?.navn || ''),
+      // Navnet åpner lista over tegninger (bytt tegning, eller legg til en ny etasje)
+      h('button', { type: 'button', 'aria-label': 'Alle tegninger', onclick: () => { lukk(); tegningsListe(jobId); }, style: { flex: '1', minWidth: '0', background: 'none', color: '#fff', fontWeight: '650', fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, (denne()?.navn || 'Tegning') + ' ▾'),
       h('button', { type: 'button', 'aria-label': 'Zoom ut', onclick: () => zoomRundt(1 / 1.5) }, '−'),
       h('button', { type: 'button', 'aria-label': 'Zoom inn', onclick: () => zoomRundt(1.5) }, '+'),
       h('button', { type: 'button', 'aria-label': 'Angre siste hjørne', onclick: () => { if (lukket) lukket = false; else punkter.pop(); tegn(); } }, ikon('angre'))),
@@ -620,7 +624,7 @@ async function verktoy(jobId, bildeId) {
         !punkter.length && forslag.length > 0 && h('button.lenkeknapp', { type: 'button', style: { marginTop: '4px' }, onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'));
       return;
     }
-    const nyMalestokk = h('button.lenkeknapp', { type: 'button', style: { padding: '0' }, onclick: () => { modus = 'skala'; forslag = []; nullstill(); } }, 'Ny målestokk');
+    const nyMalestokk = h('button.lenkeknapp', { type: 'button', style: { padding: '10px 4px', minHeight: '44px', margin: '-10px 0' }, onclick: () => { modus = 'skala'; forslag = []; nullstill(); } }, 'Ny målestokk');
 
     // Ingenting valgt: finn rom automatisk eller tegn selv
     if (!punkter.length) {
@@ -655,6 +659,8 @@ async function verktoy(jobId, bildeId) {
         redigerer
           ? h('button.knapp.fare', { type: 'button', onclick: slettRommet }, ikon('slett'), 'Slett')
           : h('button.knapp.sekundar', { type: 'button', onclick: () => nullstill({ leggTilbake: true }) }, 'Avbryt'),
+        // Angre siste hjørne nede ved tommelen, ikke bare øverst i hjørnet
+        !redigerer && !fraForslag && punkter.length > 0 && h('button.knapp.sekundar', { type: 'button', 'aria-label': 'Angre siste hjørne', style: { flex: '0 0 auto' }, onclick: () => { if (lukket) lukket = false; else punkter.pop(); tegn(); } }, ikon('angre')),
         h('button.knapp', { type: 'button', disabled: punkter.length < 3, onclick: ferdigRom }, ikon('hake'), redigerer ? 'Lagre' : 'Ferdig med rommet')),
       redigerer && h('button.lenkeknapp', { type: 'button', style: { marginTop: '4px' }, onclick: () => nullstill() }, 'Avbryt'));
   }

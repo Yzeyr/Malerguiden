@@ -5,6 +5,7 @@ import { datoEtikett, dagerTil, visTidspunkt, iDagIso } from '../util.js';
 import { FAG_DEFS, FAG_BY_ID, JOBBTYPER } from '../data/checklists.js';
 import { framdrift, nesteSteg, hovedfag, arbeidTekst, STATUS_LABEL, nyJobb, leggTilJobb } from '../jobs.js';
 import { gaTil } from '../nav.js';
+import { uiLes, uiSkriv } from '../store.js';
 
 export const FAGFARGE = { annet: 'plomme', bad: 'petrol', maling: 'terrakotta', sparkling: 'oker', fasade: 'salvie' };
 
@@ -85,12 +86,14 @@ export function typeVelger(fag, valgt, vedValg) {
 }
 
 /** Ark for ny jobb. Kunde er det eneste som må fylles ut. */
-export function nyJobbArk({ fag: startFag = 'annet', etter } = {}) {
-  let fag = startFag;
+export function nyJobbArk({ fag: startFag, etter } = {}) {
+  // Uten valgt fag: det som ble brukt sist, ellers maling
+  let fag = startFag || (FAG_BY_ID[uiLes('sistFag')] ? uiLes('sistFag') : 'maling');
   let jobbtype = JOBBTYPER[fag]?.[0]?.id || '';
   ark((lukk) => {
     const navn = h('input', { type: 'text', maxlength: 80, autocomplete: 'off', enterkeyhint: 'next', placeholder: 'F.eks. Hansen' });
     const adresse = h('input', { type: 'text', maxlength: 140, autocomplete: 'off', placeholder: 'Valgfritt' });
+    const tlf = h('input', { type: 'tel', inputmode: 'tel', maxlength: 30, autocomplete: 'off', placeholder: 'Valgfritt' });
     const rom = h('input', { type: 'text', maxlength: 60, autocomplete: 'off', placeholder: 'F.eks. Bad 2. etg' });
     const dato = h('input', { type: 'date' });
     const feil = h('p.feilmelding', { hidden: true });
@@ -101,8 +104,9 @@ export function nyJobbArk({ fag: startFag = 'annet', etter } = {}) {
     const lagre = (e) => {
       e.preventDefault();
       if (!navn.value.trim()) { feil.textContent = 'Skriv inn hvem jobben er for.'; feil.hidden = false; navn.focus(); return; }
-      const job = nyJobb({ navn: navn.value, fag, jobbtype, adresse: adresse.value, dato: dato.value, rom: rom.value.trim() });
+      const job = nyJobb({ navn: navn.value, fag, jobbtype, adresse: adresse.value, tlf: tlf.value, dato: dato.value, rom: rom.value.trim() });
       if (!leggTilJobb(job)) { feil.textContent = 'Fikk ikke lagret jobben.'; feil.hidden = false; return; }
+      uiSkriv('sistFag', fag);
       lukk();
       if (etter) etter(job); else gaTil('jobb-' + job.id);
     };
@@ -114,9 +118,10 @@ export function nyJobbArk({ fag: startFag = 'annet', etter } = {}) {
       h('div.felt', typeBoks),
       h('label.felt', h('span', 'Rom', h('small', 'valgfritt')), rom),
       h('label.felt', h('span', 'Adresse', h('small', 'valgfritt')), adresse),
+      h('label.felt', h('span', 'Telefon', h('small', 'valgfritt')), tlf),
       h('label.felt', h('span', 'Dato', h('small', 'valgfritt')), dato),
       feil,
-      h('button.knapp.hel', { type: 'submit' }, ikon('pluss'), 'Opprett jobb'));
+      h('div.knapprad', h('button.knapp', { type: 'submit' }, ikon('pluss'), 'Opprett jobb')));
   });
 }
 

@@ -62,6 +62,8 @@ const STI = {
   dupliser: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M14 11v6M11 14h6M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>',
   angre: '<path d="M8 5L4 9l4 4"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
   notat: '<path d="M6 3.5h8.5L19 8v12a.5.5 0 0 1-.5.5h-12a.5.5 0 0 1-.5-.5z"/><path d="M14 3.5V8.5h5M9 13h6M9 16.5h4"/>',
+  klokke: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  lim: '<rect x="5.5" y="5" width="13" height="16" rx="2"/><path d="M9 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9 11h6M9 14.5h6M9 18h3.5"/>',
 };
 
 export function ikon(navn) {
@@ -106,7 +108,8 @@ export function ark(bygg, { vedLukk } = {}) {
   d.addEventListener('click', (e) => { if (e.target === d) lukk(); });
   d.addEventListener('cancel', (e) => { e.preventDefault(); lukk(); });
   draForALukke(d, inn, lukk);
-  inn.append(bygg(lukk));
+  // Synlig lukkeknapp øverst til høyre, i tillegg til å dra ned eller trykke utenfor
+  inn.append(h('button.ark-lukk', { type: 'button', 'aria-label': 'Lukk', onclick: () => lukk() }, ikon('kryss')), bygg(lukk));
   document.body.append(d);
   las();
   d.showModal();

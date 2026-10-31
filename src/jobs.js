@@ -298,10 +298,10 @@ export function slettJobb(id) {
   return job;
 }
 
-export function nyJobb({ navn, fag = 'annet', jobbtype = '', adresse = '', dato = '', rom = '' }) {
+export function nyJobb({ navn, fag = 'annet', jobbtype = '', adresse = '', tlf = '', dato = '', rom = '' }) {
   return normaliserJobb({
     id: nyId('j-'), created: Date.now(), status: 'planlagt',
-    kunde: { navn: String(navn || '').trim(), adresse: String(adresse || '').trim() },
+    kunde: { navn: String(navn || '').trim(), adresse: String(adresse || '').trim(), tlf: String(tlf || '').trim() },
     rom, dato,
     deler: [{ id: nyId('d-'), fag, jobbtype, sjekkliste: {}, lagtTil: Date.now() }],
   });

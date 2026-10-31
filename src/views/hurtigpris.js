@@ -35,7 +35,7 @@ export function visHurtigpris(rot, fane = 'maal') {
     tom(hodeEl, h('div.hode',
       h('div.rad',
         innebygd ? h('span') : h('button.tilbake', { type: 'button', onclick: () => tilbake('regn') }, ikon('tilbake'), 'Regn'),
-        antall > 0 && h('button.statusknapp', { type: 'button', onclick: tom_ }, 'Tøm')),
+        antall > 0 && h('button.tekstknapp', { type: 'button', onclick: tom_ }, ikon('slett'), ' Tøm')),
       h('h1', 'Hurtigpris'),
       h('div.under', antall ? flertall(antall, 'rom', 'rom') + ' · ' + fmt(sum.eksMva, 0) + ' kr eks. mva · ' + fmt(sum.timer, 1) + ' t' : 'Rask pris uten å lage en jobb. Legg inn rommene, så kommer prisen.'),
       innebygd
@@ -43,7 +43,7 @@ export function visHurtigpris(rot, fane = 'maal') {
           h('button', { type: 'button', 'aria-disabled': antall ? null : 'true', onclick: send }, ikon('kopier'), 'Send til Malerguiden'))
         : h('div.handlinger', { style: { gridTemplateColumns: '1fr 1fr' } },
           h('button', { type: 'button', 'aria-disabled': antall ? null : 'true', onclick: kopier }, ikon('kopier'), 'Kopier til jobb'),
-          h('button', { type: 'button', onclick: limInn }, ikon('kopier'), 'Lim inn fra Malerkalk'))));
+          h('button', { type: 'button', onclick: limInn }, ikon('lim'), 'Lim inn fra Malerkalk'))));
   };
   const tegnFaner = () => tom(fanerEl, FANER.map((x) => h('button', {
     type: 'button', role: 'tab', 'aria-selected': String(x.id === fane),

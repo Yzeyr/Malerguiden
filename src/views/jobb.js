@@ -12,7 +12,8 @@ import { FORBEHOLD_VALG, BILDE_KATEGORIER, KLASSER, KLASSE_MERKNAD, FARGE_FELT, 
 import { lagreNyttBilde, slettBilde, miniatyrUrl, hentBilde, slippUrler } from '../photos.js';
 import { gaTil, tilbake } from '../nav.js';
 import { fagVelger, typeVelger, FAGFARGE } from './felles.js';
-import { romPanel, prisPanel } from './pris.js';
+import { romPanel, prisPanel, forTimerArk } from './pris.js';
+import { blokk, blokkInnhold, prisRad, sammenlegg } from './blokk.js';
 import { beregn } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 
@@ -40,6 +41,9 @@ export function visJobb(rot, id, fane = 'arbeid') {
   const side = h('div.visning.uten-topp.f-' + fag);
   const hodeEl = h('div');
   const fanerEl = h('div.faner', { role: 'tablist' });
+  // Toning til høyre så lenge det er flere faner å dra fram
+  const sjekkFaner = () => fanerEl.classList.toggle('mer-hoyre', fanerEl.scrollLeft + fanerEl.clientWidth < fanerEl.scrollWidth - 4);
+  fanerEl.addEventListener('scroll', sjekkFaner, { passive: true });
   const panel = h('div', { role: 'tabpanel' });
   side.append(hodeEl, fanerEl, panel);
   rot.append(side);
@@ -69,6 +73,8 @@ export function visJobb(rot, id, fane = 'arbeid') {
       if (fanerEl.scrollLeft > venstre) fanerEl.scrollLeft = venstre;
       else if (fanerEl.scrollLeft < hoyre) fanerEl.scrollLeft = hoyre;
     }
+    sjekkFaner();
+    requestAnimationFrame(sjekkFaner);
   };
   const tegnPanel = () => {
     const j = job();
@@ -120,11 +126,12 @@ function hode(j, fag) {
     under && h('div.under', under),
     h('div.handlinger',
       adr ? handling('kart', 'Kart', { href: 'https://maps.google.com/?q=' + encodeURIComponent(adr), target: '_blank', rel: 'noopener' })
-          : handling('kart', 'Kart', { 'aria-disabled': 'true', onclick: () => { toast('Legg inn adressen under Mer'); gaTil('jobb-' + j.id + '/mer', { erstatt: true }); } }),
+          : handling('kart', 'Kart', { 'aria-disabled': 'true', onclick: () => kundeArk(j.id) }),
       tlf ? handling('ring', 'Ring', { href: 'tel:' + tlf })
-          : handling('ring', 'Ring', { 'aria-disabled': 'true', onclick: () => { toast('Legg inn telefonnummeret under Mer'); gaTil('jobb-' + j.id + '/mer', { erstatt: true }); } }),
+          : handling('ring', 'Ring', { 'aria-disabled': 'true', onclick: () => kundeArk(j.id) }),
       h('label', { role: 'button', tabindex: '0', style: { cursor: 'pointer' } }, ikon('kamera'), 'Bilde', kamera),
-      handling('kopier', 'Kopier', { onclick: async () => toast(await kopierTekst(eksportTekst(hentJobb(j.id))) ? 'Kopiert. Lim inn i e-post, melding eller Notater.' : 'Klarte ikke kopiere.') }),
+      // Kopier som tekst ligger under Mer. Timer føres oftere, så den har plassen her.
+      handling('klokke', 'Timer', { onclick: () => forTimerArk(j.id) }),
     ));
 }
 
@@ -168,6 +175,12 @@ function arbeidPanel(j, faseValg, tegnPanel) {
       h('h2', j.status === 'ferdig' ? 'Jobben er ferdig.' : 'Alle punktene er gjort.'),
       j.status !== 'ferdig' && h('button.knapp.hel', { type: 'button', style: { background: 'var(--gronn)', color: '#fff' }, onclick: () => endreJobb(j.id, (x) => { x.status = 'ferdig'; }) }, ikon('hake'), 'Sett jobben som ferdig')));
   }
+
+  // Før timer rett under neste steg: det gjøres hver dag på jobben
+  const brukt = j.timeforing.reduce((s, t) => s + (t.timer || 0), 0);
+  ut.append(h('button.knapp.sekundar.hel', { type: 'button', style: { marginTop: '10px', justifyContent: 'space-between' }, onclick: () => forTimerArk(j.id) },
+    h('span', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, ikon('klokke'), 'Før timer'),
+    h('span.dempet', { style: { fontWeight: '650', fontSize: '15px' } }, brukt ? fmt(brukt, brukt % 1 ? 1 : 0) + ' t ført' : 'Ingen ført ennå')));
 
   for (const del of j.deler) {
     const df = delFramdrift(del);
@@ -254,10 +267,15 @@ function arbeidArk(j, del = null) {
 function maalPanel(j) {
   const grupper = maalGrupperFor(j);
   const ut = h('div');
-  if (grupper.length) ut.append(h('p.dempet', { style: { margin: '18px 2px 0' } }, 'Mål til kalkulatorene under Regn.'));
+  // Har jobben rom, er dette bare et ekstra sett mål til kalkulatorene. Da ligger det lukket,
+  // så det ikke ser ut som rommene mangler mål.
+  const harRom = (j.kalkyle?.rom.length || 0) > 0;
+  const kalk = harRom ? [] : null;
+  const legg = (...el) => (kalk ? kalk.push(...el) : ut.append(...el));
+  if (grupper.length && !harRom) ut.append(h('p.dempet', { style: { margin: '18px 2px 0' } }, 'Mål til kalkulatorene under Regn.'));
   for (const g of grupper) {
-    ut.append(h('div.seksjon', g.tittel));
-    ut.append(h('div.kort', g.felt.map((f) => {
+    legg(h('div.seksjon', g.tittel));
+    legg(h('div.kort', g.felt.map((f) => {
       const inn = h('input', {
         type: 'text', inputmode: 'decimal', autocomplete: 'off', value: j.maal[f.id] || '', placeholder: '—',
         oninput: (e) => endreJobb(j.id, (x) => { x.maal[f.id] = e.target.value; }, { utsatt: true, stille: true }),
@@ -266,10 +284,16 @@ function maalPanel(j) {
         h('label', f.navn, f.hint && h('small', f.hint)),
         h('div.stepper', inn, h('span.dempet', { style: { minWidth: '28px' } }, f.enhet)));
     })));
-    ut.append(h('button.knapp.farge.hel.k-' + (g.calc === 'calc-bad' ? 'petrol' : 'salvie'), {
+    legg(h('button.knapp.farge.hel.k-' + (g.calc === 'calc-bad' ? 'petrol' : 'salvie'), {
       type: 'button', style: { marginTop: '10px' },
       onclick: () => gaTil('regn/' + g.calc + '?jobb=' + encodeURIComponent(j.id) + '&maal=1'),
     }, ikon('regn'), 'Regn med disse målene'));
+  }
+  if (kalk && kalk.length) {
+    const utfylt = grupper.flatMap((g) => g.felt).filter((x) => (j.maal[x.id] || '').trim()).length;
+    ut.append(h('div', { style: { marginTop: '16px' } }, blokk('Mål til kalkulatorene', 'valgfritt',
+      sammenlegg('maal:kalk', { tittel: utfylt ? flertall(utfylt, 'mål', 'mål') + ' fylt inn' : 'Ingen fylt inn', under: 'Bare for kalkulatorene under Regn. Prisen bruker rommene over.' },
+        blokkInnhold(kalk)))));
   }
   ut.append(h('div.seksjon', MAAL_FRITEKST.label));
   ut.append(h('label.felt',
@@ -410,7 +434,7 @@ function fargePanel(j) {
     },
       h('span.farge-prove', f.glans ? f.glans : '•'),
       h('span.hoved', h('b', f.rom || 'Uten rom'), h('small', [f.produkt, f.kode].filter(Boolean).join(' · ')), h('small', fargeDetaljer(f))),
-      ikon('rediger')))));
+      h('span.dempet', { style: { display: 'flex' } }, ikon('pil'))))));
   } else {
     ut.append(h('div.tom', h('b', 'Ingen farger ennå'), 'Legg inn fargen mens spannet står foran deg.'));
   }
@@ -475,8 +499,18 @@ function tekstfelt(j, nokkel, { label, maxlength, rows = 4, placeholder = '', he
 function merPanel(j) {
   const ut = h('div');
 
-  // Ta med neste gang
-  ut.append(h('div.seksjon', 'Ta med neste gang', h('span.tall', String(j.utstyr.filter((u) => !u.checked).length || ''))));
+  // Kunde og sted øverst: én rad som åpner feltene i et ark
+  const tlf = j.kunde.tlf.trim();
+  const adr = j.kunde.adresse.trim();
+  ut.append(blokk('Kunde og sted', '',
+    prisRad({
+      tittel: j.kunde.navn || 'Uten navn',
+      under: [[j.rom, adr].filter(Boolean).join(' · ') || 'Ingen adresse', [tlf, j.dato && visDato(j.dato)].filter(Boolean).join(' · ') || 'Ingen telefon'],
+      klikk: () => kundeArk(j.id),
+    })));
+
+  // Ta med neste gang. Hele raden huker av, ikke bare boksen.
+  const igjen = j.utstyr.filter((u) => !u.checked).length;
   const ny = h('input', { type: 'text', maxlength: 120, placeholder: 'F.eks. ekstra sekk sparkel', enterkeyhint: 'done', autocomplete: 'off' });
   const leggTil = (e) => {
     e.preventDefault();
@@ -485,77 +519,81 @@ function merPanel(j) {
     endreJobb(j.id, (x) => { x.utstyr.push({ id: nyId('p-'), tekst, checked: false, created: Date.now() }); });
     setTimeout(() => document.querySelector('.leggtil-rad input')?.focus(), 30);
   };
-  ut.append(h('div.rad-liste',
-    j.utstyr.slice().sort((a, b) => (a.created || 0) - (b.created || 0)).map((u) => h('div.rad',
-      h('button.boks' + (u.checked ? '.ja' : ''), {
-        type: 'button', role: 'checkbox', 'aria-checked': String(u.checked), 'aria-label': u.tekst,
-        onclick: () => endreJobb(j.id, (x) => { const y = x.utstyr.find((z) => z.id === u.id); if (y) y.checked = !y.checked; }),
-      }, ikon('hake')),
-      h('span.hoved', { style: u.checked ? { textDecoration: 'line-through', color: 'var(--blekk2)' } : null }, u.tekst),
-      h('button.ikonknapp', {
-        type: 'button', 'aria-label': 'Fjern ' + u.tekst,
-        onclick: () => {
-          const kopi = { ...u };
-          endreJobb(j.id, (x) => { x.utstyr = x.utstyr.filter((z) => z.id !== u.id); });
-          toast('Fjernet «' + avkort(u.tekst, 24) + '»', { angre: () => endreJobb(j.id, (x) => { x.utstyr.push(kopi); }) });
+  ut.append(blokk('Ta med neste gang', igjen ? igjen + ' igjen' : '',
+    h('div.rad-liste',
+      j.utstyr.slice().sort((a, b) => (a.created || 0) - (b.created || 0)).map((u) => h('div.rad',
+        h('button.helrad', {
+          type: 'button', role: 'checkbox', 'aria-checked': String(u.checked),
+          onclick: () => endreJobb(j.id, (x) => { const y = x.utstyr.find((z) => z.id === u.id); if (y) y.checked = !y.checked; }),
         },
-      }, ikon('kryss')))),
-    h('form.leggtil-rad', { onsubmit: leggTil }, ny, h('button.knapp', { type: 'submit' }, 'Legg til'))));
+          h('span.boks' + (u.checked ? '.ja' : ''), ikon('hake')),
+          h('span.hoved', { style: u.checked ? { textDecoration: 'line-through', color: 'var(--blekk2)' } : null }, u.tekst)),
+        h('button.ikonknapp', {
+          type: 'button', 'aria-label': 'Fjern ' + u.tekst,
+          onclick: () => {
+            const kopi = { ...u };
+            endreJobb(j.id, (x) => { x.utstyr = x.utstyr.filter((z) => z.id !== u.id); });
+            toast('Fjernet «' + avkort(u.tekst, 24) + '»', { angre: () => endreJobb(j.id, (x) => { x.utstyr.push(kopi); }) });
+          },
+        }, ikon('kryss')))),
+      h('form.leggtil-rad', { onsubmit: leggTil }, ny, h('button.knapp', { type: 'submit' }, 'Legg til')))));
 
   // Notat
-  ut.append(h('div.seksjon', 'Notat'));
-  ut.append(tekstfelt(j, 'notat', { maxlength: 1500, placeholder: 'Det som ikke passer noe annet sted.' }));
+  ut.append(blokk('Notat', '', blokkInnhold(tekstfelt(j, 'notat', { maxlength: 1500, placeholder: 'Det som ikke passer noe annet sted.' }))));
 
   // Forbehold
-  ut.append(h('div.seksjon', 'Forbehold'));
-  ut.append(h('div.velger', { style: { marginBottom: '10px' } }, FORBEHOLD_VALG.map((f) => {
-    const på = j.forbeholdValgt.includes(f.id);
-    return h('button.k-oker', {
-      type: 'button', 'aria-pressed': String(på),
-      onclick: () => endreJobb(j.id, (x) => { x.forbeholdValgt = på ? x.forbeholdValgt.filter((y) => y !== f.id) : [...x.forbeholdValgt, f.id]; }),
-    }, f.tekst);
-  })));
-  ut.append(tekstfelt(j, 'forbehold', { maxlength: 800, rows: 2, placeholder: 'Egne forbehold, ett per linje' }));
+  ut.append(blokk('Forbehold', j.forbeholdValgt.length ? j.forbeholdValgt.length + ' valgt' : '', blokkInnhold(
+    h('div.velger', { style: { marginBottom: '10px' } }, FORBEHOLD_VALG.map((f) => {
+      const på = j.forbeholdValgt.includes(f.id);
+      return h('button.k-oker', {
+        type: 'button', 'aria-pressed': String(på),
+        onclick: () => endreJobb(j.id, (x) => { x.forbeholdValgt = på ? x.forbeholdValgt.filter((y) => y !== f.id) : [...x.forbeholdValgt, f.id]; }),
+      }, f.tekst);
+    })),
+    tekstfelt(j, 'forbehold', { maxlength: 800, rows: 2, placeholder: 'Egne forbehold, ett per linje' }))));
 
   // Sparklingsklasse, bare når den kan gjelde
   if (j.deler.some((d) => d.fag === 'sparkling' || d.fag === 'maling')) {
-    ut.append(h('div.seksjon', 'Avtalt sparklingsklasse'));
-    ut.append(h('div.velger', KLASSER.map((k) => h('button.k-oker', {
-      type: 'button', 'aria-pressed': String(j.klasse === k.id),
-      onclick: () => endreJobb(j.id, (x) => { x.klasse = k.id; if (x.kalkyle && k.id) x.kalkyle.arbeid.vegg.sparkling = k.id; }),
-    }, k.id || k.label))));
-    ut.append(h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, KLASSE_MERKNAD));
+    ut.append(blokk('Avtalt sparklingsklasse', j.klasse || '', blokkInnhold(
+      h('div.velger', KLASSER.map((k) => h('button.k-oker', {
+        type: 'button', 'aria-pressed': String(j.klasse === k.id),
+        onclick: () => endreJobb(j.id, (x) => { x.klasse = k.id; if (x.kalkyle && k.id) x.kalkyle.arbeid.vegg.sparkling = k.id; }),
+      }, k.id || k.label))),
+      h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, KLASSE_MERKNAD))));
   }
 
   // Beregninger
-  ut.append(h('div.seksjon', 'Beregninger', h('span.tall', String(j.beregninger.length || ''))));
-  if (j.beregninger.length) {
-    ut.append(h('div.rad-liste', j.beregninger.slice().sort((a, b) => b.tidspunkt - a.tidspunkt).map((b) => beregningRad(j, b))));
-  }
-  ut.append(h('button.leggtil', { type: 'button', onclick: () => gaTil('regn?jobb=' + encodeURIComponent(j.id)) }, ikon('regn'), 'Regn for denne jobben'));
-
-  // Kunde og sted
-  ut.append(h('div.seksjon', 'Kunde og sted'));
-  ut.append(h('div.kort',
-    tekstfelt(j, null, { label: 'Kunde', rows: 0, maxlength: 80, hent: (x) => x.kunde.navn, sett: (x, v) => { x.kunde.navn = v; } }),
-    tekstfelt(j, 'rom', { label: 'Rom', rows: 0, maxlength: 60, placeholder: 'F.eks. Bad 2. etg' }),
-    tekstfelt(j, null, { label: 'Adresse', rows: 0, maxlength: 140, hent: (x) => x.kunde.adresse, sett: (x, v) => { x.kunde.adresse = v; } }),
-    (() => {
-      const f = tekstfelt(j, null, { label: 'Telefon', rows: 0, maxlength: 30, hent: (x) => x.kunde.tlf, sett: (x, v) => { x.kunde.tlf = v; } });
-      const inn = f.querySelector('input'); inn.inputMode = 'tel'; inn.type = 'tel';
-      return f;
-    })(),
-    h('label.felt', { style: { marginBottom: '0' } }, h('span', 'Dato'),
-      h('input', { type: 'date', value: j.dato, onchange: (e) => endreJobb(j.id, (x) => { x.dato = erIsoDag(e.target.value) ? e.target.value : ''; }) }))));
+  ut.append(blokk('Beregninger', j.beregninger.length ? String(j.beregninger.length) : '',
+    j.beregninger.length > 0 && h('div.rad-liste', j.beregninger.slice().sort((a, b) => b.tidspunkt - a.tidspunkt).map((b) => beregningRad(j, b))),
+    prisRad({ tittel: 'Regn for denne jobben', under: 'Maling, sparkel, bad og mer', klikk: () => gaTil('regn?jobb=' + encodeURIComponent(j.id)) })));
 
   // Handlinger
-  ut.append(h('div.seksjon', 'Jobben'));
-  ut.append(h('div', { style: { display: 'grid', gap: '8px' } },
-    h('button.knapp.sekundar.hel', { type: 'button', onclick: async () => toast(await kopierTekst(eksportTekst(hentJobb(j.id))) ? 'Kopiert. Lim inn i e-post, melding eller Notater.' : 'Klarte ikke kopiere.') }, ikon('kopier'), 'Kopier som tekst'),
-    h('button.knapp.sekundar.hel', { type: 'button', onclick: () => dupliserArk(j) }, ikon('dupliser'), 'Dupliser til nytt rom'),
-    h('button.knapp.fare.hel', { type: 'button', onclick: () => slettJobbSporsmal(j) }, ikon('slett'), 'Slett jobben')));
+  ut.append(blokk('Jobben', '', blokkInnhold(
+    h('div', { style: { display: 'grid', gap: '8px' } },
+      h('button.knapp.sekundar.hel', { type: 'button', onclick: async () => toast(await kopierTekst(eksportTekst(hentJobb(j.id))) ? 'Kopiert. Lim inn i e-post, melding eller Notater.' : 'Klarte ikke kopiere.') }, ikon('kopier'), 'Kopier som tekst'),
+      h('button.knapp.sekundar.hel', { type: 'button', onclick: () => dupliserArk(j) }, ikon('dupliser'), 'Dupliser til nytt rom'),
+      h('button.knapp.fare.hel', { type: 'button', onclick: () => slettJobbSporsmal(j) }, ikon('slett'), 'Slett jobben')))));
   ut.append(h('p.dempet.liten', { style: { textAlign: 'center', marginTop: '14px' } }, 'Opprettet ' + visTidspunkt(j.created) + ' · endret ' + visTidspunkt(j.updated)));
   return ut;
+}
+
+/** Kunde, rom, adresse, telefon og dato. Lagres mens du skriver. */
+function kundeArk(jobId) {
+  const j = hentJobb(jobId);
+  if (!j) return;
+  ark((lukk) => {
+    const tlfFelt = tekstfelt(j, null, { label: 'Telefon', rows: 0, maxlength: 30, hent: (x) => x.kunde.tlf, sett: (x, v) => { x.kunde.tlf = v; } });
+    const inn = tlfFelt.querySelector('input'); inn.inputMode = 'tel'; inn.type = 'tel';
+    return h('div',
+      h('h2', 'Kunde og sted'),
+      tekstfelt(j, null, { label: 'Kunde', rows: 0, maxlength: 80, hent: (x) => x.kunde.navn, sett: (x, v) => { x.kunde.navn = v; } }),
+      tekstfelt(j, 'rom', { label: 'Rom', rows: 0, maxlength: 60, placeholder: 'F.eks. Bad 2. etg' }),
+      tekstfelt(j, null, { label: 'Adresse', rows: 0, maxlength: 140, hent: (x) => x.kunde.adresse, sett: (x, v) => { x.kunde.adresse = v; } }),
+      tlfFelt,
+      h('label.felt', h('span', 'Dato'),
+        h('input', { type: 'date', value: j.dato, onchange: (e) => endreJobb(jobId, (x) => { x.dato = erIsoDag(e.target.value) ? e.target.value : ''; }) })),
+      h('div.knapprad', h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig')));
+  }, { vedLukk: () => endreJobb(jobId, () => {}, { utsatt: true }) });
 }
 
 function beregningRad(j, b) {
@@ -571,7 +609,7 @@ function beregningRad(j, b) {
     }), b.enhet);
   return h('div.rad', { style: { alignItems: 'flex-start' } },
     h('div.hoved', h('b', b.sammendrag), h('small', visTidspunkt(b.tidspunkt)), faktisk),
-    h('button.ikonknapp', { type: 'button', 'aria-label': 'Bruk på nytt', onclick: () => gaTil('regn/' + b.calcId + '?jobb=' + encodeURIComponent(j.id) + '&b=' + encodeURIComponent(b.id)) }, ikon('angre')),
+    h('button.ikonknapp', { type: 'button', 'aria-label': 'Åpne i kalkulatoren', onclick: () => gaTil('regn/' + b.calcId + '?jobb=' + encodeURIComponent(j.id) + '&b=' + encodeURIComponent(b.id)) }, ikon('regn')),
     h('button.ikonknapp', {
       type: 'button', 'aria-label': 'Slett beregningen',
       onclick: async () => {

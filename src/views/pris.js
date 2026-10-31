@@ -10,6 +10,7 @@ import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
 import { harNokkel, lagreNokkel, lesPlantegning, tilRom } from '../ki.js';
 import { hentBilde } from '../photos.js';
+import { prisRad, sammenlegg } from './blokk.js';
 
 const kr = (v) => fmt(v, 0) + ' kr';
 const m2 = (v) => fmt(v, 1) + ' m²';
@@ -262,7 +263,7 @@ function tilleggArk(jobId) {
         h('label.felt', { style: { flex: '1' } }, h('span', 'Timer'), timer),
         h('label.felt', { style: { flex: '1' } }, h('span', 'Kroner'), kroner)),
       h('div.knapprad',
-        h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Avbryt'),
+        h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Avbryt'),
         h('button.knapp', { type: 'submit' }, 'Legg til')));
   });
 }
@@ -307,6 +308,17 @@ function timerPanel(j, r) {
       ekstra: h('span.belop.pluss', ikon('pluss')), klikk: () => timerArk(j.id, arbeider, perArbeid) }));
 }
 
+/** Før timer fra hvor som helst (Arbeid-fanen, toppen av jobben). */
+export function forTimerArk(jobId) {
+  const j = hentJobb(jobId);
+  if (!j) return;
+  const r = j.kalkyle?.rom.length ? beregn(j.kalkyle, egnePriser()) : { linjer: [] };
+  const perArbeid = timerPerArbeid(r);
+  const bruktPer = {};
+  for (const t of j.timeforing) if (t.arbeid) bruktPer[t.arbeid] = true;
+  timerArk(jobId, ARBEID.filter((a) => (perArbeid[a.id] || 0) > 0.05 || bruktPer[a.id]), perArbeid);
+}
+
 /** Før timer på jobben, med plass til feltene. */
 function timerArk(jobId, arbeider, perArbeid) {
   ark((lukk) => {
@@ -322,8 +334,11 @@ function timerArk(jobId, arbeider, perArbeid) {
         e.preventDefault();
         const v = parseFloat(String(timer.value).replace(',', '.'));
         if (!(v > 0)) { toast('Skriv inn antall timer.'); return; }
-        endreJobb(jobId, (x) => { x.timeforing.push({ id: nyId('t-'), dato: dato.value || iDagIso(), timer: Math.round(v * 100) / 100, tekst: tekst.value.trim(), arbeid: hva.value }); });
+        // Første timer på en planlagt jobb: jobben er i gang
+        const blePagar = hentJobb(jobId)?.status === 'planlagt';
+        endreJobb(jobId, (x) => { x.timeforing.push({ id: nyId('t-'), dato: dato.value || iDagIso(), timer: Math.round(v * 100) / 100, tekst: tekst.value.trim(), arbeid: hva.value }); if (blePagar) x.status = 'pagar'; });
         lukk();
+        toast(fmt(v, v % 1 ? 1 : 0) + ' t ført' + (blePagar ? '. Jobben er satt til Pågår' : '') + '.');
       },
     },
       h('h2', 'Før timer'),
@@ -333,7 +348,7 @@ function timerArk(jobId, arbeider, perArbeid) {
       h('label.felt', h('span', 'Hva gjelder timene'), hva),
       h('label.felt', h('span', 'Merknad', h('small', 'valgfritt')), tekst),
       h('div.knapprad',
-        h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Avbryt'),
+        h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Avbryt'),
         h('button.knapp', { type: 'submit' }, 'Før timer')));
   });
 }
@@ -432,9 +447,6 @@ function arbeidArk(jobId, del = 'flater') {
 
 /* ---------- Linjene i grupper ---------- */
 
-// Gruppene som er åpne, så de forblir åpne når siden tegnes på nytt
-const apneGrupper = new Set();
-
 // Kort ord for hva en linje gjelder, til teksten under gruppenavnet
 const DEL = {
   ytterhjorne: 'ytterhjørner', 'listefritt-tak': 'mot tak', 'listefritt-hjorne': 'hjørner', 'listefritt-vindu': 'vinduer',
@@ -446,29 +458,6 @@ function delerTekst(g) {
   const deler = [...new Set(g.linjer.map((l) => l.tillegg ? l.navn : l.id.startsWith('vegg-') ? 'vegg' : l.id.startsWith('tak-') ? 'tak' : DEL[l.id] || l.navn))];
   const t = deler.join(', ');
   return (t.charAt(0).toUpperCase() + t.slice(1)) + (g.justert ? ' · endret' : '');
-}
-
-/** En rad i prisen: navn og tekst til venstre, beløp i fast kolonne, pil helt til høyre.
-    pil: 'hoyre' åpner et ark, 'ned' legger sammen/åpner, '' ingen. ekstra erstatter beløpet (f.eks. en knapp). */
-function prisRad({ tittel, under = [], belop = '', valg = false, klikk = null, pil = klikk ? 'hoyre' : '', inn = false, sterk = false, ut = false, ekstra = null }) {
-  const attrs = klikk ? { role: 'button', tabindex: '0', onclick: klikk, onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); klikk(); } } } : {};
-  return h('div.rad.prisrad' + (inn ? '.inn' : '') + (sterk ? '.sterk' : ''), attrs,
-    h('div.hoved', h('b' + (ut ? '.ut' : ''), tittel), [].concat(under).filter(Boolean).map((t) => h('small', t))),
-    ekstra || h('span.belop' + (valg ? '.valg' : ''), belop),
-    h('span.pil' + (pil === 'ned' ? '.ned' : ''), pil ? ikon('pil') : ''));
-}
-
-/** En rad som åpner og lukker innholdet under seg. Husker om den er åpen når siden tegnes på nytt. */
-function sammenlegg(nokkel, hode, innhold) {
-  const under = h('div.gruppe-linjer', { hidden: !apneGrupper.has(nokkel) }, innhold);
-  const rad = prisRad({ ...hode, pil: 'ned', klikk: () => {
-    if (apneGrupper.has(nokkel)) apneGrupper.delete(nokkel); else apneGrupper.add(nokkel);
-    const apen = apneGrupper.has(nokkel);
-    under.hidden = !apen;
-    rad.setAttribute('aria-expanded', String(apen));
-  } });
-  rad.setAttribute('aria-expanded', String(apneGrupper.has(nokkel)));
-  return h('div', rad, under);
 }
 
 /** Linjene i sammenleggbare grupper: gruppenavn med timer og sum, trykk for å se linjene. */

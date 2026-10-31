@@ -3,7 +3,8 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { visTidspunkt, flertall, fmt } from '../util.js';
 import { egnePriser, settPris, nullstillPriser } from '../priser.js';
-import { priser, beregn, ARBEID, timerPerArbeid } from '../kalkyle.js';
+import { beregn, ARBEID, timerPerArbeid } from '../kalkyle.js';
+import { blokk, blokkInnhold, sammenlegg } from './blokk.js';
 import { NORMER, STANDARD_PRISER } from '../data/normer.js';
 import { harNokkel, glemNokkel } from '../ki.js';
 import { FACT_BY_ID } from '../data/facts.js';
@@ -86,14 +87,32 @@ function erfaring(egne) {
 
 function tegnPriser(el) {
   const egne = egnePriser();
-  const P = priser(egne);
-  const inn = (sti, verdi, std, bredde = '84px') => h('input.inn', {
-    type: 'text', inputmode: 'decimal', autocomplete: 'off', value: verdi == null ? '' : String(verdi), placeholder: fmt(std, std < 1 ? 2 : 0),
-    style: { width: bredde, minHeight: '42px', padding: '6px 8px', textAlign: 'right', fontWeight: '700' },
-    onchange: (e) => { const v = e.target.value.trim(); if (settPris(sti, v)) toast(v ? 'Lagret.' : 'Tilbake til standard.'); },
-  });
+  const tall = (v) => parseFloat(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
+  const vis = (v) => String(v).replace('.', ',');
+  // Standardtallet står i feltet som vanlig tekst, så det ikke ser ut som et tomt felt i sola.
+  // Egne tall får rød kant. Skriver du standardtallet, eller tømmer feltet, gjelder standard igjen.
+  const inn = (sti, verdi, std, bredde = '84px') => {
+    const egen = verdi != null && verdi !== '';
+    const felt = h('input.inn' + (egen ? '.endret' : ''), {
+      type: 'text', inputmode: 'decimal', autocomplete: 'off', value: egen ? String(verdi) : vis(std),
+      style: { width: bredde, minHeight: '44px', padding: '6px 8px', textAlign: 'right', fontWeight: '700' },
+      onchange: (e) => {
+        const v = e.target.value.trim();
+        const standard = !v || tall(v) === std;
+        if (!settPris(sti, standard ? '' : v)) return;
+        felt.classList.toggle('endret', !standard);
+        if (standard) felt.value = vis(std);
+        toast(standard ? 'Tilbake til standard.' : 'Lagret.');
+      },
+    });
+    return felt;
+  };
   const rad = (navn, under, ...felt) => h('div.tallfelt', h('label', navn, under && h('small', under)), h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } }, ...felt));
   const grupper = [...new Set(NORMER.map((n) => n.gruppe))];
+  const endretNorm = (n) => {
+    const e = egne.normer?.[n.id] || {};
+    return ['timer', 'pris', 'materialpris'].some((k) => e[k] != null && e[k] !== '');
+  };
   tom(el,
     erfaring(egne),
     h('div.seksjon', 'Priser og normtall'),
@@ -102,29 +121,29 @@ function tegnPriser(el) {
       rad('Påslag materialer', '%', inn(['paslag'], egne.paslag, STANDARD_PRISER.paslag)),
       rad('Mva', '%', inn(['mva'], egne.mva, STANDARD_PRISER.mva)),
       rad('Trappehull', 'timene ganges med', inn(['trappFaktor'], egne.trappFaktor, STANDARD_PRISER.trappFaktor))),
-    h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Tomt felt betyr standardtallet (vist i grått). Juster timene til din egen fart, så blir overslagene bedre for hver jobb.'),
-    h('details.flere', { style: { margin: '6px 2px 0' } },
-      h('summary', 'Timer og pris per operasjon'),
-      grupper.map((g) => h('div',
-        h('div.seksjon', g),
-        h('div.kort', NORMER.filter((n) => n.gruppe === g).map((n) => {
-          const e = egne.normer?.[n.id] || {};
-          return h('div', { style: { padding: '8px 0', borderBottom: '1px solid var(--linje)' } },
-            h('div', { style: { fontWeight: '650', fontSize: '15px', marginBottom: '6px' } }, n.navn, h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px', fontSize: '13px' } }, 'per ' + n.enhet)),
-            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '13.5px', alignItems: 'center' } },
-              h('label', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, inn(['normer', n.id, 'timer'], e.timer, n.timer, '70px'), 't'),
-              h('label', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, inn(['normer', n.id, 'pris'], e.pris, n.pris, '76px'), 'kr'),
-              n.materialenhet && h('label', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, inn(['normer', n.id, 'materialpris'], e.materialpris, n.materialpris, '70px'), 'kr/' + n.materialenhet)));
-        }))))),
+    h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Feltene viser standardtallene. Egne tall har rød kant. Tøm et felt for å gå tilbake til standard. Juster timene til din egen fart, så blir overslagene bedre for hver jobb.'),
+    h('div', { style: { marginTop: '14px' } }, blokk('Timer og pris per operasjon', '',
+      grupper.map((g) => {
+        const normer = NORMER.filter((n) => n.gruppe === g);
+        const endret = normer.filter(endretNorm).length;
+        return sammenlegg('normer:' + g, { tittel: g, under: flertall(normer.length, 'operasjon', 'operasjoner') + (endret ? ' · ' + endret + ' endret' : '') },
+          blokkInnhold(normer.map((n) => h('div', { style: { padding: '8px 0', borderBottom: '1px solid var(--linje)' } },
+            h('div', { style: { fontWeight: '650', fontSize: '15px', marginBottom: '6px' } }, n.navn,
+              h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px', fontSize: '13px' } }, 'per ' + n.enhet),
+              endretNorm(n) && h('span.merke-endret', 'endret')),
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '14px', alignItems: 'center' } },
+              h('label', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, inn(['normer', n.id, 'timer'], egne.normer?.[n.id]?.timer, n.timer, '72px'), 't'),
+              h('label', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, inn(['normer', n.id, 'pris'], egne.normer?.[n.id]?.pris, n.pris, '76px'), 'kr'),
+              n.materialenhet && h('label', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, inn(['normer', n.id, 'materialpris'], egne.normer?.[n.id]?.materialpris, n.materialpris, '72px'), 'kr/' + n.materialenhet))))));
+      }))),
     harNokkel() && h('div.kort', { style: { marginTop: '10px' } },
       h('div.tallfelt', { style: { borderBottom: '0', padding: '0' } },
         h('label', 'KI-lesing av plantegninger', h('small', 'API-nøkkel lagret på denne telefonen')),
-        h('button.knapp.fare', { type: 'button', style: { minHeight: '40px', padding: '6px 12px', fontSize: '14px' }, onclick: () => { glemNokkel(); toast('Nøkkelen er fjernet.'); tegnPriser(el); } }, 'Fjern'))),
+        h('button.knapp.fare', { type: 'button', style: { minHeight: '44px', padding: '6px 12px', fontSize: '14px' }, onclick: () => { glemNokkel(); toast('Nøkkelen er fjernet.'); tegnPriser(el); } }, 'Fjern'))),
     Object.keys(egne).length > 0 && h('button.lenkeknapp', {
       type: 'button',
       onclick: async () => { if (await bekreft({ tittel: 'Tilbake til standardtall?', tekst: 'Alle egne priser og normtall slettes.', ja: 'Nullstill', fare: true }) && nullstillPriser()) tegnPriser(el); },
     }, ikon('angre'), 'Nullstill til standardtall'));
-  void P;
 }
 
 /* ---------- Sikkerhetskopi ---------- */

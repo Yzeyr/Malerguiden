@@ -43,7 +43,7 @@ export function visJobber(rot) {
     const iDag = aktive.filter((j) => j.dato && dagerTil(j.dato) <= 0).sort((a, b) => a.dato.localeCompare(b.dato));
     const resten = aktive.filter((j) => !iDag.includes(j));
     const grupper = [
-      ['I dag', iDag],
+      [iDag.some((j) => dagerTil(j.dato) < 0) ? 'I dag og forfalt' : 'I dag', iDag],
       ['Pågår', resten.filter((j) => j.status === 'pagar')],
       ['Planlagt', resten.filter((j) => j.status === 'planlagt').sort((a, b) => (a.dato || '9').localeCompare(b.dato || '9') || b.updated - a.updated)],
       ['Pauset', resten.filter((j) => j.status === 'pauset')],
@@ -79,14 +79,13 @@ function taMedBoks(tegn) {
     h('div.overtittel', flertall(antall, 'ting', 'ting') + (flere ? ' fra ' + liste.length + ' jobber' : '')),
     h('h2', ikon('bil'), ' Ta med i bilen'),
     h('ul', liste.flatMap(({ job, ting }) => ting.map((u) => h('li',
-      h('button.boks', {
+      // Hele raden huker av, ikke bare den lille boksen
+      h('button.helrad', {
         type: 'button', 'aria-label': 'Huk av ' + u.tekst,
         onclick: () => {
           endreJobb(job.id, (j) => { const x = j.utstyr.find((y) => y.id === u.id); if (x) x.checked = true; });
           toast('«' + u.tekst + '» er huket av', { angre: () => endreJobb(job.id, (j) => { const x = j.utstyr.find((y) => y.id === u.id); if (x) x.checked = false; }) });
         },
-      }, ikon('hake')),
-      h('span', u.tekst),
-      flere && h('small', jobbNavn(job)),
+      }, h('span.boks', ikon('hake')), h('span', u.tekst), flere && h('small', jobbNavn(job))),
     )))));
 }
