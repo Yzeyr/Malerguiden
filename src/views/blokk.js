@@ -20,7 +20,7 @@ export function blokkInnhold(...innhold) {
     pil: 'hoyre' åpner et ark, 'ned' legger sammen/åpner, '' ingen. ekstra erstatter beløpet (f.eks. en knapp). */
 export function prisRad({ tittel, under = [], belop = '', valg = false, klikk = null, pil = klikk ? 'hoyre' : '', inn = false, sterk = false, ut = false, ekstra = null }) {
   const attrs = klikk ? { role: 'button', tabindex: '0', onclick: klikk, onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); klikk(); } } } : {};
-  return h('div.rad.prisrad' + (inn ? '.inn' : '') + (sterk ? '.sterk' : ''), attrs,
+  return h('div.rad.prisrad' + (inn ? '.innrykk' : '') + (sterk ? '.sterk' : ''), attrs,
     h('div.hoved', h('b' + (ut ? '.ut' : ''), tittel), [].concat(under).filter(Boolean).map((t) => h('small', t))),
     ekstra || h('span.belop' + (valg ? '.valg' : ''), belop),
     h('span.pil' + (pil === 'ned' ? '.ned' : ''), pil ? ikon('pil') : ''));

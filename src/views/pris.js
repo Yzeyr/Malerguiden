@@ -215,7 +215,8 @@ export function prisPanel(j) {
     belop: fmt(l.arbeid, 0), inn: true,
     klikk: l.tillegg ? null : () => linjeArk(j.id, l),
   });
-  const mat = materialer(r);
+  // Materialene med det som går med, og hva som skal kjøpes (10 % svinn, vanlige spann)
+  const mat = handleliste(r.linjer, { svinn: 10 });
   const fordelt = perRom(k, egnePriser());
   ut.append(h('section.blokk',
     h('header', h('h3', 'Prisen består av'), h('span', kr(r.sum.eksMva))),
@@ -224,8 +225,9 @@ export function prisPanel(j) {
     r.utelatt.map((u) => prisRad({ tittel: u.navn, ut: true, under: 'Tatt ut av prisen',
       ekstra: h('button.lenkeknapp', { type: 'button', onclick: () => endreKalkyle(j.id, (x) => { delete x.justering[u.nokkel]; }) }, 'Ta med') })),
     r.sum.materialer > 0 && sammenlegg('jobb:materialer', { tittel: 'Materialer', under: flertall(mat.length, 'vare', 'varer') + ' · med påslag', belop: fmt(r.sum.materialer, 0) }, [
-      mat.map((m) => prisRad({ tittel: m.navn, under: fmt(m.mengde, m.enhet === 'rom' ? 0 : 1) + ' ' + m.enhet, belop: fmt(m.kr, 0), inn: true })),
-      h('p.dempet.liten', { style: { margin: '0', padding: '8px 14px 10px 24px' } }, 'Varene er uten påslag og svinn. Legg på 10–15 % når du handler. Forbruket per m² står under Mitt → Priser.')]),
+      mat.map((m) => prisRad({ tittel: m.navn, belop: fmt(m.kr, 0), inn: true,
+        under: [tallTekst(m.mengde, m.enhet) + (m.forslag ? ' går med' : ''), m.forslag && m.forslag.kombinasjon.length > 0 && 'Kjøp ' + m.forslag.tekst] })),
+      h('p.dempet.liten', { style: { margin: '0', padding: '8px 14px 10px 24px' } }, '«Går med» er uten svinn. «Kjøp» er med 10 % svinn i vanlige spann. Beløpet er uten påslag. Forbruket per m² står under Mitt → Priser.')]),
     r.sum.materialer > 0 && prisRad({ tittel: 'Handleliste', under: 'Spann og sekker med svinn, som i kalkulatoren', klikk: () => handlelisteArk(j.id) }),
     sammenlegg('jobb:perrom', { tittel: 'Per rom', under: flertall(fordelt.rom.length, 'rom', 'rom') + ' · se og juster hvert rom', belop: '' }, [
       fordelt.rom.map((x) => prisRad({ tittel: x.navn, under: x.ok ? fmt(x.sum.timer, 1) + ' t' : 'Mangler mål', belop: fmt(x.sum.eksMva, 0), inn: true, klikk: () => romPrisArk(j.id, x.id) })),
@@ -297,16 +299,18 @@ export function handlelisteArk(jobId, { bareIgjen = false } = {}) {
     const andre = liste.filter((m) => !m.forslag && m.mengde > 0);
     const kort = (m) => h('div.resultat.kompakt.' + (HANDEL_FARGE[m.navn] || 'k-terrakotta'),
       h('div.overtittel', m.navn),
-      h('div.tall', fmt(m.trenger, 1), h('small', m.enhet)),
+      // Det som faktisk går med (uten svinn) er det store tallet. Med svinn er det som kjøpes.
+      h('div.tall', fmt(m.mengde, 1), h('small', m.enhet)),
+      h('div.gar-med', 'går med' + (valg.svinn ? ' · kjøp ' + tallTekst(m.trenger, m.enhet) + ' med ' + valg.svinn + ' % svinn' : '')),
       h('div.chips', m.forslag.kombinasjon.map((x) => h('span', x.tekst)),
         m.forslag.tilOvers > 0.04 && h('span', fmt(m.forslag.tilOvers, 1) + ' ' + m.enhet + ' til overs')));
     const tekst = () => [
       'Handleliste · ' + (j.kunde?.navn || 'Hurtigpris') + (valg.etasje ? ' · ' + valg.etasje : '') + (valg.bareIgjen ? ' · det som gjenstår' : ''),
-      ...medSpann.map((m) => m.navn + ': ' + m.forslag.tekst + ' (' + tallTekst(m.trenger, m.enhet) + ' med ' + valg.svinn + ' % svinn)'),
+      ...medSpann.map((m) => m.navn + ': ' + m.forslag.tekst + ' (går med ' + tallTekst(m.mengde, m.enhet) + (valg.svinn ? ', ' + tallTekst(m.trenger, m.enhet) + ' med ' + valg.svinn + ' % svinn' : '') + ')'),
       ...andre.map((m) => m.navn + ': ' + tallTekst(m.mengde, m.enhet)),
     ].join('\n');
     tom(innhold,
-      h('p.dempet', { style: { marginTop: '-6px' } }, 'Regnet fra rommene, med svinn. Forbruket per m² står under Mitt → Priser.'),
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Det store tallet er det som går med i rommene. Spannene er regnet med svinn. Forbruket per m² står under Mitt → Priser.'),
       harGjort && h('div.velger', { style: { marginBottom: '8px' } },
         [[false, 'Hele jobben'], [true, 'Det som gjenstår']].map(([v, navn]) => h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(valg.bareIgjen === v), style: { flex: '1' }, onclick: () => { valg.bareIgjen = v; tegn(); } }, navn))),
       etasjer.length > 1 && h('div.velger', { style: { marginBottom: '8px' } },

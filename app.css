@@ -446,7 +446,7 @@ mark { background: color-mix(in srgb, var(--oker) 45%, transparent); color: inhe
 /* Navn og tekst til venstre, beløp i fast kolonne, pil helt til høyre (plassen holdes også uten pil) */
 .prisrad { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; gap: 10px; align-items: center; min-height: 54px; padding: 10px 10px 10px 14px; }
 .prisrad[role="button"] { cursor: pointer; }
-.prisrad.inn { padding-left: 24px; }
+.prisrad.innrykk { padding-left: 24px; }
 .prisrad .hoved b { font-size: 16px; font-weight: 650; }
 .prisrad .hoved small { font-size: 14px; }
 .prisrad .hoved small + small { margin-top: 2px; }
@@ -524,4 +524,5 @@ mark { background: color-mix(in srgb, var(--oker) 45%, transparent); color: inhe
 .resultat.kompakt .tall { font-size: 32px; }
 .resultat.kompakt .tall small { font-size: 17px; }
 .resultat.kompakt .chips { margin-top: 8px; }
+.resultat .gar-med { font-size: 14px; font-weight: 650; opacity: .85; margin-top: 2px; }
 .ark .velger { flex-wrap: wrap; }
