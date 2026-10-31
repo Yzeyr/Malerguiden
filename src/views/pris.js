@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
-import { ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -268,22 +268,22 @@ export function prisPanel(j) {
   // Linjene
   ut.append(h('div.seksjon', 'Utregning', h('span.tall', k.modus === 'timer' ? 'timer · kr' : 'mengde · kr')));
   // Trykk på en linje for å endre den eller ta den ut, bare for denne jobben
-  ut.append(h('div.rad-liste', r.linjer.map((l) => h('div.rad', {
-    style: { minHeight: '50px', padding: '9px 14px', cursor: l.tillegg ? '' : 'pointer' },
+  ut.append(gruppertListe(grupperLinjer(r.linjer), 'jobb:', (l) => h('div.rad', {
+    style: { minHeight: '50px', padding: '9px 14px 9px 22px', cursor: l.tillegg ? '' : 'pointer' },
     ...(l.tillegg ? {} : { role: 'button', tabindex: '0', onclick: () => linjeArk(j.id, l), onkeydown: (e) => { if (e.key === 'Enter') linjeArk(j.id, l); } }),
   },
     h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15.5px' } }, l.navn),
       h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj && !l.justert ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : '') + (l.justert ? ' · justert' : '') + (l.justertRom && !l.justert ? ' · endret i et rom' : '')),
       l.med && h('small', { style: { marginTop: '2px' } }, 'Med: ' + l.med)),
     h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(l.timer, 1) + ' t'),
-    h('span', { style: { fontWeight: '750', minWidth: '70px', textAlign: 'right' } }, fmt(l.arbeid, 0))))));
+    h('span', { style: { fontWeight: '750', minWidth: '70px', textAlign: 'right' } }, fmt(l.arbeid, 0)))));
   // Linjer som er tatt ut av prisen for denne jobben
   if (r.utelatt.length) {
     ut.append(h('div.rad-liste', { style: { marginTop: '8px' } }, r.utelatt.map((u) => h('div.rad', { style: { minHeight: '48px', padding: '8px 14px' } },
       h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15px', textDecoration: 'line-through', opacity: '.6' } }, u.navn), h('small', 'Tatt ut av prisen')),
       h('button.lenkeknapp', { type: 'button', onclick: () => endreKalkyle(j.id, (x) => { delete x.justering[u.nokkel]; }) }, 'Ta med')))));
   }
-  ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 0' } }, 'Trykk på en linje for å endre mengde, timer eller pris, eller ta den ut, bare for denne jobben.'));
+  ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 0' } }, 'Trykk på en gruppe for å se linjene. Trykk på en linje for å endre mengde, timer eller pris, eller ta den ut, bare for denne jobben.'));
 
   // Tillegg
   ut.append(h('div.seksjon', 'Tillegg'));
@@ -368,6 +368,51 @@ function timerPanel(j, r) {
 
 /* ---------- Endre én linje for denne jobben ---------- */
 
+/* ---------- Linjene i grupper ---------- */
+
+// Gruppene som er åpne, så de forblir åpne når siden tegnes på nytt
+const apneGrupper = new Set();
+
+// Kort ord for hva en linje gjelder, til teksten under gruppenavnet
+const DEL = {
+  ytterhjorne: 'ytterhjørner', 'listefritt-tak': 'mot tak', 'listefritt-hjorne': 'hjørner', 'listefritt-vindu': 'vinduer',
+  'listefritt-dor': 'dører', 'listefritt-smyg': 'smyg', 'listefritt-taklinje': 'skarp taklinje',
+  'lister-strok': 'lister', 'vindu-strok': 'vinduer', 'dor-strok': 'dører',
+  'jobb-oppstart': 'oppstart', 'rigging-rom': 'maskering', 'mobler-rom': 'møbler', 'dekking-gulv': 'gulvpapp', 'rigging-trapp': 'trapp',
+};
+function delerTekst(g) {
+  const deler = [...new Set(g.linjer.map((l) => l.tillegg ? l.navn : l.id.startsWith('vegg-') ? 'vegg' : l.id.startsWith('tak-') ? 'tak' : DEL[l.id] || l.navn))];
+  const t = deler.join(', ');
+  return (t.charAt(0).toUpperCase() + t.slice(1)) + (g.justert ? ' · endret' : '');
+}
+
+/** Linjene i sammenleggbare grupper: gruppenavn med sum, trykk for å se linjene. */
+function gruppertListe(grupper, prefiks, radFor) {
+  return h('div.rad-liste', grupper.map((g) => {
+    const nokkel = prefiks + g.id;
+    const linjer = h('div.gruppe-linjer', { hidden: !apneGrupper.has(nokkel) }, g.linjer.map(radFor));
+    const pil = ikon('pil');
+    pil.style.transition = 'transform .15s';
+    const vis = (apen) => {
+      linjer.hidden = !apen;
+      pil.style.transform = apen ? 'rotate(90deg)' : '';
+      hode.setAttribute('aria-expanded', String(apen));
+    };
+    const veksle = () => {
+      if (apneGrupper.has(nokkel)) apneGrupper.delete(nokkel); else apneGrupper.add(nokkel);
+      vis(apneGrupper.has(nokkel));
+    };
+    const hode = h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '54px', padding: '10px 10px 10px 14px', cursor: 'pointer' },
+      onclick: veksle, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); veksle(); } } },
+      h('div.hoved', h('b', { style: { fontWeight: '700', fontSize: '16px' } }, g.navn), h('small', delerTekst(g))),
+      h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(g.timer, 1) + ' t'),
+      h('span', { style: { fontWeight: '800', minWidth: '64px', textAlign: 'right' } }, fmt(g.arbeid, 0)),
+      h('span.dempet', { style: { display: 'flex', width: '20px', justifyContent: 'center' } }, pil));
+    vis(apneGrupper.has(nokkel));
+    return h('div', hode, linjer);
+  }));
+}
+
 /** Hva prisen for ett rom består av: linjene med hva de inneholder, og summen. */
 function romPrisArk(jobId, romId) {
   const k = hentJobb(jobId).kalkyle || tomKalkyle();
@@ -384,17 +429,21 @@ function romPrisArk(jobId, romId) {
     h('span', { style: { fontWeight: sterk ? '800' : '750', minWidth: '64px', textAlign: 'right' } }, belop));
   ark((lukk) => h('div',
     h('h2', rom.navn || 'Rom'),
-    h('p.dempet', { style: { marginTop: '-6px' } }, 'Det som gjøres i rommet, og hva hver del inneholder. Kroner eks. mva. Trykk på en linje for å endre den for dette rommet.'),
+    h('p.dempet', { style: { marginTop: '-6px' } }, 'Det som gjøres i rommet. Kroner eks. mva. Trykk på en gruppe for å se linjene, og på en linje for å endre den for dette rommet.'),
     b.linjer.length
-      ? h('div.rad-liste',
-        b.linjer.map((l) => rad(
+      ? [gruppertListe(grupperLinjer(b.linjer), 'rom:', (l) => {
+        const el = rad(
           h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15px' } }, l.navn),
             h('small', fmt(l.mengde, 1) + ' ' + l.enhet + (l.justertRom ? ' · endret for rommet' : '')),
             l.med && h('small', { style: { marginTop: '2px' } }, l.med)),
           fmt(l.timer, 1) + ' t', fmt(l.arbeid, 0), false,
-          () => { lukk(); linjeArk(jobId, l, { romId, romNavn: rom.navn || 'Rom', utregnet: uten.linjer.find((x) => x.nokkel === l.nokkel) || l, tilbake }); })),
+          () => { lukk(); linjeArk(jobId, l, { romId, romNavn: rom.navn || 'Rom', utregnet: uten.linjer.find((x) => x.nokkel === l.nokkel) || l, tilbake }); });
+        el.style.paddingLeft = '22px';
+        return el;
+      }),
+      h('div.rad-liste', { style: { marginTop: '8px' } },
         b.sum.materialer > 0 && rad(h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15px' } }, 'Materialer'), h('small', 'Maling, sparkel, lister o.l., med påslag')), '', fmt(b.sum.materialer, 0)),
-        rad(h('div.hoved', h('b', { style: { fontWeight: '800', fontSize: '15.5px' } }, 'Sum rommet')), fmt(b.sum.timer, 1) + ' t', fmt(b.sum.eksMva, 0), true))
+        rad(h('div.hoved', h('b', { style: { fontWeight: '800', fontSize: '15.5px' } }, 'Sum rommet')), fmt(b.sum.timer, 1) + ' t', fmt(b.sum.eksMva, 0), true))]
       : h('p.dempet', 'Rommet mangler mål, så det er ingen pris ennå.'),
     // Linjer som er tatt ut for dette rommet
     b.utelattRom.length > 0 && h('div.rad-liste', { style: { marginTop: '8px' } }, b.utelattRom.map((u) => h('div.rad', { style: { minHeight: '48px', padding: '8px 14px' } },

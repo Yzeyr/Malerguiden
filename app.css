@@ -262,6 +262,9 @@ dialog.ark[open] { animation: opp .22s ease-out; }
 /* Lister med rader (ta med, farger, beregninger) */
 .rad-liste { background: var(--kort); border-radius: 20px; box-shadow: var(--skygge); overflow: hidden; }
 .rad-liste > * + * { border-top: 1px solid var(--linje); }
+.gruppe-linjer { background: var(--kort2); }
+.gruppe-linjer[hidden] { display: none; }
+.gruppe-linjer > * { border-top: 1px solid var(--linje); }
 .rad { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 56px; }
 .rad .hoved { flex: 1; min-width: 0; }
 .rad .hoved b { display: block; font-weight: 700; }

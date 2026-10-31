@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -392,4 +392,16 @@ test('justering per rom: gjelder bare det rommet, og summen går opp', () => {
   assert.equal(beregn({ ...k, justering: {}, rom: [rom({ id: 'a' }), rom({ id: 'b' })] }, {}).sum.eksMva, fra.sum.eksMva);
   // Renses med rommet
   assert.equal(rensKalkyle({ rom: [{ id: 'x', justering: { 'vegg-grunning': { av: true } } }] }).rom[0].justering['vegg-grunning'].av, true);
+});
+
+test('linjene grupperes, og gruppene summerer til det samme', () => {
+  for (const n of NORMER) assert.notEqual(prisgruppe(n), 'annet', n.id + ' havner i Annet');
+  const k = { ...tomKalkyle(), rom: [rom({ listefritt: { tak: true, vinduer: true } })], tillegg: [{ id: 't', tekst: 'Møbler', timer: '1', kr: '' }] };
+  const r = beregn(k, {});
+  const g = grupperLinjer(r.linjer);
+  assert.equal(g.reduce((s, x) => s + x.linjer.length, 0), r.linjer.length);
+  assert.ok(Math.abs(g.reduce((s, x) => s + x.arbeid, 0) - r.linjer.reduce((s, l) => s + l.arbeid, 0)) < 1e-6);
+  assert.equal(g.at(-1).id, 'annet');
+  assert.equal(prisgruppe({ id: 'listefritt-taklinje' }), 'listefritt');
+  assert.equal(prisgruppe({ id: 'ytterhjorne' }), 'sparkling');
 });

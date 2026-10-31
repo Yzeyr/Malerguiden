@@ -589,3 +589,33 @@ export function fraSkanning(tekst) {
     skannplan: rensPlan(r.plan),
   })).filter((r) => r.gulv && r.omkrets);
 }
+
+/** Gruppene linjene vises i under Utregning og i prisen for et rom. */
+export const PRISGRUPPER = [
+  { id: 'rigging', navn: 'Rigging og tildekking' },
+  { id: 'sparkling', navn: 'Sparkling' },
+  { id: 'listefritt', navn: 'Listefritt' },
+  { id: 'maling', navn: 'Grunning og maling' },
+  { id: 'snekker', navn: 'Lister, vinduer og dører' },
+  { id: 'gulv', navn: 'Gulvbelegg' },
+  { id: 'annet', navn: 'Tillegg og annet' },
+];
+const GRUPPE_FOR_ARBEID = {
+  fylling: 'sparkling', strimling: 'sparkling', strok2: 'sparkling', strok3: 'sparkling', hel: 'sparkling', sliping: 'sparkling', ytterhjorner: 'sparkling',
+  listefritt: 'listefritt', grunning: 'maling', maling: 'maling', snekker: 'snekker', gulvbelegg: 'gulv', rigging: 'rigging',
+};
+/** Hvilken gruppe en linje vises i. */
+export function prisgruppe(l) {
+  return l.tillegg ? 'annet' : (GRUPPE_FOR_ARBEID[arbeidFor(l.id)] || 'annet');
+}
+/** Linjene samlet i grupper med sum, i fast rekkefølge. Tomme grupper er utelatt. */
+export function grupperLinjer(linjer) {
+  return PRISGRUPPER.map((g) => {
+    const ls = linjer.filter((l) => prisgruppe(l) === g.id);
+    return { ...g, linjer: ls,
+      timer: ls.reduce((s, l) => s + (l.timer || 0), 0),
+      arbeid: ls.reduce((s, l) => s + (l.arbeid || 0), 0),
+      materialer: ls.reduce((s, l) => s + (l.materialer || 0), 0),
+      justert: ls.some((l) => l.justert || l.justertRom) };
+  }).filter((g) => g.linjer.length);
+}
