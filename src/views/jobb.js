@@ -14,7 +14,7 @@ import { gaTil, tilbake } from '../nav.js';
 import { fagVelger, typeVelger, FAGFARGE } from './felles.js';
 import { romPanel, prisPanel, forTimerArk } from './pris.js';
 import { blokk, blokkInnhold, prisRad, sammenlegg } from './blokk.js';
-import { beregn } from '../kalkyle.js';
+import { beregn, romFremgang, fremgangPerEtasje, STEG } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 
 const FANER = [
@@ -182,6 +182,10 @@ function arbeidPanel(j, faseValg, tegnPanel) {
     h('span', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, ikon('klokke'), 'Før timer'),
     h('span.dempet', { style: { fontWeight: '650', fontSize: '15px' } }, brukt ? fmt(brukt, brukt % 1 ? 1 : 0) + ' t ført' : 'Ingen ført ennå')));
 
+  // Hvor langt hvert rom har kommet (sparklet, grunnet, malt …), per etasje
+  const fremgang = fremgangBlokk(j);
+  if (fremgang) ut.append(fremgang);
+
   for (const del of j.deler) {
     const df = delFramdrift(del);
     const typeDef = JOBBTYPER[del.fag]?.find((t) => t.id === del.jobbtype);
@@ -260,6 +264,110 @@ function arbeidArk(j, del = null) {
         },
       }, del ? 'Lagre' : 'Legg til'));
   });
+}
+
+/* ---------- Fremgang per rom ---------- */
+
+const prosent = (a) => Math.round(a * 100) + ' %';
+const stolpe = (andel) => h('div.stolpe' + (andel >= 0.999 ? '.ferdig' : ''), h('i', { style: { width: Math.min(100, andel * 100) + '%' } }));
+
+/** Hvor langt hvert rom har kommet, gruppert per etasje. Prisen påvirkes ikke. */
+function fremgangBlokk(j) {
+  if (!j.kalkyle?.rom.length) return null;
+  const etasjer = fremgangPerEtasje(j.kalkyle, egnePriser());
+  const timer = etasjer.reduce((s, e) => s + e.timer, 0);
+  const gjort = etasjer.reduce((s, e) => s + e.gjortTimer, 0);
+  const igjen = (t) => (t < 0.05 ? 'ferdig' : fmt(t, 1) + ' t igjen');
+  // Etasjeradene vises når rommene faktisk er delt på etasjer
+  const visEtasjer = etasjer.length > 1 || !etasjer[0].utenNavn;
+  return blokk('Fremgang per rom', timer > 0 ? prosent(gjort / timer) + ' · ' + igjen(timer - gjort) : '',
+    etasjer.map((e) => [
+      visEtasjer && prisRad({
+        tittel: e.navn, sterk: true,
+        under: [flertall(e.rom.length, 'rom', 'rom') + ' · ' + igjen(e.igjen) + ' · trykk for å huke av hele etasjen', stolpe(e.andel)],
+        belop: prosent(e.andel), klikk: () => etasjeArk(j.id, e.navn),
+      }),
+      e.rom.map((x) => prisRad({
+        tittel: x.rom.navn || 'Rom', inn: visEtasjer,
+        under: [x.steg.length ? (x.ferdig ? 'Ferdig' : 'Neste: ' + x.neste.navn) + ' · ' + igjen(x.igjen) : 'Mangler mål', x.steg.length > 0 && stolpe(x.andel)],
+        belop: x.steg.length ? prosent(x.andel) : '', klikk: () => romFremgangArk(j.id, x.rom.id),
+      })),
+    ]));
+}
+
+/** Huker av (eller fjerner) et steg i ett eller flere rom. */
+function settGjort(jobId, romIder, stegId, verdi) {
+  const blePagar = verdi && hentJobb(jobId)?.status === 'planlagt';
+  endreJobb(jobId, (x) => {
+    for (const r of x.kalkyle?.rom || []) {
+      if (!romIder.includes(r.id)) continue;
+      r.gjort = { ...(r.gjort || {}) };
+      if (verdi) r.gjort[stegId] = true; else delete r.gjort[stegId];
+    }
+    if (blePagar) x.status = 'pagar';
+  });
+  if (blePagar) toast('Jobben er satt til Pågår');
+}
+
+const stegKnapp = (navn, hoyre, tilstand, klikk) => h('button.punkt' + (tilstand === 'ja' ? '.gjort' : ''), {
+  type: 'button', role: 'checkbox', 'aria-checked': tilstand === 'ja' ? 'true' : tilstand === 'delvis' ? 'mixed' : 'false',
+  style: { padding: '11px 14px' }, onclick: klikk,
+}, h('span.boks' + (tilstand === 'ja' ? '.ja' : tilstand === 'delvis' ? '.delvis' : ''), ikon('hake')),
+  h('span.lbl', { style: { flex: '1' } }, navn),
+  h('span.dempet', { style: { fontSize: '14px', fontWeight: '650', whiteSpace: 'nowrap' } }, hoyre));
+
+/** Stegene i ett rom, til å huke av. */
+function romFremgangArk(jobId, romId) {
+  const start = hentJobb(jobId)?.kalkyle?.rom.find((r) => r.id === romId);
+  if (!start) return;
+  const innhold = h('div');
+  const tegn = () => {
+    const j = hentJobb(jobId);
+    const rom = j?.kalkyle?.rom.find((r) => r.id === romId);
+    if (!rom) return;
+    const f = romFremgang(j.kalkyle, rom, egnePriser());
+    tom(innhold,
+      h('p.dempet', { style: { marginTop: '-6px' } }, f.steg.length
+        ? prosent(f.andel) + ' gjort · ' + (f.igjen < 0.05 ? 'ferdig' : fmt(f.igjen, 1) + ' t igjen av ' + fmt(f.timer, 1) + ' t')
+        : 'Rommet mangler mål, så det er ingen steg ennå.'),
+      f.steg.length > 0 && h('div.rad-liste', f.steg.map((s) => stegKnapp(s.navn, fmt(s.timer, 1) + ' t', s.gjort ? 'ja' : 'nei', () => { settGjort(jobId, [romId], s.id, !s.gjort); tegn(); }))),
+      f.steg.length > 0 && h('div.knapprad',
+        h('button.knapp.sekundar', { type: 'button', onclick: () => {
+          const alle = f.ferdig;
+          for (const s of f.steg) if (s.gjort === alle) settGjort(jobId, [romId], s.id, !alle);
+          tegn();
+        } }, f.ferdig ? 'Fjern alle' : 'Alt er gjort'),
+        h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig')));
+  };
+  let lukk = () => {};
+  tegn();
+  ark((l) => { lukk = l; return h('div', h('h2', start.navn || 'Rom'), innhold); });
+}
+
+/** Stegene for alle rommene i en etasje: ett trykk huker av steget i hvert rom som har det. */
+function etasjeArk(jobId, etasje) {
+  const innhold = h('div');
+  const tegn = () => {
+    const j = hentJobb(jobId);
+    const e = fremgangPerEtasje(j?.kalkyle, egnePriser()).find((x) => x.navn === etasje);
+    if (!e) return;
+    const rader = STEG.map((s) => {
+      const har = e.rom.filter((x) => x.steg.some((y) => y.id === s.id));
+      const gjort = har.filter((x) => x.steg.find((y) => y.id === s.id).gjort);
+      return { s, har, gjort };
+    }).filter((x) => x.har.length);
+    tom(innhold,
+      h('p.dempet', { style: { marginTop: '-6px' } }, prosent(e.andel) + ' gjort · ' + flertall(e.rom.length, 'rom', 'rom') + '. Trykk på et steg for å huke det av i alle rommene. Enkeltrom endres ved å trykke på rommet.'),
+      h('div.rad-liste', rader.map(({ s, har, gjort }) => {
+        const alle = gjort.length === har.length;
+        return stegKnapp(s.navn, gjort.length + ' av ' + har.length + ' rom', alle ? 'ja' : gjort.length ? 'delvis' : 'nei',
+          () => { settGjort(jobId, har.map((x) => x.rom.id), s.id, !alle); tegn(); });
+      })),
+      h('div.knapprad', h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig')));
+  };
+  let lukk = () => {};
+  tegn();
+  ark((l) => { lukk = l; return h('div', h('h2', etasje), innhold); });
 }
 
 /* ---------- Mål ---------- */

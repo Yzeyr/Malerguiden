@@ -510,3 +510,11 @@ mark { background: color-mix(in srgb, var(--oker) 45%, transparent); color: inhe
 .blokk > .fakta { gap: 0; }
 .blokk > .fakta > .faktum { box-shadow: none; border-radius: 0; background: none; }
 .blokk > .fakta > .faktum + .faktum { border-top: 1px solid var(--linje); }
+
+/* ---------- Fremgang per rom ---------- */
+.stolpe { height: 6px; border-radius: 99px; background: var(--kort2); overflow: hidden; margin-top: 7px; max-width: 220px; }
+.stolpe > i { display: block; height: 100%; border-radius: 99px; background: var(--c, var(--salvie)); }
+.stolpe.ferdig > i { background: var(--gronn); }
+.gruppe-linjer .stolpe, .prisrad.sterk .stolpe { background: color-mix(in srgb, var(--blekk3) 25%, transparent); }
+.boks.delvis { border-color: var(--c, var(--salvie)); background: color-mix(in srgb, var(--c, var(--salvie)) 35%, transparent); }
+.boks.delvis svg.ik { opacity: 0; }

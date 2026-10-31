@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe, stegFor, romFremgang, etasjeFor, fremgangPerEtasje, STEG } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -404,4 +404,49 @@ test('linjene grupperes, og gruppene summerer til det samme', () => {
   assert.equal(g.at(-1).id, 'annet');
   assert.equal(prisgruppe({ id: 'listefritt-taklinje' }), 'listefritt');
   assert.equal(prisgruppe({ id: 'ytterhjorne' }), 'sparkling');
+});
+
+test('fremgang per rom: stegene, timene og hva som er gjort', () => {
+  assert.equal(stegFor('vegg-sparkling-strimling'), 'strimling');
+  assert.equal(stegFor('tak-grunning'), 'grunning-tak');
+  assert.equal(stegFor('vegg-maling-strok'), 'maling-vegg');
+  assert.equal(stegFor('jobb-oppstart'), 'rigging');
+  assert.equal(stegFor('tillegg-x'), null);
+  const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] };
+  k.arbeid.tak.sparkling = 'ingen';
+  const uten = romFremgang(k, k.rom[0], {});
+  assert.ok(uten.steg.length > 3);
+  assert.equal(uten.andel, 0);
+  assert.equal(uten.neste.id, uten.steg[0].id);
+  // Timene i stegene er de samme som rommet koster i timer (uten felles oppstart)
+  const b = beregn({ ...k, tillegg: [] }, {}, { medFelles: false });
+  assert.ok(Math.abs(uten.timer - b.linjer.reduce((s, l) => s + l.timer, 0)) < 0.01);
+  // Sparkling og grunning tak gjort
+  const gjortRom = { ...k.rom[0], gjort: { fylling: true, strimling: true, strok2: true, strok3: true, sliping: true, 'grunning-tak': true } };
+  const med = romFremgang(k, gjortRom, {});
+  assert.ok(med.andel > 0 && med.andel < 1);
+  assert.ok(med.steg.find((s) => s.id === 'strimling').gjort);
+  assert.ok(!med.steg.find((s) => s.id === 'maling-vegg').gjort);
+  // Prisen er den samme om noe er gjort
+  assert.equal(beregn({ ...k, rom: [gjortRom] }, {}).sum.eksMva, beregn(k, {}).sum.eksMva);
+  // Lagres med rommet, og ukjente steg fjernes
+  const rent = rensKalkyle({ rom: [{ id: 'x', gjort: { strimling: true, tull: true, 'maling-tak': false } }] });
+  assert.deepEqual(rent.rom[0].gjort, { strimling: true });
+  assert.ok(STEG.length > 10);
+});
+
+test('rommene grupperes per etasje', () => {
+  const planer = [{ bilde: 'b1', navn: '1. etasje' }];
+  assert.equal(etasjeFor({ navn: 'Stue', tegning: 'b1' }, planer), '1. etasje');
+  assert.equal(etasjeFor({ navn: 'Gangen 2etg' }, planer), '2. etasje');
+  assert.equal(etasjeFor({ navn: 'Bad 2. etasje' }, planer), '2. etasje');
+  assert.equal(etasjeFor({ navn: 'Vaskerom kjeller' }, planer), 'Kjeller');
+  assert.equal(etasjeFor({ navn: 'Stue' }, planer), '');
+  assert.equal(etasjeFor({ navn: 'Stue', etasje: '2' }, planer), '2. etasje');
+  assert.equal(etasjeFor({ navn: 'Stue', tegning: 'b1', etasje: 'loft' }, planer), 'Loft');
+  assert.equal(rensKalkyle({ rom: [{ id: 'x', etasje: ' 1 ' }] }).rom[0].etasje, '1');
+  const k = { ...tomKalkyle('K2'), planer, rom: [rom({ id: 'a', navn: 'Stue', tegning: 'b1' }), rom({ id: 'b', navn: 'Sov 2etg', gjort: { strimling: true } }), rom({ id: 'c', navn: 'Bod' })] };
+  const e = fremgangPerEtasje(k, {});
+  assert.deepEqual(e.map((x) => x.navn), ['1. etasje', '2. etasje', 'Andre rom']);
+  assert.ok(e[1].andel > 0 && e[0].andel === 0);
 });

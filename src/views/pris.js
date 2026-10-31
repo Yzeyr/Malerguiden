@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
-import { ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { etasjeFor, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -112,7 +112,10 @@ export function romArk(jobId, romId, forslag = null) {
           verdi.skannplan.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '')))),
         verdi.skannplan.utenfor.length > 0 && h('p.dempet.liten', { style: { margin: '6px 4px 2px' } },
           flertall(verdi.skannplan.utenfor.length, 'vegg', 'vegger') + ' utenfor rommet (stiplet) er ikke regnet med. Trolig sett gjennom en åpen dør.')),
-      h('label.felt', h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
+      h('div', { style: { display: 'flex', gap: '10px' } },
+        h('label.felt', { style: { flex: '1.6' } }, h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
+        // Etasjen brukes til fremgangen i Arbeid. Tomt: fra plantegningen eller navnet («Bad 2etg»).
+        h('label.felt', { style: { flex: '1' } }, h('span', 'Etasje'), h('input', { type: 'text', maxlength: 24, value: verdi.etasje || '', placeholder: etasjeFor({ ...verdi, etasje: '' }, job.kalkyle?.planer || []) || 'F.eks. 2', autocomplete: 'off', oninput: (e) => { verdi.etasje = e.target.value; } }))),
       fraPlan
         ? h('p.dempet.liten', { style: { margin: '0 2px 10px' } }, verdi.kilde === 'skann'
           ? 'Gulv, omkrets og veggareal er målt med LiDAR-skanning.' : 'Gulv og omkrets er målt på plantegningen.')

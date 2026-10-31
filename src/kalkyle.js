@@ -113,6 +113,9 @@ export function rensKalkyle(k, klasse = '') {
       tegning: r.tegning ? String(r.tegning) : null,
       skannplan: rensPlan(r.skannplan),
       justering: rensJustering(r.justering),
+      // Steg som er gjort i rommet: { strimling: true, 'grunning-tak': true, … }
+      gjort: rensGjort(r.gjort),
+      etasje: str(r.etasje).trim().slice(0, 24),
     })) : [],
     tillegg: Array.isArray(k.tillegg) ? k.tillegg.filter((t) => t && typeof t === 'object' && t.id).map((t) => ({
       id: String(t.id), tekst: str(t.tekst), timer: str(t.timer), kr: str(t.kr),
@@ -136,6 +139,11 @@ function rensJustering(j) {
 
 /* Plantegningene det måles på, én per etasje: bilde-id, navn og meter per bildepunkt
    (skala er null til målestokken er satt). Før hadde en jobb bare én, i `plan`. */
+function rensGjort(g) {
+  if (!g || typeof g !== 'object') return {};
+  return Object.fromEntries(Object.entries(g).filter(([k, v]) => v === true && STEG.some((s) => s.id === k)));
+}
+
 function rensPlaner(k) {
   const liste = Array.isArray(k.planer) ? k.planer : k.plan ? [{ navn: '1. etasje', ...k.plan }] : [];
   const sett = new Set();
@@ -618,4 +626,83 @@ export function grupperLinjer(linjer) {
       materialer: ls.reduce((s, l) => s + (l.materialer || 0), 0),
       justert: ls.some((l) => l.justert || l.justertRom) };
   }).filter((g) => g.linjer.length);
+}
+
+/* ---------- Fremgang per rom ---------- */
+
+/** Stegene i et rom, i den rekkefølgen de vanligvis gjøres. Grunning og maling er delt på tak og vegg. */
+export const STEG = [
+  { id: 'rigging', navn: 'Rigging og tildekking' },
+  { id: 'fylling', navn: 'Skader og tverrskjøter' },
+  { id: 'strimling', navn: 'Strimling' },
+  { id: 'strok2', navn: 'Sparkling 2. strøk' },
+  { id: 'strok3', navn: 'Sparkling 3. strøk' },
+  { id: 'hel', navn: 'Helsparkling' },
+  { id: 'sliping', navn: 'Sliping' },
+  { id: 'ytterhjorner', navn: 'Ytterhjørner' },
+  { id: 'listefritt', navn: 'Listefritt' },
+  { id: 'grunning-tak', navn: 'Grunning tak' },
+  { id: 'grunning-vegg', navn: 'Grunning vegg' },
+  { id: 'maling-tak', navn: 'Maling tak' },
+  { id: 'maling-vegg', navn: 'Maling vegg' },
+  { id: 'snekker', navn: 'Lister, vinduer og dører' },
+  { id: 'gulvbelegg', navn: 'Gulvbelegg' },
+];
+const STEG_IDER = new Set(STEG.map((s) => s.id));
+
+/** Hvilket steg en linje i beregningen hører til, eller null (oppstart, tillegg). */
+export function stegFor(id) {
+  const a = arbeidFor(id);
+  if (a === 'grunning' || a === 'maling') return a + (id.startsWith('tak-') ? '-tak' : '-vegg');
+  return STEG_IDER.has(a) ? a : null;
+}
+
+/** Hva som er gjort i et rom: stegene med beregnede timer, og hvor langt rommet har kommet. */
+export function romFremgang(kalkyle, rom, lagredePriser) {
+  const b = beregn({ ...kalkyle, rom: [rom], tillegg: [] }, lagredePriser, { medFelles: false, medJustering: 'bareUt' });
+  const per = {};
+  for (const l of b.linjer) { const s = stegFor(l.id); if (s) per[s] = (per[s] || 0) + l.timer; }
+  const gjort = rom.gjort || {};
+  const steg = STEG.filter((s) => per[s.id] > 0).map((s) => ({ ...s, timer: per[s.id], gjort: gjort[s.id] === true }));
+  const timer = steg.reduce((s, x) => s + x.timer, 0);
+  const gjortTimer = steg.filter((x) => x.gjort).reduce((s, x) => s + x.timer, 0);
+  return {
+    steg, timer, gjortTimer, igjen: timer - gjortTimer,
+    andel: timer > 0 ? gjortTimer / timer : 0,
+    neste: steg.find((x) => !x.gjort) || null,
+    ferdig: steg.length > 0 && steg.every((x) => x.gjort),
+  };
+}
+
+/** Etasjen et rom hører til: navnet på plantegningen det er tegnet på, ellers fra romnavnet («Bad 2etg»). */
+export function etasjeFor(rom, planer = []) {
+  // Skrevet inn på rommet: «2» blir «2. etasje», ellers som skrevet («Loft»)
+  const egen = String(rom.etasje || '').trim();
+  if (egen) return /^\d+\.?$/.test(egen) ? parseInt(egen, 10) + '. etasje' : egen.charAt(0).toUpperCase() + egen.slice(1);
+  const p = rom.tegning && planer.find((x) => x.bilde === rom.tegning);
+  if (p && p.navn) return p.navn;
+  const navn = rom.navn || '';
+  const m = /(\d+)\s*\.?\s*(etg|etasje|et\b)/i.exec(navn);
+  if (m) return m[1] + '. etasje';
+  if (/kjeller|underetasje/i.test(navn)) return 'Kjeller';
+  if (/loft/i.test(navn)) return 'Loft';
+  return '';
+}
+
+/** Rommene gruppert per etasje, med fremgangen. Rom uten etasje havner sist under «Andre rom». */
+export function fremgangPerEtasje(kalkyle, lagredePriser) {
+  const k = kalkyle || { rom: [] };
+  const grupper = new Map();
+  for (const rom of k.rom) {
+    const etasje = etasjeFor(rom, k.planer || []);
+    if (!grupper.has(etasje)) grupper.set(etasje, []);
+    grupper.get(etasje).push({ rom, ...romFremgang(k, rom, lagredePriser) });
+  }
+  const ut = [...grupper.entries()].map(([navn, rom]) => {
+    const timer = rom.reduce((s, x) => s + x.timer, 0);
+    const gjortTimer = rom.reduce((s, x) => s + x.gjortTimer, 0);
+    return { navn: navn || 'Andre rom', utenNavn: !navn, rom, timer, gjortTimer, igjen: timer - gjortTimer, andel: timer > 0 ? gjortTimer / timer : 0 };
+  });
+  // Navngitte etasjer i naturlig rekkefølge, rom uten etasje sist
+  return ut.sort((a, b) => (a.utenNavn - b.utenNavn) || a.navn.localeCompare(b.navn, 'nb', { numeric: true }));
 }
