@@ -164,6 +164,8 @@ test('listefritt: tak, hjørner, vinduer og dører gir egne linjer', () => {
   assert.equal(Math.round(linje('listefritt-hjorne').mengde * 10) / 10, 9.6, '4 hjørner × 2,4 m');
   assert.equal(linje('listefritt-vindu').mengde, 1);
   assert.equal(linje('listefritt-dor').mengde, 1);
+  assert.equal(linje('listefritt-smyg').mengde, 2, 'smyg ved vinduet og døra');
+  assert.equal(linje('listefritt-taklinje').mengde, 14, 'skarp linje langs taket');
   assert.ok(r.sum.timer > uten + 4);
   assert.equal(rensKalkyle({ arbeid: { listefritt: { tak: true, hjorner: 'ja' } } }).arbeid.listefritt.hjorner, false);
 });
@@ -206,6 +208,9 @@ test('listefritt vindu gir tre sparkelrunder', () => {
   const b = beregn(k, {});
   assert.ok(b.linjer.some((l) => l.id === 'listefritt-vindu'), b.linjer.map((l) => l.id).join());
   assert.equal(dagerMedTork(b).runder, 3);
+  assert.equal(b.linjer.find((l) => l.id === 'listefritt-smyg').mengde, 1);
+  // Smygen males; malingen er ikke sparkel
+  assert.ok(materialer(b).find((m) => m.navn === 'Veggmaling').mengde > 0);
 });
 
 test('møbelflytting regnes bare når det er huket av', () => {

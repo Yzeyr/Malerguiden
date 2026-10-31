@@ -360,6 +360,9 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   if (lf.hjorner) leggTil('listefritt-hjorne', mengder.hjorner, { faktorTimer: vektet(flater.hjorner) });
   if (lf.vinduer) leggTil('listefritt-vindu', mengder.vinduer);
   if (lf.dorer) leggTil('listefritt-dor', mengder.dorer);
+  // Smygen ved listefrie vinduer og dører: tape, fuge og male. Skarp linje mellom vegg- og takfarge.
+  leggTil('listefritt-smyg', (lf.vinduer ? mengder.vinduer : 0) + (lf.dorer ? mengder.dorer : 0));
+  if (lf.tak) leggTil('listefritt-taklinje', mengder.taklinje, { faktorTimer: vektet(flater.taklinje) });
 
   for (let s = 1; s <= (a.lister?.strok || 0); s++) leggTil('lister-strok', mengder.lister, { navn: 'Lister, strøk ' + s });
   for (let s = 1; s <= (a.vinduer?.strok || 0); s++) leggTil('vindu-strok', mengder.vinduer, { navn: 'Vinduer, strøk ' + s });
@@ -409,10 +412,10 @@ export function perRom(kalkyle, lagredePriser) {
 
 /* Hva som går med av materialer, samlet i det man kjøper: liter maling, sparkel osv. */
 const MATERIALGRUPPER = [
-  { navn: 'Veggmaling', test: (id) => id.startsWith('vegg-maling') },
+  { navn: 'Veggmaling', test: (id) => id.startsWith('vegg-maling') || id === 'listefritt-smyg' },
   { navn: 'Takmaling', test: (id) => id.startsWith('tak-maling') },
   { navn: 'Grunning', test: (id) => id.endsWith('-grunning') },
-  { navn: 'Sparkel', test: (id) => id.includes('-sparkling-') || id.startsWith('listefritt-') },
+  { navn: 'Sparkel', test: (id) => id.includes('-sparkling-') || (id.startsWith('listefritt-') && !IKKE_SPARKEL.includes(id)) },
   { navn: 'Snekkermaling (lister, vinduer, dører)', test: (id) => id === 'lister-strok' || id === 'vindu-strok' || id === 'dor-strok' },
   { navn: 'Hjørnelist', test: (id) => id === 'ytterhjorne' },
   { navn: 'Dekkpapp', test: (id) => id === 'dekking-gulv' },
@@ -482,6 +485,8 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 // Sliping av skjøtene etter 3. strøk; i K3 slipes det etter helsparklingen (med i den linjen).
 export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3', 'sliping'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
 export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3, 'listefritt-dor': 3, ytterhjorne: 3 };
+// Listefritt-linjer som er maling og taping, ikke sparkel
+const IKKE_SPARKEL = ['listefritt-smyg', 'listefritt-taklinje'];
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn
@@ -499,7 +504,7 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
     // Sliping er ingen egen runde med tørk, men gjøres når sparkelen er tørr
     if (m) { if (m[2] !== 'sliping') perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
     // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
-    const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
+    const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') && !IKKE_SPARKEL.includes(l.id) ? SPARKEL_RUNDER.listefritt : 0);
     if (!r) continue;
     runder = Math.max(runder, r);
     sparkel += l.timer;

@@ -52,11 +52,18 @@ export const NORMER = [
 
   // Listefritt: overganger som sparkles i stedet for å dekkes med list.
   // Tak/vegg er tariffens «strimling + sparkling overgang tak/vegg». Hjørner, vinduer og dører er skjønn.
-  { id: 'listefritt-tak', gruppe: 'Listefritt', navn: 'Listefritt mot tak (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
-  { id: 'listefritt-hjorne', gruppe: 'Listefritt', navn: 'Listefrie hjørner (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  // Sliping lagt til (+0,03 t/lm, skjønn).
+  { id: 'listefritt-tak', gruppe: 'Listefritt', navn: 'Listefritt mot tak (strimling, sparkling og sliping)', enhet: 'lm', timer: 0.18, pris: 120, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
+  { id: 'listefritt-hjorne', gruppe: 'Listefritt', navn: 'Listefrie hjørner (strimling, sparkling og sliping)', enhet: 'lm', timer: 0.18, pris: 120, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'listefritt-vindu', gruppe: 'Listefritt', navn: 'Listefritt vindu (PVC-hjørnelist i smyg, 3 strøk sparkel, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
   // Listefri dør gjøres som vindu: PVC-hjørnelist i smygen, 3 strøk sparkel og sliping.
   { id: 'listefritt-dor', gruppe: 'Listefritt', navn: 'Listefri dør (PVC-hjørnelist i smyg, 3 strøk sparkel, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
+  // Skjønn. Smygen ved listefrie vinduer og dører: tape rundt karmen, fuge mot karmen og male smygen
+  // 2 strøk (ca. 0,15 + 0,2 + 0,35 t). Malingen er regnet med; fugemassen er liten og ikke med.
+  { id: 'listefritt-smyg', gruppe: 'Listefritt', navn: 'Smyg ved listefritt vindu/dør (tape, fuge, male 2 strøk)', enhet: 'stk', timer: 0.7, pris: 500, forbruk: 0.15, materialpris: 130, materialenhet: 'L' },
+  // Skjønn. Skarp linje mellom vegg- og takfarge uten taklist: 2 strøk veggfarge opp mot taket dagen før,
+  // tape, så 2 strøk takfarge. Dette er tiden for frem og tilbake; selve malingen ligger i vegg og tak.
+  { id: 'listefritt-taklinje', gruppe: 'Listefritt', navn: 'Skarp linje tak/vegg (veggfarge, tape, takfarge)', enhet: 'lm', timer: 0.08, pris: 55, forbruk: 0, materialpris: 0 },
 
   // Gulvbelegg (vinyl, linoleum) lagt på ferdig undergulv. Skjønn: ingen norsk norm funnet.
   // Forbruket har 10 % til kapp. Våtrom med sveis og oppbrett tar lengre tid.
@@ -92,10 +99,12 @@ export const MED = {
   'vegg-maling-strok': 'Ett strøk til på hele veggflaten.',
   'tak-maling-strok1': 'Første strøk maling på hele takflaten.',
   'tak-maling-strok': 'Ett strøk til på hele takflaten.',
-  'listefritt-tak': 'Strimling og sparkling av overgangen tak/vegg i stedet for taklist. Malingen ligger i vegg og tak.',
-  'listefritt-hjorne': 'Strimling og sparkling av innerhjørnene i stedet for hjørnelist. Malingen ligger i Maling vegg.',
-  'listefritt-vindu': 'PVC-hjørnelist i smygen, 3 strøk sparkel og sliping, i stedet for gerikt. Maling av smygen er ikke med.',
-  'listefritt-dor': 'PVC-hjørnelist i smygen, 3 strøk sparkel og sliping, i stedet for gerikt. Maling av smygen er ikke med.',
+  'listefritt-tak': 'Strimling, sparkling og sliping av overgangen tak/vegg i stedet for taklist. Fargeskillet står i egen linje.',
+  'listefritt-hjorne': 'Strimling, sparkling og sliping av innerhjørnene i stedet for hjørnelist. Malingen ligger i Maling vegg.',
+  'listefritt-vindu': 'PVC-hjørnelist i smygen, 3 strøk sparkel og sliping, i stedet for gerikt. Tape, fuge og maling står i Smyg-linjen.',
+  'listefritt-dor': 'PVC-hjørnelist i smygen, 3 strøk sparkel og sliping, i stedet for gerikt. Tape, fuge og maling står i Smyg-linjen.',
+  'listefritt-smyg': 'Tape rundt karmen, fuge mot karmen og male smygen 2 strøk. Fugemassen er ikke regnet med.',
+  'listefritt-taklinje': '2 strøk veggfarge opp mot taket dagen før, tape, så 2 strøk takfarge. Tiden for frem og tilbake; malingen ligger i vegg og tak.',
   'gulvbelegg': 'Legging av vinyl eller linoleum på ferdig undergulv. Materialet har 10 % til kapp.',
   'lister-strok': 'Ett strøk på gulv- og taklister.',
   'vindu-strok': 'Ett strøk på vindu med karm og foring.',
