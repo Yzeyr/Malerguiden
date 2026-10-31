@@ -112,6 +112,7 @@ export function rensKalkyle(k, klasse = '') {
       polygon: Array.isArray(r.polygon) ? r.polygon.filter((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) : null,
       tegning: r.tegning ? String(r.tegning) : null,
       skannplan: rensPlan(r.skannplan),
+      justering: rensJustering(r.justering),
     })) : [],
     tillegg: Array.isArray(k.tillegg) ? k.tillegg.filter((t) => t && typeof t === 'object' && t.id).map((t) => ({
       id: String(t.id), tekst: str(t.tekst), timer: str(t.timer), kr: str(t.kr),
@@ -260,7 +261,12 @@ export function priser(lagret) {
  * Returnerer { linjer, sum: { timer, arbeid, materialer, eksMva, mva, inklMva }, mengder, manglerMal }
  * Hver linje: { id, navn, detalj, mengde, enhet, timer, arbeid, materialer }
  */
-export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering = true } = {}) {
+/**
+ * Pris og timer for kalkylen. medJustering: true (alle justeringer for jobben), 'bareUt' (bare linjer
+ * som er tatt ut) eller false. Justeringer per rom (rom.justering) regnes med så lenge medJustering
+ * ikke er false. raa: tallene på linjene avrundes ikke (brukes internt).
+ */
+export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering = true, medRomJustering = medJustering !== false, raa = false } = {}) {
   const P = priser(lagredePriser);
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
@@ -302,26 +308,65 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   // Justeringer for denne jobben: linjer som er tatt ut, og egen mengde, timer eller kroner.
   const justering = (medJustering && k.justering) || {};
   const utelatt = [];
+
+  // Justeringer for ett rom: forskjellen mellom rommet regnet med og uten justeringene
+  // legges på linjene for jobben. Justeringene for hele jobben gjelder til slutt, oppå dette.
+  const romDelta = {};
+  const utelattRom = [];
+  if (medRomJustering) {
+    for (const rom of k.rom || []) {
+      const rj = rom.justering;
+      if (!rj || typeof rj !== 'object' || !Object.keys(rj).length || !romMengder(rom).ok) continue;
+      const en = { ...k, rom: [rom], tillegg: [] };
+      const opt = { medFelles: false, medRomJustering: false, raa: true };
+      const uten = beregn({ ...en, justering: {} }, lagredePriser, { ...opt, medJustering: false });
+      const med = beregn({ ...en, justering: rj }, lagredePriser, { ...opt, medJustering: true });
+      for (const nokkel of Object.keys(rj)) {
+        const u = uten.linjer.find((l) => l.nokkel === nokkel);
+        if (!u) continue;
+        const m = med.linjer.find((l) => l.nokkel === nokkel) || {};
+        const d = romDelta[nokkel] || (romDelta[nokkel] = { mengde: 0, timer: 0, arbeid: 0, materialer: 0, forbruk: 0 });
+        for (const f of Object.keys(d)) d[f] += (m[f] || 0) - (u[f] || 0);
+      }
+      for (const x of med.utelatt) utelattRom.push({ romId: rom.id, ...x });
+    }
+  }
+
   const leggTil = (id, mengde, { detalj = '', faktorTimer = null, navn = null } = {}) => {
     const n = P.normer[id];
     if (!n || !(mengde > 0)) return;
     const nokkel = navn ? id + ':' + navn : id;
     const j = justering[nokkel];
     if (j && j.av) { utelatt.push({ nokkel, navn: navn || n.navn }); return; }
-    const beregnet = mengde;
+    const enhet = k.modus === 'enhet';
     let timer = faktorTimer != null ? faktorTimer * n.timer : mengde * n.timer;
-    const egenMengde = medJustering === true && j ? tall(j.mengde) : NaN;
-    if (egenMengde >= 0) { timer = beregnet > 0 ? timer * (egenMengde / beregnet) : egenMengde * n.timer; mengde = egenMengde; }
-    const egneTimer = medJustering === true && j ? tall(j.timer) : NaN;
-    if (egneTimer >= 0) timer = egneTimer;
     // Enhetspris: trappehull o.l. med påslag (faktorTimer) gir samme påslag på prisen
-    const faktor = faktorTimer != null && beregnet > 0 ? faktorTimer / beregnet : 1;
-    let arbeid = k.modus === 'enhet' ? mengde * n.pris * faktor : timer * P.timepris;
+    const faktor = faktorTimer != null ? faktorTimer / mengde : 1;
+    let arbeid = enhet ? mengde * n.pris * faktor : timer * P.timepris;
+    let materialer = mengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);
+    let forbruk = mengde * (n.forbruk || 0);
+    const d = romDelta[nokkel];
+    if (d) {
+      mengde += d.mengde; timer += d.timer; arbeid += d.arbeid; materialer += d.materialer; forbruk += d.forbruk;
+      // Tatt ut i alle rommene der linjen var med
+      if (!(mengde > 1e-9) && !(timer > 1e-9) && !(Math.abs(arbeid) >= 0.5)) return;
+    }
+    const beregnet = mengde;
+    const egenMengde = medJustering === true && j ? tall(j.mengde) : NaN;
+    if (egenMengde >= 0) {
+      const s = beregnet > 0 ? egenMengde / beregnet : 0;
+      timer = beregnet > 0 ? timer * s : egenMengde * n.timer;
+      arbeid = beregnet > 0 ? arbeid * s : (enhet ? egenMengde * n.pris : timer * P.timepris);
+      materialer = egenMengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);
+      forbruk = egenMengde * (n.forbruk || 0);
+      mengde = egenMengde;
+    }
+    const egneTimer = medJustering === true && j ? tall(j.timer) : NaN;
+    if (egneTimer >= 0) { timer = egneTimer; if (!enhet) arbeid = timer * P.timepris; }
     const egneKr = medJustering === true && j ? tall(j.kr) : NaN;
     if (egneKr >= 0) arbeid = egneKr;
-    const materialer = mengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);
     linjer.push({ id, nokkel, navn: navn || n.navn, med: MED[id] || '', detalj, mengde, beregnet, enhet: n.enhet, timer, arbeid, materialer,
-      forbruk: mengde * (n.forbruk || 0), materialenhet: n.materialenhet || '', justert: !!(egenMengde >= 0 || egneTimer >= 0 || egneKr >= 0) });
+      forbruk, materialenhet: n.materialenhet || '', justert: !!(egenMengde >= 0 || egneTimer >= 0 || egneKr >= 0), justertRom: !!d });
   };
   // Timer for en flate der noen rom er trappehull: Σ m² × faktor.
   const vektet = (liste) => liste.reduce((s, x) => s + x.m2 * x.faktor, 0);
@@ -383,11 +428,12 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   const eksMva = arbeidKr + materialKr;
   const mva = Math.round(eksMva * P.mva / 100);
   return {
-    linjer: linjer.map((l) => ({ ...l, timer: rund(l.timer), arbeid: Math.round(l.arbeid), materialer: Math.round(l.materialer), forbruk: rund(l.forbruk || 0, 2) })),
+    linjer: raa ? linjer : linjer.map((l) => ({ ...l, timer: rund(l.timer), arbeid: Math.round(l.arbeid), materialer: Math.round(l.materialer), forbruk: rund(l.forbruk || 0, 2) })),
     sum: { timer: rund(timer, 1), arbeid: arbeidKr, materialer: materialKr, eksMva, mva, inklMva: eksMva + mva },
     mengder: Object.fromEntries(Object.entries(mengder).map(([k2, v]) => [k2, rund(v, 1)])),
     manglerMal,
     utelatt,
+    utelattRom,
     timepris: P.timepris,
     modus: k.modus,
   };

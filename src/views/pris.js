@@ -273,7 +273,7 @@ export function prisPanel(j) {
     ...(l.tillegg ? {} : { role: 'button', tabindex: '0', onclick: () => linjeArk(j.id, l), onkeydown: (e) => { if (e.key === 'Enter') linjeArk(j.id, l); } }),
   },
     h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15.5px' } }, l.navn),
-      h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj && !l.justert ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : '') + (l.justert ? ' · justert' : '')),
+      h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj && !l.justert ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : '') + (l.justert ? ' · justert' : '') + (l.justertRom && !l.justert ? ' · endret i et rom' : '')),
       l.med && h('small', { style: { marginTop: '2px' } }, 'Med: ' + l.med)),
     h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(l.timer, 1) + ' t'),
     h('span', { style: { fontWeight: '750', minWidth: '70px', textAlign: 'right' } }, fmt(l.arbeid, 0))))));
@@ -374,56 +374,76 @@ function romPrisArk(jobId, romId) {
   const rom = k.rom.find((x) => x.id === romId);
   if (!rom) return;
   const b = beregn({ ...k, rom: [rom] }, egnePriser(), { medFelles: false, medJustering: 'bareUt' });
-  const rad = (venstre, timer, belop, sterk) => h('div.rad', { style: { minHeight: '48px', padding: '9px 14px', alignItems: 'flex-start' } },
+  // Det utregnede for rommet, uten justeringene for rommet: vises som «Utregnet» når en linje endres
+  const uten = beregn({ ...k, rom: [rom] }, egnePriser(), { medFelles: false, medJustering: 'bareUt', medRomJustering: false });
+  const tilbake = () => romPrisArk(jobId, romId);
+  const rad = (venstre, timer, belop, sterk, klikk) => h('div.rad', { style: { minHeight: '48px', padding: '9px 14px', alignItems: 'flex-start', cursor: klikk ? 'pointer' : '' },
+    ...(klikk ? { role: 'button', tabindex: '0', onclick: klikk, onkeydown: (e) => { if (e.key === 'Enter') klikk(); } } : {}) },
     venstre,
     h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '44px', textAlign: 'right' } }, timer),
     h('span', { style: { fontWeight: sterk ? '800' : '750', minWidth: '64px', textAlign: 'right' } }, belop));
   ark((lukk) => h('div',
     h('h2', rom.navn || 'Rom'),
-    h('p.dempet', { style: { marginTop: '-6px' } }, 'Det som gjøres i rommet, og hva hver del inneholder. Kroner eks. mva.'),
+    h('p.dempet', { style: { marginTop: '-6px' } }, 'Det som gjøres i rommet, og hva hver del inneholder. Kroner eks. mva. Trykk på en linje for å endre den for dette rommet.'),
     b.linjer.length
       ? h('div.rad-liste',
         b.linjer.map((l) => rad(
           h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15px' } }, l.navn),
-            h('small', fmt(l.mengde, 1) + ' ' + l.enhet),
+            h('small', fmt(l.mengde, 1) + ' ' + l.enhet + (l.justertRom ? ' · endret for rommet' : '')),
             l.med && h('small', { style: { marginTop: '2px' } }, l.med)),
-          fmt(l.timer, 1) + ' t', fmt(l.arbeid, 0))),
+          fmt(l.timer, 1) + ' t', fmt(l.arbeid, 0), false,
+          () => { lukk(); linjeArk(jobId, l, { romId, romNavn: rom.navn || 'Rom', utregnet: uten.linjer.find((x) => x.nokkel === l.nokkel) || l, tilbake }); })),
         b.sum.materialer > 0 && rad(h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15px' } }, 'Materialer'), h('small', 'Maling, sparkel, lister o.l., med påslag')), '', fmt(b.sum.materialer, 0)),
         rad(h('div.hoved', h('b', { style: { fontWeight: '800', fontSize: '15.5px' } }, 'Sum rommet')), fmt(b.sum.timer, 1) + ' t', fmt(b.sum.eksMva, 0), true))
       : h('p.dempet', 'Rommet mangler mål, så det er ingen pris ennå.'),
-    b.utelatt.length > 0 && h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Tatt ut av prisen: ' + b.utelatt.map((u) => u.navn).join(', ') + '.'),
+    // Linjer som er tatt ut for dette rommet
+    b.utelattRom.length > 0 && h('div.rad-liste', { style: { marginTop: '8px' } }, b.utelattRom.map((u) => h('div.rad', { style: { minHeight: '48px', padding: '8px 14px' } },
+      h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15px', textDecoration: 'line-through', opacity: '.6' } }, u.navn), h('small', 'Tatt ut for dette rommet')),
+      h('button.lenkeknapp', { type: 'button', onclick: () => {
+        endreKalkyle(jobId, (x) => { const r = x.rom.find((y) => y.id === romId); if (r && r.justering) delete r.justering[u.nokkel]; });
+        lukk(); tilbake();
+      } }, 'Ta med')))),
+    b.utelatt.length > 0 && h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Tatt ut for hele jobben: ' + b.utelatt.map((u) => u.navn).join(', ') + '.'),
     h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Oppstart, kjøring og tillegg er felles for jobben og står ikke her.'),
     h('div.knapprad', { style: { marginTop: '14px' } },
       h('button.knapp', { type: 'button', onclick: () => { lukk(); romArk(jobId, romId); } }, 'Endre rommet'),
       h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Lukk'))));
 }
 
-function linjeArk(jobId, l) {
+/** Endre en linje for hele jobben, eller bare for ett rom (romId). */
+function linjeArk(jobId, l, { romId = null, romNavn = '', utregnet = l, tilbake = null } = {}) {
   const k = hentJobb(jobId).kalkyle || tomKalkyle();
-  const egen = (k.justering && k.justering[l.nokkel]) || {};
+  const kilde = romId ? (k.rom.find((r) => r.id === romId) || {}) : k;
+  const egen = (kilde.justering && kilde.justering[l.nokkel]) || {};
   ark((lukk) => {
     const felt = (navn, label, plassholder, enhet) => {
       const inn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: egen[navn] || '', placeholder: plassholder });
       return [inn, h('label.tallfelt', h('span', label, h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Utregnet: ' + plassholder + ' ' + enhet)), inn)];
     };
-    const [mengde, mengdeRad] = felt('mengde', 'Mengde (' + l.enhet + ')', fmt(l.beregnet ?? l.mengde, 1), l.enhet);
-    const [timer, timerRad] = felt('timer', 'Timer', fmt(l.timer, 1), 't');
-    const [kroner, kronerRad] = felt('kr', 'Arbeid (kr)', fmt(l.arbeid, 0), 'kr');
+    const u = romId ? utregnet : l;
+    const [mengde, mengdeRad] = felt('mengde', 'Mengde (' + l.enhet + ')', fmt(romId ? u.mengde : (l.beregnet ?? l.mengde), 1), l.enhet);
+    const [timer, timerRad] = felt('timer', 'Timer', fmt(u.timer, 1), 't');
+    const [kroner, kronerRad] = felt('kr', 'Arbeid (kr)', fmt(u.arbeid, 0), 'kr');
     const lagre = (endring) => {
       endreKalkyle(jobId, (x) => {
-        x.justering = x.justering || {};
+        const mal = romId ? x.rom.find((r) => r.id === romId) : x;
+        if (!mal) return;
+        mal.justering = mal.justering || {};
         const ny = { av: false, mengde: '', timer: '', kr: '', ...endring };
-        if (ny.av || ny.mengde || ny.timer || ny.kr) x.justering[l.nokkel] = ny; else delete x.justering[l.nokkel];
+        if (ny.av || ny.mengde || ny.timer || ny.kr) mal.justering[l.nokkel] = ny; else delete mal.justering[l.nokkel];
       });
       lukk();
+      if (tilbake) tilbake();
     };
     return h('form', { onsubmit: (e) => { e.preventDefault(); lagre({ mengde: mengde.value.trim(), timer: timer.value.trim(), kr: kroner.value.trim() }); } },
       h('h2', l.navn),
       l.med && h('p', { style: { marginTop: '-6px' } }, h('b', 'Med: '), l.med),
-      h('p.dempet', { style: { marginTop: l.med ? '0' : '-6px' } }, 'Gjelder bare denne jobben. Tomme felt bruker det utregnede. Normtallene for alle jobber endres under Mitt → Priser.'),
+      h('p.dempet', { style: { marginTop: l.med ? '0' : '-6px' } }, romId
+        ? 'Gjelder bare ' + romNavn + '. Tomme felt bruker det utregnede for rommet.'
+        : 'Gjelder bare denne jobben. Tomme felt bruker det utregnede. Normtallene for alle jobber endres under Mitt → Priser.'),
       mengdeRad, timerRad, kronerRad,
       h('div.knapprad',
-        h('button.knapp.fare', { type: 'button', onclick: () => lagre({ av: true }) }, ikon('kryss'), 'Ta ut av prisen'),
+        h('button.knapp.fare', { type: 'button', onclick: () => lagre({ av: true }) }, ikon('kryss'), romId ? 'Ta ut for rommet' : 'Ta ut av prisen'),
         h('button.knapp', { type: 'submit' }, 'Lagre')),
       (egen.mengde || egen.timer || egen.kr) && h('button.lenkeknapp', { type: 'button', style: { marginTop: '6px' }, onclick: () => lagre({}) }, 'Tilbake til utregnet'));
   });

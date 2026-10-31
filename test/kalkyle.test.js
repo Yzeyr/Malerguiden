@@ -358,3 +358,38 @@ test('listefri dør regnes som listefritt vindu', async () => {
   const v = NORM_BY_ID['listefritt-vindu'], d = NORM_BY_ID['listefritt-dor'];
   for (const f of ['timer', 'pris', 'forbruk', 'materialpris', 'enhet']) assert.equal(d[f], v[f], f);
 });
+
+test('justering per rom: gjelder bare det rommet, og summen går opp', () => {
+  const a = rom({ id: 'a', navn: 'Stue' }), b = rom({ id: 'b', navn: 'Gang' });
+  const k = { ...tomKalkyle('K2'), rom: [a, b] };
+  const linje = (res, n) => res.linjer.find((l) => l.nokkel === n);
+  const fra = beregn(k, {});
+  const enkelt = beregn({ ...k, rom: [b] }, {}, { medFelles: false });
+
+  // Ta 3. strøk ut i stua: bare gangen står igjen
+  a.justering = { 'vegg-sparkling-strok3': { av: true, mengde: '', timer: '', kr: '' } };
+  let r = beregn(k, {});
+  assert.ok(Math.abs(linje(r, 'vegg-sparkling-strok3').timer - linje(enkelt, 'vegg-sparkling-strok3').timer) < 0.02);
+  assert.ok(linje(r, 'vegg-sparkling-strok3').justertRom);
+  let per = perRom(k, {});
+  assert.equal(per.rom.reduce((s, x) => s + x.sum.eksMva, 0) + per.felles.eksMva, r.sum.eksMva);
+  const stue = beregn({ ...k, rom: [a] }, {}, { medFelles: false, medJustering: 'bareUt' });
+  assert.ok(!linje(stue, 'vegg-sparkling-strok3'));
+  assert.equal(stue.utelattRom[0].romId, 'a');
+
+  // Egne timer i stua: 5 t + gangens utregnede
+  a.justering = { 'vegg-maling-strok1:Maling vegg, strøk 1': { av: false, mengde: '', timer: '5', kr: '' } };
+  r = beregn(k, {});
+  const gang = linje(enkelt, 'vegg-maling-strok1:Maling vegg, strøk 1').timer;
+  assert.ok(Math.abs(linje(r, 'vegg-maling-strok1:Maling vegg, strøk 1').timer - (5 + gang)) < 0.02);
+  per = perRom(k, {});
+  assert.equal(per.rom.reduce((s, x) => s + x.sum.eksMva, 0) + per.felles.eksMva, r.sum.eksMva);
+
+  // Justering for hele jobben gjelder oppå
+  k.justering = { 'vegg-maling-strok1:Maling vegg, strøk 1': { av: false, mengde: '', timer: '2', kr: '' } };
+  assert.equal(linje(beregn(k, {}), 'vegg-maling-strok1:Maling vegg, strøk 1').timer, 2);
+  // Uten justeringer er alt som før
+  assert.equal(beregn({ ...k, justering: {}, rom: [rom({ id: 'a' }), rom({ id: 'b' })] }, {}).sum.eksMva, fra.sum.eksMva);
+  // Renses med rommet
+  assert.equal(rensKalkyle({ rom: [{ id: 'x', justering: { 'vegg-grunning': { av: true } } }] }).rom[0].justering['vegg-grunning'].av, true);
+});
