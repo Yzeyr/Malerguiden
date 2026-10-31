@@ -337,3 +337,14 @@ test('ytterhjørner: talt fra formen, eller skrevet inn, og regnet når veggene 
   // Uten sparkling: ingen ytterhjørner i prisen
   assert.ok(!beregn({ ...tomKalkyle(''), rom: [r] }, {}).linjer.some((l) => l.id === 'ytterhjorne'));
 });
+
+test('hver normlinje har en kort tekst om hva den inneholder', async () => {
+  const { NORMER, MED } = await import('../src/data/normer.js');
+  for (const n of NORMER) assert.ok(MED[n.id], 'mangler Med-tekst: ' + n.id);
+});
+
+test('listefri dør regnes som listefritt vindu', async () => {
+  const { NORM_BY_ID } = await import('../src/data/normer.js');
+  const v = NORM_BY_ID['listefritt-vindu'], d = NORM_BY_ID['listefritt-dor'];
+  for (const f of ['timer', 'pris', 'forbruk', 'materialpris', 'enhet']) assert.equal(d[f], v[f], f);
+});

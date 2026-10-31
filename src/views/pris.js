@@ -242,14 +242,15 @@ export function prisPanel(j) {
   if (fordelt.rom.length > 1 || fordelt.felles.eksMva > 0) {
     ut.append(h('div.seksjon', 'Per rom', h('span.tall', 'timer · kr eks. mva')));
     ut.append(h('div.rad-liste',
-      fordelt.rom.map((r) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '50px', padding: '9px 14px', cursor: 'pointer' }, onclick: () => romArk(j.id, r.id) },
-        h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, r.navn), !r.ok && h('small', 'Mangler mål')),
+      fordelt.rom.map((r) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '50px', padding: '9px 14px', cursor: 'pointer' }, onclick: () => romPrisArk(j.id, r.id), onkeydown: (e) => { if (e.key === 'Enter') romPrisArk(j.id, r.id); } },
+        h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, r.navn), h('small', r.ok ? 'Se hva prisen består av' : 'Mangler mål')),
         h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(r.sum.timer, 1) + ' t'),
         h('span', { style: { fontWeight: '750', minWidth: '76px', textAlign: 'right' } }, fmt(r.sum.eksMva, 0)))),
       fordelt.felles.eksMva > 0 && h('div.rad', { style: { minHeight: '50px', padding: '9px 14px' } },
         h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, 'Felles for jobben'), h('small', 'Oppstart, kjøring og tillegg')),
         h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(fordelt.felles.timer, 1) + ' t'),
         h('span', { style: { fontWeight: '750', minWidth: '76px', textAlign: 'right' } }, fmt(fordelt.felles.eksMva, 0)))));
+    ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 0' } }, 'Trykk på et rom for å se hva prisen består av.'));
   }
 
   // Materialene: hvor mye maling, sparkel osv. som går
@@ -272,7 +273,8 @@ export function prisPanel(j) {
     ...(l.tillegg ? {} : { role: 'button', tabindex: '0', onclick: () => linjeArk(j.id, l), onkeydown: (e) => { if (e.key === 'Enter') linjeArk(j.id, l); } }),
   },
     h('div.hoved', h('b', { style: { fontWeight: '600', fontSize: '15.5px' } }, l.navn),
-      h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj && !l.justert ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : '') + (l.justert ? ' · justert' : ''))),
+      h('small', l.tillegg ? 'Tillegg' : (l.enhet === 'stk' && l.detalj && !l.justert ? l.detalj : fmt(l.mengde, 1) + ' ' + l.enhet) + (l.materialer ? ' · materialer ' + kr(l.materialer) : '') + (l.justert ? ' · justert' : '')),
+      l.med && h('small', { style: { marginTop: '2px' } }, 'Med: ' + l.med)),
     h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(l.timer, 1) + ' t'),
     h('span', { style: { fontWeight: '750', minWidth: '70px', textAlign: 'right' } }, fmt(l.arbeid, 0))))));
   // Linjer som er tatt ut av prisen for denne jobben
@@ -366,6 +368,36 @@ function timerPanel(j, r) {
 
 /* ---------- Endre én linje for denne jobben ---------- */
 
+/** Hva prisen for ett rom består av: linjene med hva de inneholder, og summen. */
+function romPrisArk(jobId, romId) {
+  const k = hentJobb(jobId).kalkyle || tomKalkyle();
+  const rom = k.rom.find((x) => x.id === romId);
+  if (!rom) return;
+  const b = beregn({ ...k, rom: [rom] }, egnePriser(), { medFelles: false, medJustering: 'bareUt' });
+  const rad = (venstre, timer, belop, sterk) => h('div.rad', { style: { minHeight: '48px', padding: '9px 14px', alignItems: 'flex-start' } },
+    venstre,
+    h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '44px', textAlign: 'right' } }, timer),
+    h('span', { style: { fontWeight: sterk ? '800' : '750', minWidth: '64px', textAlign: 'right' } }, belop));
+  ark((lukk) => h('div',
+    h('h2', rom.navn || 'Rom'),
+    h('p.dempet', { style: { marginTop: '-6px' } }, 'Det som gjøres i rommet, og hva hver del inneholder. Kroner eks. mva.'),
+    b.linjer.length
+      ? h('div.rad-liste',
+        b.linjer.map((l) => rad(
+          h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15px' } }, l.navn),
+            h('small', fmt(l.mengde, 1) + ' ' + l.enhet),
+            l.med && h('small', { style: { marginTop: '2px' } }, l.med)),
+          fmt(l.timer, 1) + ' t', fmt(l.arbeid, 0))),
+        b.sum.materialer > 0 && rad(h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15px' } }, 'Materialer'), h('small', 'Maling, sparkel, lister o.l., med påslag')), '', fmt(b.sum.materialer, 0)),
+        rad(h('div.hoved', h('b', { style: { fontWeight: '800', fontSize: '15.5px' } }, 'Sum rommet')), fmt(b.sum.timer, 1) + ' t', fmt(b.sum.eksMva, 0), true))
+      : h('p.dempet', 'Rommet mangler mål, så det er ingen pris ennå.'),
+    b.utelatt.length > 0 && h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Tatt ut av prisen: ' + b.utelatt.map((u) => u.navn).join(', ') + '.'),
+    h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, 'Oppstart, kjøring og tillegg er felles for jobben og står ikke her.'),
+    h('div.knapprad', { style: { marginTop: '14px' } },
+      h('button.knapp', { type: 'button', onclick: () => { lukk(); romArk(jobId, romId); } }, 'Endre rommet'),
+      h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Lukk'))));
+}
+
 function linjeArk(jobId, l) {
   const k = hentJobb(jobId).kalkyle || tomKalkyle();
   const egen = (k.justering && k.justering[l.nokkel]) || {};
@@ -387,7 +419,8 @@ function linjeArk(jobId, l) {
     };
     return h('form', { onsubmit: (e) => { e.preventDefault(); lagre({ mengde: mengde.value.trim(), timer: timer.value.trim(), kr: kroner.value.trim() }); } },
       h('h2', l.navn),
-      h('p.dempet', { style: { marginTop: '-6px' } }, 'Gjelder bare denne jobben. Tomme felt bruker det utregnede. Normtallene for alle jobber endres under Mitt → Priser.'),
+      l.med && h('p', { style: { marginTop: '-6px' } }, h('b', 'Med: '), l.med),
+      h('p.dempet', { style: { marginTop: l.med ? '0' : '-6px' } }, 'Gjelder bare denne jobben. Tomme felt bruker det utregnede. Normtallene for alle jobber endres under Mitt → Priser.'),
       mengdeRad, timerRad, kronerRad,
       h('div.knapprad',
         h('button.knapp.fare', { type: 'button', onclick: () => lagre({ av: true }) }, ikon('kryss'), 'Ta ut av prisen'),

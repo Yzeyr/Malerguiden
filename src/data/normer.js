@@ -55,7 +55,8 @@ export const NORMER = [
   { id: 'listefritt-tak', gruppe: 'Listefritt', navn: 'Listefritt mot tak (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'listefritt-hjorne', gruppe: 'Listefritt', navn: 'Listefrie hjørner (strimling og sparkling)', enhet: 'lm', timer: 0.15, pris: 100, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'listefritt-vindu', gruppe: 'Listefritt', navn: 'Listefritt vindu (PVC-hjørnelist i smyg, 3 strøk sparkel, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
-  { id: 'listefritt-dor', gruppe: 'Listefritt', navn: 'Listefri dør, én side (overgang karm og vegg)', enhet: 'stk', timer: 0.6, pris: 420, forbruk: 0.2, materialpris: 50, materialenhet: 'L' },
+  // Listefri dør gjøres som vindu: PVC-hjørnelist i smygen, 3 strøk sparkel og sliping.
+  { id: 'listefritt-dor', gruppe: 'Listefritt', navn: 'Listefri dør (PVC-hjørnelist i smyg, 3 strøk sparkel, slip)', enhet: 'stk', timer: 1.2, pris: 850, forbruk: 0.5, materialpris: 50, materialenhet: 'L' },
 
   // Gulvbelegg (vinyl, linoleum) lagt på ferdig undergulv. Skjønn: ingen norsk norm funnet.
   // Forbruket har 10 % til kapp. Våtrom med sveis og oppbrett tar lengre tid.
@@ -66,5 +67,39 @@ export const NORMER = [
   // Én side av døra (dørblad + karm og gerikt). En dør mellom to rom telles i begge rommene, én side hver.
   { id: 'dor-strok', gruppe: 'Lister, vinduer og dører', navn: 'Dør, én side med karm, per strøk', enhet: 'stk', timer: 0.44, pris: 325, forbruk: 0.24, materialpris: 180, materialenhet: 'L' },
 ];
+
+/* Hva hver linje i prisen inneholder, kort. Vises under linjen i Utregning og i prisen per rom. */
+export const MED = {
+  'jobb-oppstart': 'Oppstart, kjøring og sluttrydding. Én gang per jobb.',
+  'rigging-rom': 'Tape, plast og maskering i rommet, og rydding etterpå.',
+  'mobler-rom': 'Flytte møblene og dekke dem til.',
+  'dekking-gulv': 'Papp på hele gulvet, med 10 % omlegg.',
+  'rigging-trapp': 'Sette opp og flytte stige eller stillas i trappehullet.',
+  'vegg-sparkling-strimling': 'Første runde: papirstrimmel og sparkel i skjøter og innerhjørner, sparkel i skruehull.',
+  'tak-sparkling-strimling': 'Første runde: papirstrimmel og sparkel i skjøter og innerhjørner, sparkel i skruehull.',
+  'vegg-sparkling-strok2': 'Andre runde sparkel over skjøter, hjørner og skruehull.',
+  'tak-sparkling-strok2': 'Andre runde sparkel over skjøter, hjørner og skruehull.',
+  'vegg-sparkling-strok3': 'Tredje runde (finstrøk) over skjøter, hjørner og skruehull.',
+  'tak-sparkling-strok3': 'Tredje runde (finstrøk) over skjøter, hjørner og skruehull.',
+  'vegg-sparkling-sliping': 'Sliping av sparkelen før grunning eller maling.',
+  'tak-sparkling-sliping': 'Sliping av sparkelen før grunning eller maling.',
+  'vegg-sparkling-hel': 'Hele flaten sparkles og slipes til slutt (K3). Kommer i tillegg til skjøtene.',
+  'tak-sparkling-hel': 'Hele flaten sparkles og slipes til slutt (K3). Kommer i tillegg til skjøtene.',
+  'ytterhjorne': 'Hjørnelist monteres, 3 strøk sparkel og sliping. Malingen ligger i Maling vegg.',
+  'vegg-grunning': 'Ett strøk grunning på hele veggflaten.',
+  'tak-grunning': 'Ett strøk grunning på hele takflaten.',
+  'vegg-maling-strok1': 'Første strøk maling på hele veggflaten.',
+  'vegg-maling-strok': 'Ett strøk til på hele veggflaten.',
+  'tak-maling-strok1': 'Første strøk maling på hele takflaten.',
+  'tak-maling-strok': 'Ett strøk til på hele takflaten.',
+  'listefritt-tak': 'Strimling og sparkling av overgangen tak/vegg i stedet for taklist. Malingen ligger i vegg og tak.',
+  'listefritt-hjorne': 'Strimling og sparkling av innerhjørnene i stedet for hjørnelist. Malingen ligger i Maling vegg.',
+  'listefritt-vindu': 'PVC-hjørnelist i smygen, 3 strøk sparkel og sliping, i stedet for gerikt. Maling av smygen er ikke med.',
+  'listefritt-dor': 'PVC-hjørnelist i smygen, 3 strøk sparkel og sliping, i stedet for gerikt. Maling av smygen er ikke med.',
+  'gulvbelegg': 'Legging av vinyl eller linoleum på ferdig undergulv. Materialet har 10 % til kapp.',
+  'lister-strok': 'Ett strøk på gulv- og taklister.',
+  'vindu-strok': 'Ett strøk på vindu med karm og foring.',
+  'dor-strok': 'Ett strøk på én side av døra: dørblad, karm og gerikt.',
+};
 
 export const NORM_BY_ID = Object.fromEntries(NORMER.map((n) => [n.id, n]));

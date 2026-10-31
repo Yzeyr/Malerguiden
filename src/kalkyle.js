@@ -20,7 +20,7 @@
    }
 */
 
-import { NORMER, STANDARD_PRISER } from './data/normer.js';
+import { NORMER, STANDARD_PRISER, MED } from './data/normer.js';
 
 export const DOR_M2 = 1.6;      // samme som romkalkulatoren
 export const VINDU_M2 = 1.5;
@@ -320,7 +320,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     const egneKr = medJustering === true && j ? tall(j.kr) : NaN;
     if (egneKr >= 0) arbeid = egneKr;
     const materialer = mengde * n.forbruk * n.materialpris * (1 + P.paslag / 100);
-    linjer.push({ id, nokkel, navn: navn || n.navn, detalj, mengde, beregnet, enhet: n.enhet, timer, arbeid, materialer,
+    linjer.push({ id, nokkel, navn: navn || n.navn, med: MED[id] || '', detalj, mengde, beregnet, enhet: n.enhet, timer, arbeid, materialer,
       forbruk: mengde * (n.forbruk || 0), materialenhet: n.materialenhet || '', justert: !!(egenMengde >= 0 || egneTimer >= 0 || egneKr >= 0) });
   };
   // Timer for en flate der noen rom er trappehull: Σ m² × faktor.
@@ -481,7 +481,7 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 // Sparkelrundene per klasse. K2 er strimling, 2. og 3. strøk; K3 er de pluss helsparkling til slutt.
 // Sliping av skjøtene etter 3. strøk; i K3 slipes det etter helsparklingen (med i den linjen).
 export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3', 'sliping'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
-export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3, ytterhjorne: 3 };
+export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3, 'listefritt-dor': 3, ytterhjorne: 3 };
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn
