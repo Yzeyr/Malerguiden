@@ -552,16 +552,23 @@ const IKKE_SPARKEL = ['listefritt-smyg', 'listefritt-taklinje'];
  * før sparkelen er ferdig og slipt, så de kommer etterpå, minst én dag.
  * Annet arbeid (rigging, tildekking, lister) kan gjøres mens sparkelen tørker.
  * På store jobber går rundene i ett (rom for rom), så da blir det ingen ekstra dager.
- * Eksempel, ett rom i K2: 3 dager sparkling og 1 dag maling = 4 dager.
+ * Grunnes taket, står grunningen et døgn før taket males: da får grunningen sin egen dag.
+ * Eksempel, ett rom i K2: 3 dager sparkling, 1 dag sliping og grunning, 1 dag maling = 5 dager.
+ * Uten grunning i taket: 3 dager sparkling og 1 dag maling = 4 dager.
  */
 export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const b = resultat || { linjer: [], sum: { timer: 0 } };
-  let runder = 0, sparkel = 0, etter = 0;
+  let runder = 0, sparkel = 0, etter = 0, grunning = 0, takGrunnes = false;
   const perFlate = {}; // antall sparkelrunder på vegg og tak
   for (const l of b.linjer) {
     if (!(l.timer > 0)) continue;
     // Grunning og maling av vegg og tak, og malingen ved listefrie overganger, venter på sparkelen
-    if (/^(vegg|tak)-(grunning|maling)/.test(l.id) || IKKE_SPARKEL.includes(l.id)) { etter += l.timer; continue; }
+    if (/^(vegg|tak)-(grunning|maling)/.test(l.id) || IKKE_SPARKEL.includes(l.id)) {
+      etter += l.timer;
+      if (l.id.endsWith('-grunning')) grunning += l.timer;
+      if (l.id === 'tak-grunning') takGrunnes = true;
+      continue;
+    }
     const m = /^(vegg|tak)-sparkling-(\w+)$/.exec(l.id);
     // Sliping er ingen egen runde med tørk, men gjøres når sparkelen er tørr
     // Hurtigsparkelen (fylling) herder på noen timer og trenger heller ikke et døgn
@@ -579,7 +586,10 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const ledig = runder * Math.max(0, 1 - perRunde) * timerPerDag;  // timer igjen på sparkeldagene
   const annet = Math.max(0, b.sum.timer - sparkel - etter);         // kan gjøres mens det tørker
   const tilOvers = Math.max(0, annet - ledig);                      // det som ikke fikk plass
-  const sluttDager = etter > 0 ? Math.max(1, (etter + tilOvers) / timerPerDag) : tilOvers / timerPerDag;
+  // Grunning i tak står et døgn: grunningen får en egen dag, malingen kommer dagen etter
+  const sluttDager = etter <= 0 ? tilOvers / timerPerDag
+    : takGrunnes ? Math.max(1, grunning / timerPerDag) + Math.max(1, (etter - grunning + tilOvers) / timerPerDag)
+    : Math.max(1, (etter + tilOvers) / timerPerDag);
   const dager = Math.ceil((runder * Math.max(1, perRunde) + sluttDager) * 2) / 2;
   return { dager: Math.max(dager, uten), arbeidsdager: uten, runder };
 }
