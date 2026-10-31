@@ -12,7 +12,8 @@ struct TingSkannView: View {
     /// true = bildene er tatt og modellen kan lages. false = avbrutt.
     let ferdig: (Bool) -> Void
 
-    @StateObject private var okt = ObjectCaptureSession()
+    // ObjectCaptureSession bruker Observation (@Observable), så den holdes i @State
+    @State private var okt = ObjectCaptureSession()
     @State private var startet = false
     @State private var runder = 1
     @State private var feil: String?
