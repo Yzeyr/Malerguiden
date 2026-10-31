@@ -1,10 +1,10 @@
 /* Rom og prisberegning inne i en jobb.
    romPanel: øverst i Mål-fanen. prisPanel: Pris-fanen. */
 
-import { h, tom, ikon, toast, ark, bekreft, velg } from '../dom.js';
+import { h, tom, ikon, toast, ark, bekreft, velg, kopierTekst } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
-import { etasjeFor, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { etasjeFor, fremgangPerEtasje, handleliste, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -226,6 +226,7 @@ export function prisPanel(j) {
     r.sum.materialer > 0 && sammenlegg('jobb:materialer', { tittel: 'Materialer', under: flertall(mat.length, 'vare', 'varer') + ' · med påslag', belop: fmt(r.sum.materialer, 0) }, [
       mat.map((m) => prisRad({ tittel: m.navn, under: fmt(m.mengde, m.enhet === 'rom' ? 0 : 1) + ' ' + m.enhet, belop: fmt(m.kr, 0), inn: true })),
       h('p.dempet.liten', { style: { margin: '0', padding: '8px 14px 10px 24px' } }, 'Varene er uten påslag og svinn. Legg på 10–15 % når du handler. Forbruket per m² står under Mitt → Priser.')]),
+    r.sum.materialer > 0 && prisRad({ tittel: 'Handleliste', under: 'Spann og sekker med svinn, som i kalkulatoren', klikk: () => handlelisteArk(j.id) }),
     sammenlegg('jobb:perrom', { tittel: 'Per rom', under: flertall(fordelt.rom.length, 'rom', 'rom') + ' · se og juster hvert rom', belop: '' }, [
       fordelt.rom.map((x) => prisRad({ tittel: x.navn, under: x.ok ? fmt(x.sum.timer, 1) + ' t' : 'Mangler mål', belop: fmt(x.sum.eksMva, 0), inn: true, klikk: () => romPrisArk(j.id, x.id) })),
       fordelt.felles.eksMva > 0 && prisRad({ tittel: 'Felles for jobben', under: fmt(fordelt.felles.timer, 1) + ' t · oppstart, kjøring og tillegg', belop: fmt(fordelt.felles.eksMva, 0), inn: true })])));
@@ -269,6 +270,60 @@ function tilleggArk(jobId) {
         h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Avbryt'),
         h('button.knapp', { type: 'submit' }, 'Legg til')));
   });
+}
+
+/* ---------- Handleliste: spann og sekker fra rommene ---------- */
+
+const HANDEL_FARGE = {
+  'Veggmaling': 'k-terrakotta', 'Takmaling': 'k-ultramarin', 'Grunning': 'k-salvie',
+  'Sparkel': 'k-oker', 'Ardex A 828 (hurtigsparkel)': 'k-oker', 'Snekkermaling (lister, vinduer, dører)': 'k-plomme',
+};
+const tallTekst = (v, enhet) => fmt(v, enhet === 'rom' ? 0 : 1) + ' ' + enhet;
+
+/** Hvor mye maling og sparkel som må kjøpes, i spann og sekker, som i kalkulatoren under Regn. */
+export function handlelisteArk(jobId, { bareIgjen = false } = {}) {
+  const valg = { bareIgjen, etasje: null, svinn: 10 };
+  const innhold = h('div');
+  const tegn = () => {
+    const j = hentJobb(jobId);
+    const k = j?.kalkyle;
+    if (!k || !k.rom.length) { tom(innhold, h('p.dempet', 'Legg inn rommene først, så regnes materialene ut.')); return; }
+    const harGjort = k.rom.some((r) => r.gjort && Object.keys(r.gjort).length);
+    if (!harGjort) valg.bareIgjen = false;
+    const etasjer = fremgangPerEtasje(k, egnePriser()).map((e) => e.navn);
+    if (valg.etasje && !etasjer.includes(valg.etasje)) valg.etasje = null;
+    const liste = handleliste(linjerForHandel(k, egnePriser(), valg), { svinn: valg.svinn });
+    const medSpann = liste.filter((m) => m.forslag && m.trenger > 0);
+    const andre = liste.filter((m) => !m.forslag && m.mengde > 0);
+    const kort = (m) => h('div.resultat.kompakt.' + (HANDEL_FARGE[m.navn] || 'k-terrakotta'),
+      h('div.overtittel', m.navn),
+      h('div.tall', fmt(m.trenger, 1), h('small', m.enhet)),
+      h('div.chips', m.forslag.kombinasjon.map((x) => h('span', x.tekst)),
+        m.forslag.tilOvers > 0.04 && h('span', fmt(m.forslag.tilOvers, 1) + ' ' + m.enhet + ' til overs')));
+    const tekst = () => [
+      'Handleliste · ' + (j.kunde?.navn || 'Hurtigpris') + (valg.etasje ? ' · ' + valg.etasje : '') + (valg.bareIgjen ? ' · det som gjenstår' : ''),
+      ...medSpann.map((m) => m.navn + ': ' + m.forslag.tekst + ' (' + tallTekst(m.trenger, m.enhet) + ' med ' + valg.svinn + ' % svinn)'),
+      ...andre.map((m) => m.navn + ': ' + tallTekst(m.mengde, m.enhet)),
+    ].join('\n');
+    tom(innhold,
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Regnet fra rommene, med svinn. Forbruket per m² står under Mitt → Priser.'),
+      harGjort && h('div.velger', { style: { marginBottom: '8px' } },
+        [[false, 'Hele jobben'], [true, 'Det som gjenstår']].map(([v, navn]) => h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(valg.bareIgjen === v), style: { flex: '1' }, onclick: () => { valg.bareIgjen = v; tegn(); } }, navn))),
+      etasjer.length > 1 && h('div.velger', { style: { marginBottom: '8px' } },
+        [[null, 'Alle etasjer'], ...etasjer.map((e) => [e, e])].map(([v, navn]) => h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(valg.etasje === v), onclick: () => { valg.etasje = v; tegn(); } }, navn))),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', margin: '2px 2px 4px' } },
+        h('span.dempet', { style: { fontWeight: '650', fontSize: '15px' } }, 'Svinn'),
+        h('div.velger', [0, 10, 15].map((v) => h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(valg.svinn === v), onclick: () => { valg.svinn = v; tegn(); } }, v + ' %')))),
+      medSpann.length ? medSpann.map(kort) : h('p.dempet', { style: { marginTop: '12px' } }, 'Ingen maling eller sparkel å kjøpe for dette utvalget.'),
+      andre.length > 0 && h('div.rad-liste', { style: { marginTop: '12px' } }, andre.map((m) => prisRad({ tittel: m.navn, belop: tallTekst(m.mengde, m.enhet) }))),
+      h('p.dempet.liten', { style: { margin: '10px 2px 0' } }, 'Spann: maling 9 / 2,7 / 0,68 L, ferdigsparkel 10 / 3 L. Ardex A 828: sekk 12,5 kg og pose 5 kg. Sjekk produktet du bruker.'),
+      h('div.knapprad',
+        h('button.knapp.sekundar', { type: 'button', onclick: async () => toast(await kopierTekst(tekst()) ? 'Handlelista er kopiert.' : 'Klarte ikke kopiere.') }, ikon('kopier'), 'Kopier'),
+        h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig')));
+  };
+  let lukk = () => {};
+  tegn();
+  ark((l) => { lukk = l; return h('div', h('h2', 'Handleliste'), innhold); });
 }
 
 /* ---------- Timer brukt mot beregnet ---------- */

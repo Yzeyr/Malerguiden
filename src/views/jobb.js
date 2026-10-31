@@ -12,7 +12,7 @@ import { FORBEHOLD_VALG, BILDE_KATEGORIER, KLASSER, KLASSE_MERKNAD, FARGE_FELT, 
 import { lagreNyttBilde, slettBilde, miniatyrUrl, hentBilde, slippUrler } from '../photos.js';
 import { gaTil, tilbake } from '../nav.js';
 import { fagVelger, typeVelger, FAGFARGE } from './felles.js';
-import { romPanel, prisPanel, forTimerArk } from './pris.js';
+import { romPanel, prisPanel, forTimerArk, handlelisteArk } from './pris.js';
 import { blokk, blokkInnhold, prisRad, sammenlegg } from './blokk.js';
 import { beregn, romFremgang, fremgangPerEtasje, STEG } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
@@ -292,7 +292,9 @@ function fremgangBlokk(j) {
         under: [x.steg.length ? (x.ferdig ? 'Ferdig' : 'Neste: ' + x.neste.navn) + ' · ' + igjen(x.igjen) : 'Mangler mål', x.steg.length > 0 && stolpe(x.andel)],
         belop: x.steg.length ? prosent(x.andel) : '', klikk: () => romFremgangArk(j.id, x.rom.id),
       })),
-    ]));
+    ]),
+    // Hva som må kjøpes for resten av jobben
+    prisRad({ tittel: 'Handleliste for det som gjenstår', under: 'Maling og sparkel i spann og sekker', klikk: () => handlelisteArk(j.id, { bareIgjen: true }) }));
 }
 
 /** Huker av (eller fjerner) et steg i ett eller flere rom. */

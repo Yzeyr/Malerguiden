@@ -21,6 +21,7 @@
 */
 
 import { NORMER, STANDARD_PRISER, MED } from './data/normer.js';
+import { spannForslag } from './calc.js';
 
 export const DOR_M2 = 1.6;      // samme som romkalkulatoren
 export const VINDU_M2 = 1.5;
@@ -488,7 +489,7 @@ export function materialer(resultat) {
     const ls = (resultat?.linjer || []).filter((l) => g.test(l.id) && l.forbruk > 0);
     if (!ls.length) continue;
     // Tape og plast: mengden er antall rom (møbelflytting teller ikke et rom til)
-    const mengde = g.enhet === 'rom' ? (ls.find((l) => l.id === 'rigging-rom')?.mengde || 0) : rund(ls.reduce((s, l) => s + l.forbruk, 0), 1);
+    const mengde = g.enhet === 'rom' ? ls.filter((l) => l.id === 'rigging-rom').reduce((s, l) => s + l.mengde, 0) : rund(ls.reduce((s, l) => s + l.forbruk, 0), 1);
     ut.push({ navn: g.navn, mengde, enhet: g.enhet || ls[0].materialenhet, kr: ls.reduce((s, l) => s + l.materialer, 0) });
   }
   return ut;
@@ -705,4 +706,44 @@ export function fremgangPerEtasje(kalkyle, lagredePriser) {
   });
   // Navngitte etasjer i naturlig rekkefølge, rom uten etasje sist
   return ut.sort((a, b) => (a.utenNavn - b.utenNavn) || a.navn.localeCompare(b.navn, 'nb', { numeric: true }));
+}
+
+/* ---------- Handleliste: hvor mange spann og sekker ---------- */
+
+// Vanlige størrelser i butikken. Maling som i kalkulatoren (9 / 2,7 / 0,68 L).
+// Ferdigsparkel: spann på 10 og 3 L (Jotun, Dalapro). Ardex A 828: sekk 12,5 kg og pose 5 kg (norsk produktark).
+const MALING_SPANN = [9, 2.7, 0.68];
+export const PAKNINGER = {
+  'Veggmaling': MALING_SPANN,
+  'Takmaling': MALING_SPANN,
+  'Grunning': MALING_SPANN,
+  'Snekkermaling (lister, vinduer, dører)': MALING_SPANN,
+  'Sparkel': [10, 3],
+  'Ardex A 828 (hurtigsparkel)': [12.5, 5],
+};
+
+/** Linjene handlelista regnes fra: hele jobben, én etasje, og eventuelt bare steg som ikke er gjort. */
+export function linjerForHandel(kalkyle, lagredePriser, { bareIgjen = false, etasje = null } = {}) {
+  const k = kalkyle || { rom: [] };
+  // Hele jobben uten filter: samme tall som under Materialer i prisen
+  if (!bareIgjen && etasje == null) return beregn(k, lagredePriser).linjer;
+  const ut = [];
+  for (const rom of k.rom) {
+    if (etasje != null && (etasjeFor(rom, k.planer || []) || 'Andre rom') !== etasje) continue;
+    const b = beregn({ ...k, rom: [rom], tillegg: [] }, lagredePriser, { medFelles: false, medJustering: 'bareUt' });
+    for (const l of b.linjer) if (!(bareIgjen && rom.gjort && rom.gjort[stegFor(l.id)] === true)) ut.push(l);
+  }
+  return ut;
+}
+
+/** Materialene med svinn, og et innkjøpsforslag i spann eller sekker der det finnes vanlige størrelser. */
+export function handleliste(linjer, { svinn = 10 } = {}) {
+  return materialer({ linjer }).map((m) => {
+    const storrelser = PAKNINGER[m.navn];
+    if (!storrelser) return { ...m, trenger: m.mengde, forslag: null };
+    const trenger = rund(m.mengde * (1 + svinn / 100), 1);
+    const f = spannForslag(trenger, storrelser);
+    const kombinasjon = f.kombinasjon.map((x) => ({ antall: x.antall, storrelse: x.l, tekst: x.antall + ' × ' + String(x.l).replace('.', ',') + ' ' + m.enhet }));
+    return { ...m, trenger, forslag: { kombinasjon, tekst: kombinasjon.map((x) => x.tekst).join(' + '), dekker: f.dekker, tilOvers: f.tilOvers } };
+  });
 }

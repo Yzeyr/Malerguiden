@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe, stegFor, romFremgang, etasjeFor, fremgangPerEtasje, STEG } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe, stegFor, romFremgang, etasjeFor, fremgangPerEtasje, STEG, handleliste, linjerForHandel } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -449,4 +449,26 @@ test('rommene grupperes per etasje', () => {
   const e = fremgangPerEtasje(k, {});
   assert.deepEqual(e.map((x) => x.navn), ['1. etasje', '2. etasje', 'Andre rom']);
   assert.ok(e[1].andel > 0 && e[0].andel === 0);
+});
+
+test('handleliste: svinn, spann og sekker, og bare det som gjenstår', () => {
+  const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a', navn: 'Stue' }), rom({ id: 'b', navn: 'Sov 2etg', gjort: { fylling: true, strimling: true, strok2: true, strok3: true, sliping: true } })] };
+  const alt = handleliste(linjerForHandel(k, {}), { svinn: 10 });
+  const sparkel = alt.find((m) => m.navn === 'Sparkel');
+  assert.ok(Math.abs(sparkel.trenger - Math.round(sparkel.mengde * 11) / 10) < 0.11);
+  assert.ok(sparkel.forslag.dekker >= sparkel.trenger);
+  assert.ok(sparkel.forslag.kombinasjon.every((x) => [10, 3].includes(x.storrelse)));
+  const ardex = alt.find((m) => m.navn.startsWith('Ardex'));
+  assert.ok(ardex.forslag.tekst.endsWith('kg'));
+  // Uten filter er mengdene de samme som under Materialer i prisen
+  assert.equal(alt.find((m) => m.navn === 'Veggmaling').mengde, materialer(beregn(k, {})).find((m) => m.navn === 'Veggmaling').mengde);
+  // Gjenstår: sparkelen i det ferdige rommet er ikke med, malingen er det
+  const igjen = handleliste(linjerForHandel(k, {}, { bareIgjen: true }));
+  assert.ok(igjen.find((m) => m.navn === 'Sparkel').mengde < sparkel.mengde);
+  assert.equal(igjen.find((m) => m.navn === 'Veggmaling').mengde, alt.find((m) => m.navn === 'Veggmaling').mengde);
+  // Én etasje
+  const etg = handleliste(linjerForHandel(k, {}, { etasje: '2. etasje' }));
+  assert.ok(etg.find((m) => m.navn === 'Veggmaling').mengde < alt.find((m) => m.navn === 'Veggmaling').mengde);
+  // Tape og plast teller rommene
+  assert.equal(handleliste(linjerForHandel(k, {}, { etasje: 'Andre rom' })).find((m) => m.navn === 'Tape og plast').mengde, 1);
 });

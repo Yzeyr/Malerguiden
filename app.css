@@ -518,3 +518,10 @@ mark { background: color-mix(in srgb, var(--oker) 45%, transparent); color: inhe
 .gruppe-linjer .stolpe, .prisrad.sterk .stolpe { background: color-mix(in srgb, var(--blekk3) 25%, transparent); }
 .boks.delvis { border-color: var(--c, var(--salvie)); background: color-mix(in srgb, var(--c, var(--salvie)) 35%, transparent); }
 .boks.delvis svg.ik { opacity: 0; }
+
+/* Handleliste: samme kort som i kalkulatoren, litt mindre */
+.resultat.kompakt { margin-top: 10px; padding: 12px 14px; }
+.resultat.kompakt .tall { font-size: 32px; }
+.resultat.kompakt .tall small { font-size: 17px; }
+.resultat.kompakt .chips { margin-top: 8px; }
+.ark .velger { flex-wrap: wrap; }
