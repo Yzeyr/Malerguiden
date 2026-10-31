@@ -14,6 +14,7 @@
 
   --terrakotta: #B9482A;
   --oker: #D9972A;
+  --oker-tekst: #8A5A0E;
   --salvie: #5B8155;
   --petrol: #1E6B74;
   --ultramarin: #3B4CA0;
@@ -38,10 +39,11 @@
     --blekk: #F4EDE4;
     --blekk2: #C2B6AA;
     --blekk3: #8F8378;
-    --linje: #3A322C;
-    --skygge: 0 1px 0 rgba(0, 0, 0, .3);
+    --linje: #4A3F37;
+    --skygge: 0 1px 0 rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .06);
     --terrakotta: #CF5A3A;
     --oker: #E0A43C;
+    --oker-tekst: #E0A43C;
     --salvie: #6E9767;
     --petrol: #2A7F89;
     --ultramarin: #5568BF;
@@ -199,7 +201,7 @@ h3 { font-size: 17px; margin: 0; }
 .velger button[aria-pressed="true"] { background: var(--c, var(--blekk)); color: var(--pa, var(--lerret)); }
 
 /* Store avkrysningsbokser som er lette å treffe. */
-.boks { width: 28px; height: 28px; border-radius: 9px; border: 2px solid #C9BAA9; flex: none; display: grid; place-items: center; color: #fff; background: transparent; padding: 0; }
+.boks { width: 28px; height: 28px; border-radius: 9px; border: 2px solid var(--blekk3); flex: none; display: grid; place-items: center; color: #fff; background: transparent; padding: 0; }
 .boks svg.ik { width: 18px; height: 18px; stroke-width: 3; opacity: 0; }
 .boks.ja { background: var(--c, var(--salvie)); border-color: var(--c, var(--salvie)); }
 .boks.ja svg.ik { opacity: 1; }
@@ -221,7 +223,8 @@ dialog.ark[open] { animation: opp .22s ease-out; }
 /* ---------- Jobben ---------- */
 .hode { margin: 0 -16px; padding: calc(var(--topp) + 8px) 18px 18px; background: var(--c); color: var(--pa); position: relative; overflow: hidden; }
 .hode::after { content: ""; position: absolute; right: -50px; top: -60px; width: 170px; height: 170px; border-radius: 50%; background: rgba(255,255,255,.09); pointer-events: none; }
-.hode .rad { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; min-height: 44px; }
+.hode .rad, .idag { font-variant-numeric: tabular-nums lining-nums; }
+.rad { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; min-height: 44px; }
 .hode .tilbake { background: none; border: 0; color: inherit; font-weight: 650; font-size: 17px; display: flex; align-items: center; gap: 2px; padding: 8px 8px 8px 0; }
 .hode h1 { font-size: 31px; overflow-wrap: anywhere; }
 .hode .under { opacity: .88; font-size: 15.5px; margin-top: 4px; }
@@ -307,7 +310,7 @@ dialog.ark[open] { animation: opp .22s ease-out; }
 .tallfelt:last-of-type { border-bottom: 0; }
 .tallfelt label { font-weight: 650; font-size: 16px; min-width: 0; }
 .tallfelt label small { display: block; font-weight: 500; color: var(--blekk2); font-size: 13.5px; }
-.tallfelt label em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--oker); text-transform: uppercase; letter-spacing: .04em; }
+.tallfelt label em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--oker-tekst); text-transform: uppercase; letter-spacing: .04em; }
 .stepper { display: flex; align-items: center; gap: 6px; flex: none; }
 .stepper button { width: 44px; height: 44px; border-radius: 13px; border: 0; background: var(--kort2); font-size: 22px; font-weight: 500; display: grid; place-items: center; color: var(--blekk); }
 .stepper input { width: 76px; height: 46px; border-radius: 13px; border: 2px solid var(--linje); text-align: center; font-size: 19px; font-weight: 750; background: var(--lerret); outline: none; padding: 0 4px; }
@@ -430,3 +433,36 @@ mark { background: color-mix(in srgb, var(--oker) 45%, transparent); color: inhe
 .innebygd .meny, .innebygd .statusflate { display: none; }
 .innebygd .visning { padding-bottom: calc(var(--bunn) + 40px); }
 .innebygd body.farget-topp .hode { padding-top: 14px; }
+
+/* ---------- Pris: blokker og prisrader ---------- */
+/* En blokk er én del av prisen med overskrift øverst og en fargekant til venstre. */
+.blokk { background: var(--kort); border-radius: 20px; box-shadow: var(--skygge); overflow: hidden; margin: 14px 0; border-left: 4px solid var(--c, var(--terrakotta)); }
+.blokk > header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 14px 11px; background: var(--kort2); }
+.blokk > header h3 { margin: 0; font: 700 18px/1.2 var(--serif); }
+.blokk > header span { font-size: 15px; font-weight: 650; color: var(--blekk2); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.blokk > * + * { border-top: 1px solid var(--linje); }
+.blokk-del { font-size: 12.5px; color: var(--blekk2); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; padding: 12px 14px 6px; }
+/* Navn og tekst til venstre, beløp i fast kolonne, pil helt til høyre (plassen holdes også uten pil) */
+.prisrad { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; gap: 10px; align-items: center; min-height: 54px; padding: 10px 10px 10px 14px; }
+.prisrad[role="button"] { cursor: pointer; }
+.prisrad.inn { padding-left: 24px; }
+.prisrad .hoved b { font-size: 16px; font-weight: 650; }
+.prisrad .hoved small { font-size: 14px; }
+.prisrad .hoved small + small { margin-top: 2px; }
+.prisrad .belop { font-weight: 750; font-size: 16px; min-width: 4.6em; text-align: right; white-space: nowrap; }
+.prisrad .belop.valg { font-weight: 650; font-size: 15px; min-width: 0; }
+.prisrad.sterk .hoved b, .prisrad.sterk .belop { font-weight: 800; }
+.prisrad .pil { display: flex; justify-content: center; color: var(--blekk3); }
+.prisrad .pil svg.ik { width: 18px; height: 18px; transition: transform .15s; }
+.prisrad .pil.ned svg.ik { transform: rotate(90deg); }
+.prisrad[aria-expanded="true"] .pil.ned svg.ik { transform: rotate(-90deg); }
+.prisrad .ut { text-decoration: line-through; opacity: .6; }
+/* Summen øverst: tre kolonner */
+.idag .tallgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 12px; position: relative; z-index: 1; }
+.idag .tallgrid span { display: block; font-size: 13px; opacity: .75; }
+.idag .tallgrid b { display: block; font: 700 19px/1.25 var(--serif); }
+@media (prefers-color-scheme: dark) {
+  /* Hvit tekst på terrakotta når 5,2:1 med den mørkere fargen */
+  .velger button.k-terrakotta[aria-pressed="true"] { background: #B9482A; }
+}
+.prisrad .belop.pluss { color: var(--terrakotta); display: flex; justify-content: flex-end; min-width: 0; }
