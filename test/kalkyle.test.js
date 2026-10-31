@@ -472,3 +472,13 @@ test('handleliste: svinn, spann og sekker, og bare det som gjenstår', () => {
   // Tape og plast teller rommene
   assert.equal(handleliste(linjerForHandel(k, {}, { etasje: 'Andre rom' })).find((m) => m.navn === 'Tape og plast').mengde, 1);
 });
+
+test('ett rom i K2: tre dager sparkling og én dag maling', () => {
+  const k = { ...tomKalkyle('K2'), rom: [rom({ id: 'a', lengde: '5', bredde: '4' })] };
+  k.arbeid.tak.sparkling = 'K2';
+  const d = dagerMedTork(beregn(k, {}));
+  assert.equal(d.runder, 3);
+  assert.equal(d.dager, 4, JSON.stringify(d));
+  // K1 har to runder med tørk: to dager sparkling og én med maling
+  assert.equal(dagerMedTork(beregn({ ...tomKalkyle('K1'), rom: [rom({ id: 'a' })] }, {})).dager, 3);
+});

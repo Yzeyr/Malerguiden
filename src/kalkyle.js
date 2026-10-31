@@ -548,22 +548,26 @@ const IKKE_SPARKEL = ['listefritt-smyg', 'listefritt-taklinje'];
 
 /**
  * Hvor mange dager jobben tar med tørketid for sparkel. Sparkelen må tørke et døgn
- * før neste runde, så hver runde tar minst en dag. Mens det tørker, gjøres annet
- * arbeid (andre rom, rigging, tak). Tørketiden gir derfor bare ekstra dager når det
- * ikke er nok annet arbeid å fylle ventetiden med; store jobber får ingen ekstra.
+ * før neste runde, så hver runde tar minst en dag. Grunning og maling kan ikke gjøres
+ * før sparkelen er ferdig og slipt, så de kommer etterpå, minst én dag.
+ * Annet arbeid (rigging, tildekking, lister) kan gjøres mens sparkelen tørker.
+ * På store jobber går rundene i ett (rom for rom), så da blir det ingen ekstra dager.
+ * Eksempel, ett rom i K2: 3 dager sparkling og 1 dag maling = 4 dager.
  */
 export function dagerMedTork(resultat, timerPerDag = 7.5) {
   const b = resultat || { linjer: [], sum: { timer: 0 } };
-  let runder = 0, sparkel = 0;
+  let runder = 0, sparkel = 0, etter = 0;
   const perFlate = {}; // antall sparkelrunder på vegg og tak
   for (const l of b.linjer) {
     if (!(l.timer > 0)) continue;
+    // Grunning og maling av vegg og tak, og malingen ved listefrie overganger, venter på sparkelen
+    if (/^(vegg|tak)-(grunning|maling)/.test(l.id) || IKKE_SPARKEL.includes(l.id)) { etter += l.timer; continue; }
     const m = /^(vegg|tak)-sparkling-(\w+)$/.exec(l.id);
     // Sliping er ingen egen runde med tørk, men gjøres når sparkelen er tørr
     // Hurtigsparkelen (fylling) herder på noen timer og trenger heller ikke et døgn
     if (m) { if (m[2] !== 'sliping' && m[2] !== 'fylling') perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
     // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
-    const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') && !IKKE_SPARKEL.includes(l.id) ? SPARKEL_RUNDER.listefritt : 0);
+    const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') ? SPARKEL_RUNDER.listefritt : 0);
     if (!r) continue;
     runder = Math.max(runder, r);
     sparkel += l.timer;
@@ -571,10 +575,12 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   runder = Math.max(runder, ...Object.values(perFlate), 0);
   const uten = arbeidsdager(b.sum.timer, timerPerDag);
   if (!runder) return { dager: uten, arbeidsdager: uten, runder: 0 };
-  const perRunde = sparkel / runder / timerPerDag;            // dager arbeid per runde
-  const ledig = runder * Math.max(0, 1 - perRunde) * timerPerDag; // timer som kan fylles mens det tørker
-  const etter = Math.max(0, b.sum.timer - sparkel - ledig);    // arbeid som må vente til sparkelen er tørr
-  const dager = Math.ceil((runder * Math.max(1, perRunde) + Math.max(0.5, etter / timerPerDag)) * 2) / 2;
+  const perRunde = sparkel / runder / timerPerDag;                 // dager arbeid per runde
+  const ledig = runder * Math.max(0, 1 - perRunde) * timerPerDag;  // timer igjen på sparkeldagene
+  const annet = Math.max(0, b.sum.timer - sparkel - etter);         // kan gjøres mens det tørker
+  const tilOvers = Math.max(0, annet - ledig);                      // det som ikke fikk plass
+  const sluttDager = etter > 0 ? Math.max(1, (etter + tilOvers) / timerPerDag) : tilOvers / timerPerDag;
+  const dager = Math.ceil((runder * Math.max(1, perRunde) + sluttDager) * 2) / 2;
   return { dager: Math.max(dager, uten), arbeidsdager: uten, runder };
 }
 
