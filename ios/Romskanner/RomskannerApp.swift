@@ -13,11 +13,17 @@ struct RomskannerApp: App {
 enum Rute: Hashable {
     case prosjekt(UUID?)
     case rom(UUID)
+    case ting(UUID)
 }
 
 /// Startskjermen: prosjektene. Rom skannet før prosjektene kom, ligger under «Uten prosjekt».
 struct ContentView: View {
     @StateObject private var lager = RomLager()
+    @StateObject private var tingLager = TingLager()
+    @State private var skannerTing = false
+    @State private var nyTing = UUID()
+    @State private var ventendeTing: UUID?
+    @State private var tingNavn = ""
     @State private var nyttNavn = ""
     @State private var lagerNytt = false
     @State private var sti = NavigationPath()
@@ -60,6 +66,20 @@ struct ContentView: View {
                         }
                     }
                 }
+                if !tingLager.ting.isEmpty {
+                    Section {
+                        ForEach(tingLager.ting.sorted { $0.dato > $1.dato }) { t in
+                            NavigationLink(value: Rute.ting(t.id)) { TingRad(ting: t, fremdrift: tingLager.fremdrift[t.id]) }
+                                .swipeActions {
+                                    Button(role: .destructive) { tingLager.slett(t.id) } label: { Label("Slett", systemImage: "trash") }
+                                }
+                        }
+                    } header: {
+                        Text("Ting")
+                    } footer: {
+                        Text("Møbler og gjenstander skannet til 3D-modeller, med mål og overflate.")
+                    }
+                }
                 if !lager.rom(i: nil).isEmpty {
                     Section {
                         NavigationLink(value: Rute.prosjekt(nil)) { ProsjektRad(navn: "Uten prosjekt", rom: lager.rom(i: nil)) }
@@ -73,17 +93,49 @@ struct ContentView: View {
                 switch rute {
                 case .prosjekt(let id): ProsjektView(lager: lager, prosjektId: id)
                 case .rom(let id): RomDetalj(lager: lager, id: id)
+                case .ting(let id): TingDetalj(lager: tingLager, id: id, prosjekter: lager.prosjekter)
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button { nyttNavn = ""; lagerNytt = true } label: {
-                    Label("Nytt prosjekt", systemImage: "folder.badge.plus").frame(maxWidth: .infinity)
+                HStack(spacing: 10) {
+                    Button { nyttNavn = ""; lagerNytt = true } label: {
+                        Label("Nytt prosjekt", systemImage: "folder.badge.plus").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.73, green: 0.28, blue: 0.16))
+                    Button { nyTing = UUID(); skannerTing = true } label: {
+                        Label("Skann ting", systemImage: "cube.transparent").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!TingSkannView.stottet)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.73, green: 0.28, blue: 0.16))
                 .controlSize(.large)
                 .padding()
                 .background(.bar)
+            }
+            .fullScreenCover(isPresented: $skannerTing) {
+                TingSkannView(bilder: TingFiler.bilder(nyTing), sjekkpunkt: TingFiler.sjekkpunkt(nyTing)) { ok in
+                    DispatchQueue.main.async {
+                        skannerTing = false
+                        guard ok else { TingFiler.slett(nyTing); return }
+                        // Lagres med en gang, så tingen ikke blir borte om appen lukkes mens navnet spørres om
+                        let t = SkannetTing(id: nyTing, navn: "Ting \(tingLager.ting.count + 1)", status: "bygger")
+                        tingLager.ting.append(t)
+                        tingLager.bygg(t.id)
+                        tingNavn = t.navn
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { ventendeTing = t.id }
+                    }
+                }
+            }
+            .alert("Hva er det du skannet?", isPresented: Binding(get: { ventendeTing != nil }, set: { if !$0 { ventendeTing = nil } })) {
+                TextField("F.eks. Kommode", text: $tingNavn)
+                Button("Lagre") {
+                    let n = tingNavn.trimmingCharacters(in: .whitespaces)
+                    if let id = ventendeTing, !n.isEmpty, let i = tingLager.ting.firstIndex(where: { $0.id == id }) { tingLager.ting[i].navn = n }
+                    ventendeTing = nil
+                }
+            } message: {
+                Text("Modellen lages nå på telefonen. Det tar noen minutter. Hold appen åpen.")
             }
             .alert("Nytt prosjekt", isPresented: $lagerNytt) {
                 TextField("F.eks. Hansen, Storgata 5", text: $nyttNavn)
