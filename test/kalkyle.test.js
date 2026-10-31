@@ -309,11 +309,11 @@ test('sparkling i runder: skader og tverrskjøter først, K2 er strimling, 2. og
   assert.deepEqual(ider('K2'), ['vegg-sparkling-fylling', 'vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3', 'vegg-sparkling-sliping']);
   assert.deepEqual(ider('K3'), ['vegg-sparkling-fylling', 'vegg-sparkling-strimling', 'vegg-sparkling-strok2', 'vegg-sparkling-strok3', 'vegg-sparkling-hel']);
   assert.deepEqual(ider('K1'), ['vegg-sparkling-fylling', 'vegg-sparkling-strimling', 'vegg-sparkling-strok2']);
-  // Timer per m² på vegg: K2 = 0,02 + 0,045 + 0,05 + 0,065 + 0,02 = 0,20; K3 = 0,02 + 0,045 + 0,05 + 0,065 + 0,15 = 0,33
+  // Timer per m² på vegg: K2 = 0,005 + 0,045 + 0,05 + 0,065 + 0,02 = 0,185; K3 = 0,005 + 0,045 + 0,05 + 0,065 + 0,15 = 0,315
   const vegg = romMengder(rom({ id: 'a' })).vegg;
   const t = (kl) => beregn({ ...tomKalkyle(kl), rom: [rom({ id: 'a' })] }, {}).linjer.filter((l) => l.id.startsWith('vegg-sparkling')).reduce((s, l) => s + l.timer, 0);
-  assert.ok(Math.abs(t('K2') - vegg * 0.20) < 0.05, String(t('K2')));
-  assert.ok(Math.abs(t('K3') - vegg * 0.33) < 0.05, String(t('K3')));
+  assert.ok(Math.abs(t('K2') - vegg * 0.185) < 0.05, String(t('K2')));
+  assert.ok(Math.abs(t('K3') - vegg * 0.315) < 0.05, String(t('K3')));
   // Sliping og hurtigsparkelen gir ingen ekstra tørkerunde: K2 er fortsatt 3 runder
   assert.equal(dagerMedTork(beregn({ ...tomKalkyle('K2'), rom: [rom({ id: 'a' })] }, {})).runder, 3);
   // Timer per arbeid
