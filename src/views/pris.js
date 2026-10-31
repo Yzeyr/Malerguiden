@@ -194,22 +194,15 @@ export function prisPanel(j) {
     }, label))));
 
   // Hva skal gjøres
+  // Én rad per flate med det som er valgt. Trykk for å endre i et eget ark.
   const a = k.arbeid;
-  const sett = (flate, felt, v) => endreKalkyle(j.id, (x, job) => {
-    x.arbeid[flate][felt] = v;
-    // Sparklingen på veggene og den avtalte klassen på jobben følger hverandre.
-    if (flate === 'vegg' && felt === 'sparkling' && ['K1', 'K2', 'K3'].includes(v)) job.klasse = v;
-  });
-  const flateKort = (flate, tittel) => h('div.kort', { style: { marginBottom: '8px' } },
-    h('h3', { style: { marginBottom: '8px' } }, tittel, h('span.dempet.liten', { style: { marginLeft: '8px', fontWeight: '500' } }, m2(r.mengder[flate]))),
-    h('div.dempet.liten', { style: { margin: '0 0 5px' } }, 'Sparkling'),
-    velger(SPARKLING, a[flate].sparkling, (v) => sett(flate, 'sparkling', v), 'k-oker'),
-    h('div.dempet.liten', { style: { margin: '10px 0 5px' } }, 'Maling'),
-    velger(STROK(3), a[flate].strok, (v) => sett(flate, 'strok', v)),
-    a[flate].sparkling === 'ingen' && h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } }, h('span', 'Grunning'),
-      h('input.bryter', { type: 'checkbox', checked: a[flate].grunning, onchange: (e) => sett(flate, 'grunning', e.target.checked) })));
+  const flateRad = (flate, tittel) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '52px', padding: '9px 10px 9px 14px', cursor: 'pointer' },
+    onclick: () => arbeidArk(j.id), onkeydown: (e) => { if (e.key === 'Enter') arbeidArk(j.id); } },
+    h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, tittel), h('small', m2(r.mengder[flate]))),
+    h('span', { style: { fontWeight: '650', fontSize: '14.5px', textAlign: 'right' } }, valgTekst(a[flate])),
+    h('span.dempet', { style: { display: 'flex', width: '20px', justifyContent: 'center' } }, ikon('pil')));
   ut.append(h('div.seksjon', 'Hva skal gjøres', h('span.tall', 'alle rom')),
-    flateKort('vegg', 'Vegger'), flateKort('tak', 'Tak'));
+    h('div.rad-liste', flateRad('vegg', 'Vegger'), flateRad('tak', 'Tak')));
 
   // Snekkermaling: maling av listverk, vinduer og dører. Av som standard.
   const snekkerValg = STROK(2).map((s) => (s.id === 0 ? { ...s, label: 'Males ikke' } : s));
@@ -367,6 +360,50 @@ function timerPanel(j, r) {
 }
 
 /* ---------- Endre én linje for denne jobben ---------- */
+
+/* ---------- Hva skal gjøres (vegger og tak) ---------- */
+
+/** Kort tekst for det som er valgt på en flate, f.eks. «K2 · 2 strøk». */
+function valgTekst(x) {
+  const sp = x.sparkling === 'ingen' ? (x.grunning ? 'Grunning' : 'Ikke sparklet') : x.sparkling;
+  return sp + ' · ' + (x.strok ? x.strok + ' strøk' : 'males ikke');
+}
+
+/** Arket der sparkling og maling for vegger og tak velges. Tegnes på nytt ved hvert valg. */
+function arbeidArk(jobId) {
+  const innhold = h('div');
+  const sett = (flate, felt, v) => {
+    endreKalkyle(jobId, (x, job) => {
+      x.arbeid[flate][felt] = v;
+      // Sparklingen på veggene og den avtalte klassen på jobben følger hverandre.
+      if (flate === 'vegg' && felt === 'sparkling' && ['K1', 'K2', 'K3'].includes(v)) job.klasse = v;
+    });
+    tegn();
+  };
+  const tegn = () => {
+    const k = hentJobb(jobId).kalkyle || tomKalkyle();
+    const r = beregn(k, egnePriser());
+    const a = k.arbeid;
+    const flateKort = (flate, tittel) => h('div.kort', { style: { marginBottom: '8px' } },
+      h('h3', { style: { marginBottom: '8px' } }, tittel, h('span.dempet.liten', { style: { marginLeft: '8px', fontWeight: '500' } }, m2(r.mengder[flate]))),
+      h('div.dempet.liten', { style: { margin: '0 0 5px' } }, 'Sparkling'),
+      velger(SPARKLING, a[flate].sparkling, (v) => sett(flate, 'sparkling', v), 'k-oker'),
+      h('div.dempet.liten', { style: { margin: '10px 0 5px' } }, 'Maling'),
+      velger(STROK(3), a[flate].strok, (v) => sett(flate, 'strok', v)),
+      a[flate].sparkling === 'ingen' && h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } }, h('span', 'Grunning'),
+        h('input.bryter', { type: 'checkbox', checked: a[flate].grunning, onchange: (e) => sett(flate, 'grunning', e.target.checked) })));
+    tom(innhold, flateKort('vegg', 'Vegger'), flateKort('tak', 'Tak'),
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 2px 0' } },
+        h('span.dempet', 'Overslag eks. mva'),
+        h('b', { style: { fontFamily: 'var(--serif)', fontSize: '20px' } }, kr(r.sum.eksMva))));
+  };
+  tegn();
+  ark((lukk) => h('div',
+    h('h2', 'Hva skal gjøres'),
+    h('p.dempet', { style: { marginTop: '-6px' } }, 'Gjelder alle rom. Enkeltrom kan endres under Rom.'),
+    innhold,
+    h('div.knapprad', { style: { marginTop: '14px' } }, h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig'))));
+}
 
 /* ---------- Linjene i grupper ---------- */
 
