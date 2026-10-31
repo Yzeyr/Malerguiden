@@ -29,6 +29,9 @@ export const NORMER = [
   // hjørner, skruehull, rundt vinduer og dører). K3: K2 pluss helsparkling av hele flaten til slutt.
   // 2. og 3. strøk er målt på jobb 29.10.2026 (Namsos, ca. 111 m² vegg og tak, med boks):
   // 2. strøk ca. 6 t, 3. strøk ca. 8 t. Strimling og sliping er fortsatt skjønn.
+  // Skader og tverrskjøter fylles med hurtigherdende gipssparkel (Ardex A 828) før strimlingen.
+  // Herder på noen timer, så det er ingen egen tørkerunde. Tid og forbruk er skjønn; ca. 30 kr/kg.
+  { id: 'vegg-sparkling-fylling', gruppe: 'Vegg', navn: 'Skader og tverrskjøter med Ardex A 828, vegg', enhet: 'm²', timer: 0.02, pris: 16, forbruk: 0.1, materialpris: 30, materialenhet: 'kg' },
   { id: 'vegg-sparkling-strimling', gruppe: 'Vegg', navn: 'Strimling vegg (skjøter, hjørner og skruehull)', enhet: 'm²', timer: 0.045, pris: 36, forbruk: 0.12, materialpris: 50, materialenhet: 'L' },
   { id: 'vegg-sparkling-strok2', gruppe: 'Vegg', navn: 'Sparkling vegg, 2. strøk', enhet: 'm²', timer: 0.05, pris: 40, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'vegg-sparkling-strok3', gruppe: 'Vegg', navn: 'Sparkling vegg, 3. strøk (finstrøk)', enhet: 'm²', timer: 0.065, pris: 52, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
@@ -41,6 +44,7 @@ export const NORMER = [
   { id: 'vegg-maling-strok', gruppe: 'Vegg', navn: 'Maling vegg, neste strøk', enhet: 'm²', timer: 0.022, pris: 50, forbruk: 0.10, materialpris: 130, materialenhet: 'L' },
 
   // Tak: ca. +20 % på tiden (skjønn).
+  { id: 'tak-sparkling-fylling', gruppe: 'Tak', navn: 'Skader og tverrskjøter med Ardex A 828, tak', enhet: 'm²', timer: 0.024, pris: 20, forbruk: 0.1, materialpris: 30, materialenhet: 'kg' },
   { id: 'tak-sparkling-strimling', gruppe: 'Tak', navn: 'Strimling tak (skjøter, hjørner og skruehull)', enhet: 'm²', timer: 0.054, pris: 43, forbruk: 0.12, materialpris: 50, materialenhet: 'L' },
   { id: 'tak-sparkling-strok2', gruppe: 'Tak', navn: 'Sparkling tak, 2. strøk', enhet: 'm²', timer: 0.06, pris: 48, forbruk: 0.1, materialpris: 50, materialenhet: 'L' },
   { id: 'tak-sparkling-strok3', gruppe: 'Tak', navn: 'Sparkling tak, 3. strøk (finstrøk)', enhet: 'm²', timer: 0.08, pris: 64, forbruk: 0.08, materialpris: 50, materialenhet: 'L' },
@@ -82,6 +86,8 @@ export const MED = {
   'mobler-rom': 'Flytte møblene og dekke dem til.',
   'dekking-gulv': 'Papp på hele gulvet, med 10 % omlegg.',
   'rigging-trapp': 'Sette opp og flytte stige eller stillas i trappehullet.',
+  'vegg-sparkling-fylling': 'Gå over skader og tverrskjøter med Ardex A 828 (hurtigherdende) før strimlingen.',
+  'tak-sparkling-fylling': 'Gå over skader og tverrskjøter med Ardex A 828 (hurtigherdende) før strimlingen.',
   'vegg-sparkling-strimling': 'Første runde: papirstrimmel og sparkel i skjøter og innerhjørner, sparkel i skruehull.',
   'tak-sparkling-strimling': 'Første runde: papirstrimmel og sparkel i skjøter og innerhjørner, sparkel i skruehull.',
   'vegg-sparkling-strok2': 'Andre runde sparkel over skjøter, hjørner og skruehull.',

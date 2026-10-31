@@ -415,7 +415,8 @@ const MATERIALGRUPPER = [
   { navn: 'Veggmaling', test: (id) => id.startsWith('vegg-maling') || id === 'listefritt-smyg' },
   { navn: 'Takmaling', test: (id) => id.startsWith('tak-maling') },
   { navn: 'Grunning', test: (id) => id.endsWith('-grunning') },
-  { navn: 'Sparkel', test: (id) => id.includes('-sparkling-') || (id.startsWith('listefritt-') && !IKKE_SPARKEL.includes(id)) },
+  { navn: 'Ardex A 828 (hurtigsparkel)', test: (id) => id.endsWith('-sparkling-fylling') },
+  { navn: 'Sparkel', test: (id) => (id.includes('-sparkling-') && !id.endsWith('-sparkling-fylling')) || (id.startsWith('listefritt-') && !IKKE_SPARKEL.includes(id)) },
   { navn: 'Snekkermaling (lister, vinduer, dører)', test: (id) => id === 'lister-strok' || id === 'vindu-strok' || id === 'dor-strok' },
   { navn: 'Hjørnelist', test: (id) => id === 'ytterhjorne' },
   { navn: 'Dekkpapp', test: (id) => id === 'dekking-gulv' },
@@ -441,6 +442,7 @@ export function materialer(resultat) {
 
 /* Arbeidet delt i det man fører timer på: strimling, 2. strøk, maling osv. */
 export const ARBEID = [
+  { id: 'fylling', navn: 'Skader og tverrskjøter' },
   { id: 'strimling', navn: 'Strimling' },
   { id: 'strok2', navn: 'Sparkling 2. strøk' },
   { id: 'strok3', navn: 'Sparkling 3. strøk' },
@@ -457,7 +459,7 @@ export const ARBEID = [
 ];
 /** Hvilket arbeid en linje i beregningen hører til. */
 export function arbeidFor(id) {
-  const m = /^(?:vegg|tak)-sparkling-(strimling|strok2|strok3|hel|sliping)$/.exec(id);
+  const m = /^(?:vegg|tak)-sparkling-(fylling|strimling|strok2|strok3|hel|sliping)$/.exec(id);
   if (m) return m[1];
   if (id === 'ytterhjorne') return 'ytterhjorner';
   if (id.startsWith('listefritt-')) return 'listefritt';
@@ -483,7 +485,8 @@ export function arbeidsdager(timer, timerPerDag = 7.5) {
 /** Sparkelrunder som hver trenger et døgn tørk før neste steg. */
 // Sparkelrundene per klasse. K2 er strimling, 2. og 3. strøk; K3 er de pluss helsparkling til slutt.
 // Sliping av skjøtene etter 3. strøk; i K3 slipes det etter helsparklingen (med i den linjen).
-export const SPARKEL_RUNDER_FOR = { K1: ['strimling', 'strok2'], K2: ['strimling', 'strok2', 'strok3', 'sliping'], K3: ['strimling', 'strok2', 'strok3', 'hel'] };
+// Alle klassene starter med å gå over skader og tverrskjøter med hurtigsparkel (fylling).
+export const SPARKEL_RUNDER_FOR = { K1: ['fylling', 'strimling', 'strok2'], K2: ['fylling', 'strimling', 'strok2', 'strok3', 'sliping'], K3: ['fylling', 'strimling', 'strok2', 'strok3', 'hel'] };
 export const SPARKEL_RUNDER = { listefritt: 2, 'listefritt-vindu': 3, 'listefritt-dor': 3, ytterhjorne: 3 };
 // Listefritt-linjer som er maling og taping, ikke sparkel
 const IKKE_SPARKEL = ['listefritt-smyg', 'listefritt-taklinje'];
@@ -502,7 +505,8 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
     if (!(l.timer > 0)) continue;
     const m = /^(vegg|tak)-sparkling-(\w+)$/.exec(l.id);
     // Sliping er ingen egen runde med tørk, men gjøres når sparkelen er tørr
-    if (m) { if (m[2] !== 'sliping') perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
+    // Hurtigsparkelen (fylling) herder på noen timer og trenger heller ikke et døgn
+    if (m) { if (m[2] !== 'sliping' && m[2] !== 'fylling') perFlate[m[1]] = (perFlate[m[1]] || 0) + 1; sparkel += l.timer; continue; }
     // Listefritt vindu: tre strøk sparkel oppå PVC-hjørnelistene i smygen
     const r = SPARKEL_RUNDER[l.id] || (l.id.startsWith('listefritt-') && !IKKE_SPARKEL.includes(l.id) ? SPARKEL_RUNDER.listefritt : 0);
     if (!r) continue;

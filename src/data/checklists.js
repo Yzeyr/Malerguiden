@@ -185,7 +185,7 @@ export const SJEKKLISTE_BY_TYPE = {
         { id: 'bilde-for', label: '📸 Før-bilde tatt' },
         { id: 'klasse', label: 'Estetisk klasse (K1–K3) avtalt skriftlig' },
         { id: 'underlag', label: 'Underlag kontrollert' },
-        { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' }
+        { id: 'hurtigsparkel', label: 'Skader, tverrskjøter og glipper over 2 mm fylt med hurtigsparkel (Ardex A 828)' }
       ]},
       { fase: 'Utførelse', items: [
         { id: 'taping', label: 'Strimling i skjøter og hjørner — skruehull i samme omgang' },
@@ -209,7 +209,7 @@ export const SJEKKLISTE_BY_TYPE = {
         { id: 'bilde-for', label: '📸 Før-bilde tatt' },
         { id: 'klasse', label: 'Estetisk klasse (K1–K3) avtalt skriftlig' },
         { id: 'underlag', label: 'Plateskjøter kontrollert, skruehoder senket' },
-        { id: 'hurtigsparkel', label: 'Hurtigsparkel i alle glipper over 2 mm' }
+        { id: 'hurtigsparkel', label: 'Skader, tverrskjøter og glipper over 2 mm fylt med hurtigsparkel (Ardex A 828)' }
       ]},
       { fase: 'Utførelse — tre strøk ved K2', items: [
         { id: 'taping', label: '1. Strimling i alle skjøter og hjørner — skruehull i samme omgang' },
