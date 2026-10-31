@@ -239,7 +239,7 @@ export function prisPanel(j) {
 
   // Per rom
   const fordelt = perRom(k, egnePriser());
-  if (fordelt.rom.length > 1 || fordelt.felles.eksMva > 0) {
+  if (fordelt.rom.length > 0) {
     ut.append(h('div.seksjon', 'Per rom', h('span.tall', 'timer · kr eks. mva')));
     ut.append(h('div.rad-liste',
       fordelt.rom.map((r) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '50px', padding: '9px 14px', cursor: 'pointer' }, onclick: () => romPrisArk(j.id, r.id), onkeydown: (e) => { if (e.key === 'Enter') romPrisArk(j.id, r.id); } },
@@ -250,7 +250,7 @@ export function prisPanel(j) {
         h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, 'Felles for jobben'), h('small', 'Oppstart, kjøring og tillegg')),
         h('span.dempet', { style: { fontWeight: '700', fontSize: '14px', minWidth: '48px', textAlign: 'right' } }, fmt(fordelt.felles.timer, 1) + ' t'),
         h('span', { style: { fontWeight: '750', minWidth: '76px', textAlign: 'right' } }, fmt(fordelt.felles.eksMva, 0)))));
-    ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 0' } }, 'Trykk på et rom for å se hva prisen består av.'));
+    ut.append(h('p.dempet.liten', { style: { margin: '6px 2px 0' } }, 'Trykk på et rom for å se hva prisen består av og justere linjene for rommet.'));
   }
 
   // Materialene: hvor mye maling, sparkel osv. som går
