@@ -193,42 +193,19 @@ export function prisPanel(j) {
       onclick: () => endreKalkyle(j.id, (x) => { x.modus = id; }),
     }, label))));
 
-  // Hva skal gjøres
-  // Én rad per flate med det som er valgt. Trykk for å endre i et eget ark.
+  // Hva skal gjøres: én kort rad per del med det som er valgt. Trykk for å endre i et eget ark.
   const a = k.arbeid;
-  const flateRad = (flate, tittel) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '52px', padding: '9px 10px 9px 14px', cursor: 'pointer' },
-    onclick: () => arbeidArk(j.id), onkeydown: (e) => { if (e.key === 'Enter') arbeidArk(j.id); } },
-    h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, tittel), h('small', m2(r.mengder[flate]))),
-    h('span', { style: { fontWeight: '650', fontSize: '14.5px', textAlign: 'right' } }, valgTekst(a[flate])),
+  const valgRad = (del, tittel, under, hoyre) => h('div.rad', { role: 'button', tabindex: '0', style: { minHeight: '52px', padding: '9px 10px 9px 14px', cursor: 'pointer' },
+    onclick: () => arbeidArk(j.id, del), onkeydown: (e) => { if (e.key === 'Enter') arbeidArk(j.id, del); } },
+    h('div.hoved', h('b', { style: { fontWeight: '650', fontSize: '15.5px' } }, tittel), h('small', under)),
+    hoyre && h('span', { style: { fontWeight: '650', fontSize: '14.5px', textAlign: 'right' } }, hoyre),
     h('span.dempet', { style: { display: 'flex', width: '20px', justifyContent: 'center' } }, ikon('pil')));
   ut.append(h('div.seksjon', 'Hva skal gjøres', h('span.tall', 'alle rom')),
-    h('div.rad-liste', flateRad('vegg', 'Vegger'), flateRad('tak', 'Tak')));
-
-  // Snekkermaling: maling av listverk, vinduer og dører. Av som standard.
-  const snekkerValg = STROK(2).map((s) => (s.id === 0 ? { ...s, label: 'Males ikke' } : s));
-  const snekker = [
-    ['lister', 'Gulv- og taklister', fmt(r.mengder.lister, 1) + ' m'],
-    ['vinduer', 'Vinduer med karm og foring', flertall(r.mengder.vinduer, 'vindu', 'vinduer')],
-    ['dorer', 'Dører, én side med karm', flertall(r.mengder.dorer, 'dør', 'dører')],
-  ];
-  const paa = snekker.filter(([id]) => a[id].strok > 0).length;
-  ut.append(h('div.seksjon', 'Maling av listverk, vinduer og dører', h('span.tall', paa ? paa + ' av 3 på' : 'av')),
-    h('div.kort', { style: { marginBottom: '8px' } },
-      h('p.dempet.liten', { style: { margin: '0 0 10px' } }, 'Snekkermaling med egen pris per strøk. Står av til vanlig. Velg strøk bare når det er med i jobben.'),
-      ...snekker.map(([id, navn, mengde]) =>
-        h('div', { style: { marginBottom: '8px' } }, h('div.liten', { style: { fontWeight: '650', margin: '0 0 5px' } }, navn, h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px' } }, mengde)),
-          velger(snekkerValg, a[id].strok, (v) => endreKalkyle(j.id, (x) => { x.arbeid[id].strok = v; }))))));
-
-  // Listefritt: overganger som sparkles i stedet for å dekkes med list
-  const lf = a.listefritt || {};
-  const lfBryter = (id, navn, mengde) => h('label.tallfelt', h('span', navn, h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, mengde)),
-    h('input.bryter', { type: 'checkbox', checked: !!lf[id], onchange: (e) => endreKalkyle(j.id, (x) => { x.arbeid.listefritt = { ...(x.arbeid.listefritt || {}), [id]: e.target.checked }; }) }));
-  ut.append(h('div.seksjon', 'Listefritt', h('span.tall', 'sparkles i stedet for list')),
-    h('div.kort', { style: { marginBottom: '8px', paddingTop: '6px', paddingBottom: '6px' } },
-      lfBryter('tak', 'Mot tak', fmt(r.mengder.taklinje, 1) + ' m overgang tak/vegg'),
-      lfBryter('hjorner', 'Hjørner', fmt(r.mengder.hjorner, 1) + ' m hjørner'),
-      lfBryter('vinduer', 'Vinduer', flertall(r.mengder.vinduer, 'vindu', 'vinduer') + ', smyg uten gerikt'),
-      lfBryter('dorer', 'Dører', flertall(r.mengder.dorer, 'dørside', 'dørsider') + ' uten gerikt')));
+    h('div.rad-liste',
+      valgRad('flater', 'Vegger', m2(r.mengder.vegg), valgTekst(a.vegg)),
+      valgRad('flater', 'Tak', m2(r.mengder.tak), valgTekst(a.tak)),
+      valgRad('snekker', 'Maling av listverk, vinduer og dører', snekkerTekst(a)),
+      valgRad('listefritt', 'Listefritt', listefrittTekst(a))));
 
   // Per rom
   const fordelt = perRom(k, egnePriser());
@@ -361,7 +338,7 @@ function timerPanel(j, r) {
 
 /* ---------- Endre én linje for denne jobben ---------- */
 
-/* ---------- Hva skal gjøres (vegger og tak) ---------- */
+/* ---------- Hva skal gjøres ---------- */
 
 /** Kort tekst for det som er valgt på en flate, f.eks. «K2 · 2 strøk». */
 function valgTekst(x) {
@@ -369,38 +346,84 @@ function valgTekst(x) {
   return sp + ' · ' + (x.strok ? x.strok + ' strøk' : 'males ikke');
 }
 
-/** Arket der sparkling og maling for vegger og tak velges. Tegnes på nytt ved hvert valg. */
-function arbeidArk(jobId) {
+const SNEKKER = [['lister', 'Lister'], ['vinduer', 'Vinduer'], ['dorer', 'Dører']];
+/** F.eks. «Lister 2 strøk, dører 1 strøk», eller «Males ikke». */
+function snekkerTekst(a) {
+  const paa = SNEKKER.filter(([id]) => a[id] && a[id].strok > 0).map(([id, navn]) => navn + ' ' + a[id].strok + ' strøk');
+  return paa.length ? storForbokstav(paa.join(', ').toLowerCase()) : 'Males ikke';
+}
+
+const LISTEFRITT = [['tak', 'Mot tak'], ['hjorner', 'Hjørner'], ['vinduer', 'Vinduer'], ['dorer', 'Dører']];
+/** F.eks. «Mot tak, hjørner, vinduer», eller «Av». */
+function listefrittTekst(a) {
+  const lf = a.listefritt || {};
+  const paa = LISTEFRITT.filter(([id]) => lf[id]).map(([, navn]) => navn);
+  return paa.length ? storForbokstav(paa.join(', ').toLowerCase()) : 'Av';
+}
+const storForbokstav = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+const ARK_TITTEL = { flater: 'Vegger og tak', snekker: 'Maling av listverk, vinduer og dører', listefritt: 'Listefritt' };
+const ARK_TEKST = {
+  flater: 'Sparkling og maling. Gjelder alle rom. Enkeltrom kan endres under Rom.',
+  snekker: 'Snekkermaling med egen pris per strøk. Står av til vanlig. Velg strøk bare når det er med i jobben.',
+  listefritt: 'Overganger som sparkles i stedet for å dekkes med list. Gjelder alle rom.',
+};
+
+/** Arket der én del av arbeidet velges (flater, snekker eller listefritt). Tegnes på nytt ved hvert valg. */
+function arbeidArk(jobId, del = 'flater') {
   const innhold = h('div');
-  const sett = (flate, felt, v) => {
-    endreKalkyle(jobId, (x, job) => {
-      x.arbeid[flate][felt] = v;
-      // Sparklingen på veggene og den avtalte klassen på jobben følger hverandre.
-      if (flate === 'vegg' && felt === 'sparkling' && ['K1', 'K2', 'K3'].includes(v)) job.klasse = v;
-    });
-    tegn();
-  };
+  const endre = (fn) => { endreKalkyle(jobId, fn); tegn(); };
+  const sett = (flate, felt, v) => endre((x, job) => {
+    x.arbeid[flate][felt] = v;
+    // Sparklingen på veggene og den avtalte klassen på jobben følger hverandre.
+    if (flate === 'vegg' && felt === 'sparkling' && ['K1', 'K2', 'K3'].includes(v)) job.klasse = v;
+  });
   const tegn = () => {
     const k = hentJobb(jobId).kalkyle || tomKalkyle();
     const r = beregn(k, egnePriser());
     const a = k.arbeid;
-    const flateKort = (flate, tittel) => h('div.kort', { style: { marginBottom: '8px' } },
-      h('h3', { style: { marginBottom: '8px' } }, tittel, h('span.dempet.liten', { style: { marginLeft: '8px', fontWeight: '500' } }, m2(r.mengder[flate]))),
-      h('div.dempet.liten', { style: { margin: '0 0 5px' } }, 'Sparkling'),
-      velger(SPARKLING, a[flate].sparkling, (v) => sett(flate, 'sparkling', v), 'k-oker'),
-      h('div.dempet.liten', { style: { margin: '10px 0 5px' } }, 'Maling'),
-      velger(STROK(3), a[flate].strok, (v) => sett(flate, 'strok', v)),
-      a[flate].sparkling === 'ingen' && h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } }, h('span', 'Grunning'),
-        h('input.bryter', { type: 'checkbox', checked: a[flate].grunning, onchange: (e) => sett(flate, 'grunning', e.target.checked) })));
-    tom(innhold, flateKort('vegg', 'Vegger'), flateKort('tak', 'Tak'),
+    let deler;
+    if (del === 'flater') {
+      const flateKort = (flate, tittel) => h('div.kort', { style: { marginBottom: '8px' } },
+        h('h3', { style: { marginBottom: '8px' } }, tittel, h('span.dempet.liten', { style: { marginLeft: '8px', fontWeight: '500' } }, m2(r.mengder[flate]))),
+        h('div.dempet.liten', { style: { margin: '0 0 5px' } }, 'Sparkling'),
+        velger(SPARKLING, a[flate].sparkling, (v) => sett(flate, 'sparkling', v), 'k-oker'),
+        h('div.dempet.liten', { style: { margin: '10px 0 5px' } }, 'Maling'),
+        velger(STROK(3), a[flate].strok, (v) => sett(flate, 'strok', v)),
+        a[flate].sparkling === 'ingen' && h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } }, h('span', 'Grunning'),
+          h('input.bryter', { type: 'checkbox', checked: a[flate].grunning, onchange: (e) => sett(flate, 'grunning', e.target.checked) })));
+      deler = [flateKort('vegg', 'Vegger'), flateKort('tak', 'Tak')];
+    } else if (del === 'snekker') {
+      const valg = STROK(2).map((s) => (s.id === 0 ? { ...s, label: 'Males ikke' } : s));
+      const linjer = [
+        ['lister', 'Gulv- og taklister', fmt(r.mengder.lister, 1) + ' m'],
+        ['vinduer', 'Vinduer med karm og foring', flertall(r.mengder.vinduer, 'vindu', 'vinduer')],
+        ['dorer', 'Dører, én side med karm', flertall(r.mengder.dorer, 'dør', 'dører')],
+      ];
+      deler = [h('div.kort', { style: { marginBottom: '8px' } }, linjer.map(([id, navn, mengde]) =>
+        h('div', { style: { marginBottom: '8px' } }, h('div.liten', { style: { fontWeight: '650', margin: '0 0 5px' } }, navn, h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px' } }, mengde)),
+          velger(valg, a[id].strok, (v) => sett(id, 'strok', v)))))];
+    } else {
+      const lf = a.listefritt || {};
+      const mengde = {
+        tak: fmt(r.mengder.taklinje, 1) + ' m overgang tak/vegg',
+        hjorner: fmt(r.mengder.hjorner, 1) + ' m hjørner',
+        vinduer: flertall(r.mengder.vinduer, 'vindu', 'vinduer') + ', smyg uten gerikt',
+        dorer: flertall(r.mengder.dorer, 'dørside', 'dørsider') + ' uten gerikt',
+      };
+      deler = [h('div.kort', { style: { marginBottom: '8px', paddingTop: '6px', paddingBottom: '6px' } }, LISTEFRITT.map(([id, navn]) =>
+        h('label.tallfelt', h('span', navn, h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, mengde[id])),
+          h('input.bryter', { type: 'checkbox', checked: !!lf[id], onchange: (e) => endre((x) => { x.arbeid.listefritt = { ...(x.arbeid.listefritt || {}), [id]: e.target.checked }; }) }))))];
+    }
+    tom(innhold, deler,
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 2px 0' } },
         h('span.dempet', 'Overslag eks. mva'),
         h('b', { style: { fontFamily: 'var(--serif)', fontSize: '20px' } }, kr(r.sum.eksMva))));
   };
   tegn();
   ark((lukk) => h('div',
-    h('h2', 'Hva skal gjøres'),
-    h('p.dempet', { style: { marginTop: '-6px' } }, 'Gjelder alle rom. Enkeltrom kan endres under Rom.'),
+    h('h2', ARK_TITTEL[del]),
+    h('p.dempet', { style: { marginTop: '-6px' } }, ARK_TEKST[del]),
     innhold,
     h('div.knapprad', { style: { marginTop: '14px' } }, h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig'))));
 }
