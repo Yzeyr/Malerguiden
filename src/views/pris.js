@@ -4,7 +4,7 @@
 import { h, tom, ikon, toast, ark, bekreft, velg, kopierTekst } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
-import { etasjeFor, fremgangPerEtasje, handleliste, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning } from '../kalkyle.js';
+import { etasjeFor, fremgangPerEtasje, handleliste, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -92,6 +92,71 @@ export function romArk(jobId, romId, forslag = null) {
     const bryter = (navn, label, under) => h('label.tallfelt', h('span', label, under && h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, under)),
       h('input.bryter', { type: 'checkbox', checked: !!verdi.med[navn], onchange: (e) => { verdi.med[navn] = e.target.checked; } }));
     oppdater();
+
+    /* Planen fra skanningen: vinduer som kan rettes, og vegger som ikke står langs kanten
+       (inne i rommet eller utenfor) der du velger hvor mange sider som skal males. */
+    // Egen kopi, ryddet (vegger inne i rommet flyttes ut av «utenfor»), så endringer først lagres ved «Lagre»
+    if (verdi.skannplan) verdi.skannplan = rensPlan(structuredClone(verdi.skannplan)) || verdi.skannplan;
+    const planKort = h('div.kort', { style: { padding: '6px', marginBottom: '12px' } });
+    const endreVinduer = (nye) => {
+      const p = verdi.skannplan;
+      const for_ = vindusareal(p.vinduer);
+      p.vinduer = nye;
+      // Veggarealet fra skanningen har vinduene trukket fra: rett det med forskjellen
+      if (Number.isFinite(verdi.vegg) && verdi.vegg > 0) verdi.vegg = Math.max(0, Math.round((verdi.vegg + for_ - vindusareal(nye)) * 100) / 100);
+      tegnPlan(); oppdater();
+    };
+    const vinduArk = (i) => {
+      const l = verdi.skannplan.vinduer[i];
+      const b = h('input', { type: 'text', inputmode: 'decimal', value: l.bredde ? fmt(l.bredde, 2) : '', placeholder: '1,20' });
+      const hh = h('input', { type: 'text', inputmode: 'decimal', value: l.hoyde ? fmt(l.hoyde, 2) : '', placeholder: '1,40' });
+      ark((lukkV) => h('div',
+        h('h2', 'Vindu ' + (i + 1)),
+        h('p.dempet', { style: { marginTop: '-6px' } }, 'Mål til ytterkant av listverket, eller av foringen når vinduet er listefritt. Det trekkes fra veggarealet.'),
+        h('div', { style: { display: 'flex', gap: '10px' } },
+          h('label.felt', { style: { flex: '1' } }, h('span', 'Bredde (m)'), b),
+          h('label.felt', { style: { flex: '1' } }, h('span', 'Høyde (m)'), hh)),
+        h('div.knapprad',
+          h('button.knapp.sekundar', { type: 'button', onclick: () => lukkV() }, 'Avbryt'),
+          h('button.knapp', { type: 'button', onclick: () => {
+            const nb = tallEl(b.value), nh = tallEl(hh.value);
+            if (!(nb > 0 && nb < 6) || !(nh > 0 && nh < 4)) { toast('Skriv bredde og høyde i meter, f.eks. 1,20.'); return; }
+            const nye = verdi.skannplan.vinduer.map((x) => ({ ...x }));
+            nye[i] = { ...nye[i], bredde: nb, hoyde: nh, fast: true };
+            lukkV();
+            endreVinduer(nye);
+          } }, 'Lagre'))));
+    };
+    const veggRad = (l, hvor, i) => {
+      const sider = hvor === 'inne' ? l.sider : 0;
+      const velg = (v) => {
+        const p = verdi.skannplan;
+        if (hvor === 'inne') p.inne[i].sider = v;
+        else if (v > 0) { p.utenfor.splice(i, 1); p.inne = [...(p.inne || []), { ...l, sider: v }]; }
+        tegnPlan(); oppdater();
+      };
+      return h('div', { style: { padding: '8px 4px 2px' } },
+        h('p.liten', { style: { margin: '0 0 6px', fontWeight: '600' } }, 'Vegg ' + fmt(Math.hypot(l.b.x - l.a.x, l.b.y - l.a.y), 2) + ' m ' + (hvor === 'inne' ? 'inne i rommet' : 'utenfor rommet (trolig sett gjennom en åpen dør)')),
+        h('div.velger', [[2, 'Begge sider'], [1, 'Én side'], [0, 'Ikke med']].map(([v, t]) => h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(sider === v), style: { flex: '1' }, onclick: () => velg(v) }, t))));
+    };
+    const tegnPlan = () => {
+      const p = verdi.skannplan;
+      if (!p) return;
+      const like = likeVinduer(p.vinduer);
+      const ulikt = like.some((l, i) => l.bredde !== p.vinduer[i].bredde || l.hoyde !== p.vinduer[i].hoyde);
+      tom(planKort,
+        planSvg(p, { bredde: 320, hoyde: 240, mal: true }),
+        (p.vinduer.length > 0 || p.dorer.length > 0) && h('div.merker', { style: { padding: '6px 4px 2px' } },
+          p.vinduer.map((l, i) => h('button.merke', { type: 'button', onclick: () => vinduArk(i), 'aria-label': 'Rett målet på vindu ' + (i + 1) },
+            'Vindu ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '') + (l.fast ? ' ✓' : ''))),
+          p.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '')))),
+        p.vinduer.length > 0 && h('p.dempet.liten', { style: { margin: '4px 4px 2px' } }, 'Trykk på et vindu for å rette målet. ✓ = rettet for hånd.'),
+        ulikt && h('button.knapp.sekundar', { type: 'button', style: { margin: '8px 4px 2px', width: 'calc(100% - 8px)' }, onclick: () => { endreVinduer(like); toast('Like vinduer har fått samme mål.'); } },
+          'Gi like vinduer samme mål'),
+        [...(p.inne || []).map((l, i) => veggRad(l, 'inne', i)), ...(p.utenfor || []).map((l, i) => veggRad(l, 'ute', i))]);
+    };
+    tegnPlan();
+
     return h('form', {
       onsubmit: (e) => {
         e.preventDefault();
@@ -105,13 +170,7 @@ export function romArk(jobId, romId, forslag = null) {
       },
     },
       h('h2', finnes ? 'Endre rom' : 'Nytt rom'),
-      verdi.skannplan && h('div.kort', { style: { padding: '6px', marginBottom: '12px' } },
-        planSvg(verdi.skannplan, { bredde: 320, hoyde: 240, mal: true }),
-        (verdi.skannplan.vinduer.length > 0 || verdi.skannplan.dorer.length > 0) && h('div.merker', { style: { padding: '6px 4px 2px' } },
-          verdi.skannplan.vinduer.map((l, i) => h('span.merke', 'Vindu ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : ''))),
-          verdi.skannplan.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '')))),
-        verdi.skannplan.utenfor.length > 0 && h('p.dempet.liten', { style: { margin: '6px 4px 2px' } },
-          flertall(verdi.skannplan.utenfor.length, 'vegg', 'vegger') + ' utenfor rommet (stiplet) er ikke regnet med. Trolig sett gjennom en åpen dør.')),
+      verdi.skannplan && planKort,
       h('div', { style: { display: 'flex', gap: '10px' } },
         h('label.felt', { style: { flex: '1.6' } }, h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
         // Etasjen brukes til fremgangen i Arbeid. Tomt: fra plantegningen eller navnet («Bad 2etg»).
@@ -728,7 +787,7 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
   const lengste = plan.vegger.reduce((a, b) => (lengde(b) > lengde(a) ? b : a), plan.vegger[0]);
   const v = -Math.atan2(lengste.b.y - lengste.a.y, lengste.b.x - lengste.a.x);
   const rot = (p) => ({ x: p.x * Math.cos(v) - p.y * Math.sin(v), y: p.x * Math.sin(v) + p.y * Math.cos(v) });
-  const alle = [...plan.gulv, ...['vegger', 'dorer', 'vinduer', 'apninger', 'utenfor'].flatMap((k) => (plan[k] || []).flatMap((l) => [l.a, l.b]))].map(rot);
+  const alle = [...plan.gulv, ...['vegger', 'dorer', 'vinduer', 'apninger', 'utenfor', 'inne'].flatMap((k) => (plan[k] || []).flatMap((l) => [l.a, l.b]))].map(rot);
   const minX = Math.min(...alle.map((p) => p.x)), maxX = Math.max(...alle.map((p) => p.x));
   const minY = Math.min(...alle.map((p) => p.y)), maxY = Math.max(...alle.map((p) => p.y));
   const s = Math.min((bredde - 2 * marg) / Math.max(maxX - minX, 0.5), (hoyde - 2 * marg) / Math.max(maxY - minY, 0.5));
@@ -745,6 +804,8 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
   const linje = (l, attrs) => { const [x1, y1] = til(l.a), [x2, y2] = til(l.b); return ny('line', { x1, y1, x2, y2, 'stroke-linecap': 'round', ...attrs }); };
   (plan.utenfor || []).forEach((l) => linje(l, { stroke: 'var(--blekk3)', 'stroke-width': Math.max(1, strek / 2), 'stroke-dasharray': '5 4' }));
   plan.vegger.forEach((l) => linje(l, { stroke: 'var(--blekk)', 'stroke-width': strek }));
+  // Vegger inne i rommet: hel strek når de males, stiplet når de er valgt bort
+  (plan.inne || []).forEach((l) => (l.sider > 0 ? linje(l, { stroke: 'var(--blekk)', 'stroke-width': strek }) : linje(l, { stroke: 'var(--blekk3)', 'stroke-width': Math.max(1, strek / 2), 'stroke-dasharray': '5 4' })));
   plan.apninger.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: 'var(--blekk3)', 'stroke-width': 1, 'stroke-dasharray': '3 2' }); });
   plan.vinduer.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: '#5A9ED9', 'stroke-width': strek }); });
   plan.dorer.forEach((l) => { linje(l, { stroke: 'var(--kort)', 'stroke-width': strek + 3 }); linje(l, { stroke: 'var(--terrakotta)', 'stroke-width': Math.max(1.5, strek - 1) }); });
@@ -764,7 +825,7 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
       const t = ny('text', { x: mx + nx * avstand, y: my + ny_ * avstand + 4, 'text-anchor': 'middle', 'font-size': storrelse, 'font-weight': 650, fill: farge, 'font-family': 'var(--sans)' });
       t.textContent = tekst;
     };
-    for (const l of plan.vegger) if (lengde(l) >= 0.3) etikett(l, fmt(lengde(l), 2) + ' m', 13, 'var(--blekk2)', 10.5);
+    for (const l of [...plan.vegger, ...(plan.inne || []).filter((x) => x.sider > 0)]) if (lengde(l) >= 0.3) etikett(l, fmt(lengde(l), 2) + ' m', 13, 'var(--blekk2)', 10.5);
     const bxh = (l) => (l.bredde && l.hoyde ? fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) : null);
     for (const l of plan.vinduer) { const t = bxh(l); if (t) etikett(l, t, -12, '#3F7FB8', 9.5); }
     for (const l of plan.dorer) { const t = bxh(l); if (t) etikett(l, t, -12, 'var(--terrakotta)', 9.5); }

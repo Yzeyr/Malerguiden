@@ -486,3 +486,39 @@ test('ett rom i K2: tre dager sparkling, grunning i tak et døgn, så maling', (
   // K1 har to runder med tørk: to dager sparkling og én med maling
   assert.equal(dagerMedTork(beregn({ ...tomKalkyle('K1'), rom: [rom({ id: 'a' })] }, {})).dager, 3);
 });
+
+test('skanning: vegg inne i rommet flyttes fra «utenfor» og males på begge sider', async () => {
+  const { rensPlan, romMengder } = await import('../src/kalkyle.js');
+  const gulv = [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 5 }, { x: 0, y: 5 }];
+  const vegg = (a, b) => ({ a, b, bredde: Math.hypot(b.x - a.x, b.y - a.y), hoyde: 2.4 });
+  const plan = rensPlan({
+    gulv, vegger: [vegg({ x: 0, y: 0 }, { x: 6, y: 0 })],
+    // En vegg som stikker 2 m inn fra kanten, og en som er sett gjennom en dør (utenfor gulvet)
+    utenfor: [vegg({ x: 3, y: 5 }, { x: 3, y: 3 }), vegg({ x: 7, y: 1 }, { x: 7, y: 3 })],
+  });
+  assert.equal(plan.inne.length, 1);
+  assert.equal(plan.inne[0].sider, 2);
+  assert.equal(plan.utenfor.length, 1);
+  const rom = { gulv: 30, omkrets: 22, hoyde: '2,4', vegg: 40, vinduer: '0', dorer: '1', skannplan: plan };
+  const m = romMengder(rom);
+  assert.ok(Math.abs(m.vegg - (40 + 2 * 2 * 2.4)) < 1e-9, String(m.vegg));
+  assert.ok(Math.abs(m.inneVegg - 9.6) < 1e-9);
+  // Én side, eller ikke med
+  plan.inne[0].sider = 1;
+  assert.ok(Math.abs(romMengder(rom).vegg - (40 + 4.8)) < 1e-9);
+  plan.inne[0].sider = 0;
+  assert.equal(romMengder(rom).vegg, 40);
+  // Valget overlever en ny runde gjennom rensPlan
+  assert.equal(rensPlan(plan).inne[0].sider, 0);
+});
+
+test('like vinduer får samme mål (det største), et mål skrevet for hånd går foran', async () => {
+  const { likeVinduer, vindusareal } = await import('../src/kalkyle.js');
+  const v = (b, h, fast) => ({ a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, bredde: b, hoyde: h, ...(fast ? { fast: true } : {}) });
+  const ut = likeVinduer([v(1.62, 1.75), v(1.47, 1.68), v(1.56, 1.62), v(1.07, 1.26), v(0.6, 0.6)]);
+  assert.deepEqual(ut.slice(0, 3).map((l) => [l.bredde, l.hoyde]), [[1.62, 1.75], [1.62, 1.75], [1.62, 1.75]]);
+  assert.deepEqual([ut[3].bredde, ut[4].bredde], [1.07, 0.6]); // ulike vinduer røres ikke
+  const fast = likeVinduer([v(1.62, 1.75), v(1.55, 1.70, true)]);
+  assert.deepEqual(fast.map((l) => [l.bredde, l.hoyde]), [[1.55, 1.70], [1.55, 1.70]]);
+  assert.ok(Math.abs(vindusareal([v(1, 2), v(0.5, 0.5)]) - 2.25) < 1e-9);
+});

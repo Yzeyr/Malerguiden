@@ -28,8 +28,8 @@ struct PlanView: View {
                 ctx.stroke(sti, with: .color(.secondary.opacity(0.6)), style: StrokeStyle(lineWidth: visMal ? 2 : 1, dash: [5, 4]))
             }
 
-            // Veggene
-            for v in p.vegger {
+            // Veggene, også dem inne i rommet (skillevegger)
+            for v in p.vegger + p.inne {
                 var sti = Path(); sti.move(to: v.0); sti.addLine(to: v.1)
                 ctx.stroke(sti, with: .color(.primary), style: StrokeStyle(lineWidth: visMal ? 5 : 2.5, lineCap: .round))
             }
@@ -59,7 +59,7 @@ struct PlanView: View {
 
             // Mål på hver vegg utenfor rommet, og på vinduer og dører innenfor
             if visMal {
-                for (v, meter) in zip(p.vegger, p.veggLengder) where meter >= 0.3 {
+                for (v, meter) in zip(p.vegger + p.inne, p.veggLengder + p.inneLengder) where meter >= 0.3 {
                     let tekst = ctx.resolve(Text(meter.formatted(.number.precision(.fractionLength(2))) + " m")
                         .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary))
                     ctx.draw(tekst, at: p.utenfor(v, avstand: 12, tekst: tekst.measure(in: size)))
@@ -97,7 +97,9 @@ struct Tilpasning {
     var vinduer: [(CGPoint, CGPoint)] = []
     var apninger: [(CGPoint, CGPoint)] = []
     var utenfor: [(CGPoint, CGPoint)] = []
+    var inne: [(CGPoint, CGPoint)] = []
     var veggLengder: [Double] = []
+    var inneLengder: [Double] = []
     var senter = CGPoint.zero
     // Omregningen fra meter til punkter på skjermen (rotasjon, skala og forskyvning)
     private var ca: Double = 1, sa: Double = 0
@@ -133,7 +135,9 @@ struct Tilpasning {
         vinduer = plan.vinduer.map(linje)
         apninger = plan.apninger.map(linje)
         utenfor = (plan.utenfor ?? []).map(linje)
+        inne = (plan.inne ?? []).map(linje)
         veggLengder = plan.vegger.map(lengde)
+        inneLengder = (plan.inne ?? []).map(lengde)
         let kilde = gulv.count >= 3 ? gulv : vegger.flatMap { [$0.0, $0.1] }
         if !kilde.isEmpty {
             senter = CGPoint(x: kilde.map(\.x).reduce(0, +) / CGFloat(kilde.count), y: kilde.map(\.y).reduce(0, +) / CGFloat(kilde.count))
@@ -252,11 +256,14 @@ struct RomDetalj: View {
                     }
                 } footer: {
                     if let plan = rom.plan {
-                        Text("\(plan.vegger.count) vegger · \(plan.dorer.count) dører · \(plan.vinduer.count) vinduer" + (plan.apninger.isEmpty ? "" : " · \(plan.apninger.count) åpninger"))
+                        Text("\(plan.vegger.count + (plan.inne?.count ?? 0)) vegger · \(plan.dorer.count) dører · \(plan.vinduer.count) vinduer" + (plan.apninger.isEmpty ? "" : " · \(plan.apninger.count) åpninger"))
                     }
                 }
-                if (rom.utenforVegger ?? 0) > 0 || (rom.apneDorer ?? 0) > 0 {
+                if (rom.utenforVegger ?? 0) > 0 || (rom.apneDorer ?? 0) > 0 || !(rom.plan?.inne ?? []).isEmpty {
                     Section {
+                        if let n = rom.plan?.inne?.count, n > 0 {
+                            Label((n == 1 ? "1 vegg står" : "\(n) vegger står") + " inne i rommet og er regnet med på begge sider (\(m(rom.veggInne)) m²).", systemImage: "square.split.2x1")
+                        }
                         if let n = rom.utenforVegger, n > 0 {
                             Label((n == 1 ? "1 vegg" : "\(n) vegger") + " utenfor rommet er ikke regnet med. Den er trolig sett gjennom en åpen dør, og vises stiplet.", systemImage: "eye.slash")
                         }
@@ -306,7 +313,8 @@ struct RomDetalj: View {
                     LabeledContent("Gulv", value: "\(m(rom.gulv)) m²")
                     LabeledContent("Omkrets", value: "\(m(rom.omkrets)) m")
                     LabeledContent("Takhøyde", value: "\(m(rom.takhoyde, 2)) m")
-                    LabeledContent("Vegg uten vinduer og dører", value: "\(m(rom.veggNetto)) m²")
+                    LabeledContent("Vegg uten vinduer og dører", value: "\(m(rom.veggNetto + rom.veggInne)) m²")
+                    if rom.veggInne > 0 { LabeledContent("Av det: vegger inne i rommet", value: "\(m(rom.veggInne)) m²") }
                     LabeledContent("Vegg totalt", value: "\(m(rom.veggBrutto)) m²")
                     LabeledContent("Vinduer", value: "\(rom.vinduer)")
                     LabeledContent("Dører", value: "\(rom.dorer)")

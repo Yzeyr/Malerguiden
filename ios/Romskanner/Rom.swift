@@ -23,6 +23,14 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     var apneDorer: Int?
     /// Prosjektet rommet hører til. nil: skannet før appen fikk prosjekter («Uten prosjekt»).
     var prosjekt: UUID?
+    /// Veggarealet inne i rommet (skillevegger), begge sider, i m². Kommer i tillegg til veggNetto.
+    var veggInne: Double {
+        (plan?.inne ?? []).reduce(0.0) { sum, l in
+            let lengde = (l.bredde ?? hypot(l.b.x - l.a.x, l.b.y - l.a.y))
+            return sum + 2 * lengde * (l.hoyde ?? takhoyde)
+        }
+    }
+
     /// Etasjeskanningen rommet ble skannet i. Rom fra samme skanning har samme koordinater
     /// og kan tegnes sammen som én etasje.
     var okt: UUID?
@@ -52,8 +60,11 @@ struct Plan: Codable, Hashable {
     var apninger: [Linje]
     /// Vegger utenfor rommets gulv. Vises stiplet, men regnes ikke med.
     var utenfor: [Linje]? = nil
+    /// Vegger inne i rommet: skillevegger og vegger som stikker inn fra kanten. De står på
+    /// gulvet, så begge sidene males. Regnes ikke med i veggNetto; se SkannetRom.veggInne.
+    var inne: [Linje]? = nil
 
-    var allePunkter: [Punkt] { gulv + (vegger + dorer + vinduer + apninger + (utenfor ?? [])).flatMap { [$0.a, $0.b] } }
+    var allePunkter: [Punkt] { gulv + (vegger + dorer + vinduer + apninger + (utenfor ?? []) + (inne ?? [])).flatMap { [$0.a, $0.b] } }
 }
 
 enum Maling {
@@ -67,7 +78,11 @@ enum Maling {
         var utenfor: [Plan.Linje] = []
         if p.gulv.count >= 3 {
             let kant = p.gulv
-            utenfor = p.vegger.filter { !langsKanten($0, kant) }
+            // Vegger som ikke står langs kanten: inne på gulvet er de en del av rommet
+            // (skillevegg, vegg som stikker inn); utenfor gulvet er de sett gjennom en dør.
+            let ikkeKant = p.vegger.filter { !langsKanten($0, kant) }
+            p.inne = ikkeKant.filter { inni($0, kant) }
+            utenfor = ikkeKant.filter { !inni($0, kant) }
             p.vegger = p.vegger.filter { langsKanten($0, kant) }
             p.dorer = p.dorer.filter { langsKanten($0, kant) }
             p.vinduer = p.vinduer.filter { langsKanten($0, kant) }
@@ -85,6 +100,10 @@ enum Maling {
         // En åpen dør ser RoomPlan ofte bare som et hull i veggen («åpning»). Er hullet på
         // størrelse med en dør, regnes det som en dør som står åpen.
         let somDor = dorstoreApninger(&p)
+
+        // Like vinduer, like mål: skanneren måler samme vindustype ulikt (glasset én gang,
+        // foringen neste gang). Vinduer som er nesten like store, får målet til det største.
+        p.vinduer = likeVinduer(p.vinduer)
 
         // Nesten rette vinkler blir rette, og gulvarealet regnes ut fra det rettede gulvet
         rettOpp(&p)
@@ -172,6 +191,7 @@ enum Maling {
         p.vinduer = p.vinduer.map(folgVegg)
         p.apninger = p.apninger.map(folgVegg)
         p.utenfor = p.utenfor?.map(rett)
+        p.inne = p.inne?.map(rett)
 
         // Gulvet: drei så den lengste veggen ligger langs x-aksen, rett kantene, drei tilbake
         guard p.gulv.count >= 3 else { return }
@@ -212,6 +232,51 @@ enum Maling {
         p.apninger.removeAll(where: erDorstor)
         p.dorer += dorer
         return dorer.count
+    }
+
+    /// Vinduer med høyst `toleranse` meter forskjell i både bredde og høyde regnes som like,
+    /// og alle i gruppen får målet til det største (til veggarealet teller ytterkanten).
+    /// Samme regel som `likeVinduer` i Malerguiden.
+    static func likeVinduer(_ vinduer: [Plan.Linje], toleranse: Double = 0.15) -> [Plan.Linje] {
+        var v = vinduer
+        var gruppe = Array(v.indices)
+        func rot(_ i: Int) -> Int { var r = i; while gruppe[r] != r { r = gruppe[r] }; return r }
+        func harMal(_ l: Plan.Linje) -> Bool { (l.bredde ?? 0) > 0 && (l.hoyde ?? 0) > 0 }
+        for i in v.indices { for j in v.indices where j > i {
+            guard harMal(v[i]), harMal(v[j]) else { continue }
+            if abs(v[i].bredde! - v[j].bredde!) <= toleranse && abs(v[i].hoyde! - v[j].hoyde!) <= toleranse { gruppe[rot(j)] = rot(i) }
+        } }
+        let grupper = Dictionary(grouping: v.indices.filter { harMal(v[$0]) }, by: rot)
+        for ider in grupper.values where ider.count > 1 {
+            guard let kilde = ider.max(by: { v[$0].bredde! * v[$0].hoyde! < v[$1].bredde! * v[$1].hoyde! }) else { continue }
+            let (b, h) = (v[kilde].bredde, v[kilde].hoyde)
+            for i in ider { v[i].bredde = b; v[i].hoyde = h }
+        }
+        return v
+    }
+
+    /// Ligger midten av linjen inne på gulvet (punkt-i-mangekant)?
+    static func inni(_ l: Plan.Linje, _ gulv: [Plan.Punkt]) -> Bool {
+        let x = (l.a.x + l.b.x) / 2, y = (l.a.y + l.b.y) / 2
+        var inne = false
+        var j = gulv.count - 1
+        for i in gulv.indices {
+            let a = gulv[i], b = gulv[j]
+            if (a.y > y) != (b.y > y), x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x { inne.toggle() }
+            j = i
+        }
+        return inne
+    }
+
+    /// Deler vegger som er lagt «utenfor» i dem som egentlig står inne på gulvet og resten.
+    /// Brukes på rom skannet før vegger inne i rommet ble regnet med.
+    static func flyttInnevegger(_ p: inout Plan) -> Int {
+        guard p.gulv.count >= 3, let ute = p.utenfor, !ute.isEmpty else { return 0 }
+        let inn = ute.filter { inni($0, p.gulv) }
+        guard !inn.isEmpty else { return 0 }
+        p.inne = (p.inne ?? []) + inn
+        p.utenfor = ute.filter { !inni($0, p.gulv) }
+        return inn.count
     }
 
     /// Ligger midten av linjen nær en av gulvets kanter? Veggen står litt utenfor
@@ -379,7 +444,7 @@ struct Eksport: Codable {
         func m(_ v: Double?) -> Double? { v.map { ($0 * 100).rounded() / 100 } }
         func l(_ x: Plan.Linje) -> Plan.Linje { .init(a: r(x.a), b: r(x.b), bredde: m(x.bredde), hoyde: m(x.hoyde)) }
         return Plan(gulv: p.gulv.map(r), vegger: p.vegger.map(l), dorer: p.dorer.map(l), vinduer: p.vinduer.map(l), apninger: p.apninger.map(l),
-                    utenfor: p.utenfor?.map(l))
+                    utenfor: p.utenfor?.map(l), inne: p.inne?.map(l))
     }
 
     func json() -> String {
@@ -425,6 +490,11 @@ final class RomLager: ObservableObject {
             // Rom skannet før åpne dører ble kjent igjen: dørstore åpninger blir dører
             for i in lagret.indices {
                 guard var plan = lagret[i].plan else { continue }
+                // Vegger inne i rommet ble før lagt som «utenfor». Nå regnes de med.
+                if Maling.flyttInnevegger(&plan) > 0 {
+                    lagret[i].utenforVegger = plan.utenfor?.count ?? 0
+                    lagret[i].plan = plan
+                }
                 let n = Maling.dorstoreApninger(&plan)
                 guard n > 0 else { continue }
                 lagret[i].plan = plan

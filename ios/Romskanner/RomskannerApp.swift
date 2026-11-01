@@ -401,7 +401,7 @@ struct RomRad: View {
             Text(rom.navn).font(.headline)
             Text("\(m(rom.gulv)) m² gulv · \(m(rom.omkrets)) m omkrets · \(m(rom.takhoyde, 2)) m høyde")
                 .font(.subheadline).foregroundStyle(.secondary)
-            Text("Vegg \(m(rom.veggNetto)) m² · \(rom.vinduer) vinduer · \(rom.dorer) dører" + (rom.apninger > 0 ? " · \(rom.apninger) åpninger" : ""))
+            Text("Vegg \(m(rom.veggNetto + rom.veggInne)) m² · \(rom.vinduer) vinduer · \(rom.dorer) dører" + (rom.apninger > 0 ? " · \(rom.apninger) åpninger" : ""))
                 .font(.subheadline).foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)

@@ -159,20 +159,72 @@ function rensPlaner(k) {
 
 const punkt = (p) => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null);
 const malEllerNull = (v) => (Number.isFinite(v) && v > 0 ? v : null);
+// fast: målet er skrevet inn for hånd og går foran skanningen. sider: for vegger inne i rommet.
 const linjer = (a) => (Array.isArray(a) ? a.map((l) => (l && punkt(l.a) && punkt(l.b)
-  ? { a: punkt(l.a), b: punkt(l.b), bredde: malEllerNull(l.bredde), hoyde: malEllerNull(l.hoyde) } : null)).filter(Boolean) : []);
+  ? { a: punkt(l.a), b: punkt(l.b), bredde: malEllerNull(l.bredde), hoyde: malEllerNull(l.hoyde),
+    ...(l.fast === true ? { fast: true } : {}), ...([0, 1, 2].includes(l.sider) ? { sider: l.sider } : {}) } : null)).filter(Boolean) : []);
+
+/** Ligger midten av linjen inne på gulvet? (punkt i mangekant) */
+export function inniGulv(l, gulv) {
+  const x = (l.a.x + l.b.x) / 2, y = (l.a.y + l.b.y) / 2;
+  let inne = false;
+  for (let i = 0, j = gulv.length - 1; i < gulv.length; j = i++) {
+    const a = gulv[i], b = gulv[j];
+    if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) inne = !inne;
+  }
+  return inne;
+}
 
 /** Plantegningen fra Romskanner, i meter: gulv (punkter), vegger, dører, vinduer, åpninger (linjer). */
 export function rensPlan(p) {
   if (!p || typeof p !== 'object') return null;
-  const plan = {
-    gulv: Array.isArray(p.gulv) ? p.gulv.map(punkt).filter(Boolean) : [],
-    vegger: linjer(p.vegger), dorer: linjer(p.dorer), vinduer: linjer(p.vinduer), apninger: linjer(p.apninger),
-    // Vegger utenfor rommet (sett gjennom åpen dør). Tegnes stiplet, regnes ikke med.
-    utenfor: linjer(p.utenfor),
-  };
+  const gulv = Array.isArray(p.gulv) ? p.gulv.map(punkt).filter(Boolean) : [];
+  // Vegger utenfor rommet (sett gjennom åpen dør). Tegnes stiplet, regnes ikke med.
+  let utenfor = linjer(p.utenfor);
+  // Vegger inne i rommet (skillevegger, vegger som stikker inn): begge sider males, med mindre
+  // annet er valgt (sider 0–2). Romskanner la dem før blant «utenfor»; de flyttes hit.
+  let inne = linjer(p.inne).map((l) => ({ ...l, sider: l.sider ?? 2 }));
+  if (gulv.length >= 3) {
+    const flytt = utenfor.filter((l) => inniGulv(l, gulv));
+    if (flytt.length) {
+      inne = [...inne, ...flytt.map((l) => ({ ...l, sider: 2 }))];
+      utenfor = utenfor.filter((l) => !inniGulv(l, gulv));
+    }
+  }
+  const plan = { gulv, vegger: linjer(p.vegger), dorer: linjer(p.dorer), vinduer: linjer(p.vinduer), apninger: linjer(p.apninger), utenfor, inne };
   return plan.vegger.length ? plan : null;
 }
+
+const linjelengde = (l) => l.bredde || Math.hypot(l.b.x - l.a.x, l.b.y - l.a.y);
+
+/**
+ * Like vinduer, like mål. Skanneren måler samme vindustype ulikt (glasset én gang, foringen
+ * neste gang). Vinduer i samme rom med høyst `toleranse` meter forskjell i både bredde og høyde
+ * regnes som like, og alle får målet til det største: til veggarealet er det ytterkanten som
+ * teller. Et mål skrevet inn for hånd (fast) går foran. Returnerer ny liste.
+ */
+export function likeVinduer(vinduer, toleranse = 0.15) {
+  const v = vinduer.map((l) => ({ ...l }));
+  const harMal = (l) => l.bredde > 0 && l.hoyde > 0;
+  const gruppe = v.map((_, i) => i);
+  const rot = (i) => (gruppe[i] === i ? i : (gruppe[i] = rot(gruppe[i])));
+  for (let i = 0; i < v.length; i++) for (let j = i + 1; j < v.length; j++) {
+    if (!harMal(v[i]) || !harMal(v[j])) continue;
+    if (Math.abs(v[i].bredde - v[j].bredde) <= toleranse && Math.abs(v[i].hoyde - v[j].hoyde) <= toleranse) gruppe[rot(j)] = rot(i);
+  }
+  const grupper = new Map();
+  v.forEach((l, i) => { if (harMal(l)) { const r = rot(i); if (!grupper.has(r)) grupper.set(r, []); grupper.get(r).push(i); } });
+  for (const ider of grupper.values()) {
+    if (ider.length < 2) continue;
+    const faste = ider.filter((i) => v[i].fast);
+    const kilde = (faste.length ? faste : ider).reduce((a, b) => (v[b].bredde * v[b].hoyde > v[a].bredde * v[a].hoyde ? b : a));
+    for (const i of ider) if (!v[i].fast) { v[i].bredde = v[kilde].bredde; v[i].hoyde = v[kilde].hoyde; }
+  }
+  return v;
+}
+
+/** Arealet vinduene tar av veggen (m²). */
+export const vindusareal = (vinduer) => vinduer.reduce((s, l) => s + (l.bredde > 0 && l.hoyde > 0 ? l.bredde * l.hoyde : 0), 0);
 
 /* ---------- Mengder per rom ---------- */
 
@@ -229,13 +281,17 @@ export function romMengder(rom) {
     return { ok: false, gulv: 0, tak: 0, vegg: 0, lister: 0, omkrets: 0, hoyde: H, vinduer, dorer };
   }
   const brutto = omkrets * H;
+  // Vegger inne i rommet (skillevegger) kommer i tillegg: én eller begge sider, med lister langs.
+  const inne = rom.skannplan?.inne || [];
+  const inneVegg = inne.reduce((s, l) => s + (l.sider || 0) * linjelengde(l) * (l.hoyde || H), 0);
+  const inneLister = inne.reduce((s, l) => s + (l.sider || 0) * linjelengde(l), 0);
   // Fra LiDAR-skanning er veggarealet målt direkte, med vinduer og dører trukket fra.
-  const vegg = Number.isFinite(rom.vegg) && rom.vegg > 0 ? rom.vegg : Math.max(0, brutto - vinduer * VINDU_M2 - dorer * DOR_M2);
-  const lister = Math.max(0, omkrets - dorer * DOR_BREDDE);
+  const vegg = (Number.isFinite(rom.vegg) && rom.vegg > 0 ? rom.vegg : Math.max(0, brutto - vinduer * VINDU_M2 - dorer * DOR_M2)) + inneVegg;
+  const lister = Math.max(0, omkrets - dorer * DOR_BREDDE) + inneLister;
   // Ytterhjørner: det som er skrevet inn, ellers talt fra formen på rommet (plantegning eller skanning)
   const skrevet = tall(rom.ytterhjorner);
   const ytterhjorner = Number.isFinite(skrevet) ? Math.max(0, Math.round(skrevet)) : ytterhjornerAuto(rom.polygon || rom.skannplan?.gulv);
-  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H };
+  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H, inneVegg };
 }
 
 /* ---------- Priser og normtall ---------- */
