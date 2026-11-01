@@ -15,13 +15,11 @@ test('fargelista: gyldige koder og hex, ingen dubletter', () => {
 });
 
 test('finner farge fra kode inni tekst', () => {
-  const t = [{ merke: 'Jotun', kode: '1453', navn: 'Cotton Ball', hex: '#F0EBE1' }, { merke: 'NCS', kode: 'S 0502-Y', navn: null, hex: '#F4F1E8' }];
-  FARGER.push(...t);
-  try {
-    assert.equal(finnFarge('1453 Cotton Ball').navn, 'Cotton Ball');
-    assert.equal(finnFarge('ncs s0502-y').kode, 'S 0502-Y');
-    assert.equal(finnFarge('Vegg: NCS S 0502 - Y').kode, 'S 0502-Y');
-    assert.equal(finnFarge('ukjent'), null);
-    assert.equal(sokFarger('cotton')[0].kode, '1453');
-  } finally { FARGER.splice(FARGER.length - 2, 2); }
+  assert.equal(finnFarge('1453 Bomull').navn, 'Bomull');
+  assert.equal(finnFarge('ncs s0502-y').kode, 'S 0502-Y');
+  assert.equal(finnFarge('Vegg: NCS S 0502 - Y').kode, 'S 0502-Y');
+  assert.equal(finnFarge('ukjent'), null);
+  assert.equal(sokFarger('bomull')[0].kode, '1453');
+  assert.ok(FARGER.filter((f) => f.merke === 'Jotun').length > 200);
+  assert.ok(FARGER.filter((f) => f.merke === 'NCS').length > 200);
 });

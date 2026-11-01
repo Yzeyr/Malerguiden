@@ -99,6 +99,9 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             }
             guard let json else { return ["tekst": NSNull()] }
             return ["tekst": json]
+        case "kopier":
+            UIPasteboard.general.string = m.tekst("tekst")
+            return ["kopiert": true]
         case "apneSkanner":
             visSkanner = true
             return nil
@@ -276,7 +279,8 @@ enum Tekstleser {
         return try await Task.detached(priority: .userInitiated) {
             let foresporsel = VNRecognizeTextRequest()
             foresporsel.recognitionLevel = .accurate
-            foresporsel.usesLanguageCorrection = true
+            // Av: norsk finnes ikke i tekstgjenkjenningen, og retting gjør norske ord om til engelske
+            foresporsel.usesLanguageCorrection = false
             if #available(iOS 16.0, *) { foresporsel.automaticallyDetectsLanguage = true }
             let stottet = (try? foresporsel.supportedRecognitionLanguages()) ?? []
             let onsket = ["nb-NO", "no-NO", "da-DK", "sv-SE", "de-DE", "en-US"].filter { stottet.contains($0) }

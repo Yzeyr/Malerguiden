@@ -13,6 +13,10 @@ targets:
       - path: Web
         type: folder
         optional: true
+    # Apple Intelligence finnes bare fra iOS 26: koblet løst, så appen starter på eldre iOS også
+    dependencies:
+      - sdk: FoundationModels.framework
+        weak: true
     info:
       path: Romskanner/Info.plist
       properties:

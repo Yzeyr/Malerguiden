@@ -110,6 +110,7 @@ function dagTekst(dager, en = 'arbeidsdag', flere = 'arbeidsdager') {
 /** Instrukser og spørsmål til språkmodellen på telefonen. */
 export function tilbudPrompt(d) {
   const instrukser = [
+    'The person’s locale is nb_NO. You MUST respond in Norwegian Bokmål.',
     'Du er en erfaren norsk malermester som skriver tilbud til privatkunder.',
     'Skriv på norsk bokmål, kort, vennlig og konkret, uten salgsfloskler.',
     'Bruk bare arbeidet og rommene som står i dataene. Ikke legg til arbeid, materialer, garantier eller løfter som ikke står der.',

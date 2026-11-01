@@ -63,9 +63,10 @@ struct ProveMalView: View {
                 }
                 HStack {
                     Toggle("Alle vegger", isOn: $maler.alleVegger).toggleStyle(.button).tint(.white)
+                    Toggle("Romlys", isOn: $maler.ekteLys).toggleStyle(.button).tint(.white)
                     Spacer()
                     Text("Dekning").font(.footnote).foregroundStyle(.white)
-                    Slider(value: $maler.dekning, in: 0.5...1).frame(width: 120).tint(.white)
+                    Slider(value: $maler.dekning, in: 0.5...1).frame(width: 90).tint(.white)
                 }
                 .padding(10)
                 .background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
@@ -96,6 +97,8 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     @Published var valgt = 0 { didSet { if alleVegger { tegnAlt() } } }
     @Published var alleVegger = false { didSet { tegnAlt() } }
     @Published var dekning: Double = 0.92 { didSet { tegnAlt() } }
+    /// true: malingen får lys og skygge fra rommet. false: fargen vises flatt, akkurat som koden.
+    @Published var ekteLys = true { didSet { tegnAlt() } }
     @Published var melding = "Gå rolig rundt og pek på veggene. Trykk på en vegg for å male den."
     @Published private(set) var antallVegger = 0
 
@@ -284,12 +287,20 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
             while i < n { idx.append(contentsOf: [i, i + 1, i + 2, i, i + 2, i + 1]); i += 3 }
             d.primitives = .triangles(idx)
             guard let mesh = try? MeshResource.generate(from: [d]) else { continue }
-            var m = PhysicallyBasedMaterial()
-            m.baseColor = .init(tint: farger[f])
-            m.roughness = 0.95
-            m.metallic = 0.0
-            if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
-            samling.addChild(ModelEntity(mesh: mesh, materials: [m]))
+            let materiale: RealityKit.Material
+            if ekteLys {
+                var m = PhysicallyBasedMaterial()
+                m.baseColor = .init(tint: farger[f])
+                m.roughness = 1.0
+                m.metallic = 0.0
+                if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
+                materiale = m
+            } else {
+                var m = UnlitMaterial(color: farger[f])
+                if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
+                materiale = m
+            }
+            samling.addChild(ModelEntity(mesh: mesh, materials: [materiale]))
         }
         rot.addChild(samling)
         entiteter[id] = samling

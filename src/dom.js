@@ -195,6 +195,9 @@ export function velg({ tittel, valg, valgt }) {
 
 /** Kopierer tekst, med reserve for eldre nettlesere. */
 export async function kopierTekst(tekst) {
+  // I iPhone-appen kopierer appen selv (nettsidens utklippstavle er ikke alltid åpen der)
+  const app = globalThis.webkit?.messageHandlers?.mg;
+  if (app) { try { await app.postMessage({ type: 'kopier', tekst }); return true; } catch { /* prøv nettleserens måte */ } }
   try { await navigator.clipboard.writeText(tekst); return true; }
   catch {
     const t = h('textarea', { style: { position: 'fixed', opacity: '0' } });

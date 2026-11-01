@@ -541,9 +541,9 @@ function fargePanel(j) {
   const ut = h('div');
   ut.append(h('p.dempet', { style: { margin: '2px 2px 12px' } }, 'Produkt, kode, glans og strøk per rom. Det er dette kunden ringer om når en flekk skal fikses.'));
   // Prøvemaling i kameraet (appen) og fargeprøve fra veggen (overalt)
-  ut.append(h('div.bildeknapper', { style: { marginBottom: '12px' } },
+  ut.append(h('div.bildeknapper', { style: { marginBottom: '12px', ...(iApp ? {} : { gridTemplateColumns: '1fr' }) } },
     iApp && h('button.knapp', { type: 'button', onclick: () => proveMal(jobbFarger(j)) }, ikon('kamera'), 'Prøv på veggen'),
-    h('button.knapp.sekundar', { type: 'button', onclick: async () => { const f = await fargeprove(); if (f) fargeArk(j, null, { kode: f.kode, produkt: f.merke === 'Jotun' ? 'Jotun' : '' }); } }, ikon('sok'), 'Finn fargekode')));
+    h('button.knapp.sekundar', { type: 'button', onclick: async () => { const f = await fargeprove(); if (f) fargeArk(j, null, { kode: [f.kode, f.navn].filter(Boolean).join(' '), produkt: f.merke === 'Jotun' ? 'Jotun' : '' }); } }, ikon('sok'), 'Finn fargekode')));
   if (j.farger.length) {
     ut.append(h('div.rad-liste', j.farger.slice().sort((a, b) => (a.dato || '').localeCompare(b.dato || '')).map((f) => h('button.rad', {
       type: 'button', style: { width: '100%', border: '0', background: 'none', textAlign: 'left' }, onclick: () => fargeArk(j, f),

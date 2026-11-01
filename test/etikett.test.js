@@ -44,7 +44,7 @@ test('NCS-kode, også med O for 0', () => {
 
 test('Jotun-kode bare når den finnes i fargelista', () => {
   const kjent = (k) => k === '1453';
-  assert.equal(tolkEtikett(['1453 COTTON BALL', 'EAN 70221234567'], { kjentKode: kjent }).kode, '1453');
+  assert.equal(tolkEtikett(['1453 BOMULL', 'EAN 70221234567'], { kjentKode: kjent }).kode, '1453');
   assert.equal(tolkEtikett(['Batch 20251', '2,7 L'], { kjentKode: kjent }).kode, null);
 });
 

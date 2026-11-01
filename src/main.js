@@ -101,7 +101,8 @@ vedEndring(sjekkSperre);
 
 /* ---------- Service worker ---------- */
 function registrerSW() {
-  if (!('serviceWorker' in navigator)) return;
+  // Inne i iPhone-appen ligger filene i appen (malerguiden://), og service worker trengs ikke
+  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
   const hadde = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     // Første installasjon tar kontroll uten at noe har endret seg for brukeren.
