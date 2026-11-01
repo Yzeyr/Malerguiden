@@ -64,7 +64,18 @@ struct Plan: Codable, Hashable {
     /// gulvet, så begge sidene males. Regnes ikke med i veggNetto; se SkannetRom.veggInne.
     var inne: [Linje]? = nil
 
-    var allePunkter: [Punkt] { gulv + (vegger + dorer + vinduer + apninger + (utenfor ?? []) + (inne ?? [])).flatMap { [$0.a, $0.b] } }
+    var allePunkter: [Punkt] {
+        // Delt opp: som ett langt uttrykk blir det for tungt for kompilatoren
+        var linjer: [Linje] = vegger
+        linjer += dorer
+        linjer += vinduer
+        linjer += apninger
+        linjer += utenfor ?? []
+        linjer += inne ?? []
+        var punkter = gulv
+        for l in linjer { punkter.append(l.a); punkter.append(l.b) }
+        return punkter
+    }
 }
 
 enum Maling {
