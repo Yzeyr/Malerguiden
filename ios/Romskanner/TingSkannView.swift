@@ -16,6 +16,7 @@ struct TingSkannView: View {
     @State private var okt = ObjectCaptureSession()
     @State private var startet = false
     @State private var runder = 1
+    @State private var bytter = false
     @State private var feil: String?
 
     static var stottet: Bool { ObjectCaptureSession.isSupported }
@@ -75,7 +76,9 @@ struct TingSkannView: View {
         if let f = okt.feedback.first.map(Self.tekst) { return f }
         switch okt.state {
         case .initializing: return "Starter kameraet …"
-        case .ready: return "Sett tingen på et bord eller gulvet med god plass rundt. Pek på den."
+        case .ready: return runder > 1
+            ? "Snu tingen og sett den ned der den sto. Pek på den og trykk «Finn tingen»."
+            : "Sett tingen på et bord eller gulvet med god plass rundt. Pek på den."
         case .detecting: return "Juster boksen så hele tingen er inni."
         case .capturing: return okt.userCompletedScanPass ? "Runden er ferdig." : "Gå rolig rundt tingen. Hold avstand på en halv til én meter."
         case .finishing: return "Lagrer bildene …"
@@ -95,9 +98,12 @@ struct TingSkannView: View {
         case .capturing:
             if okt.userCompletedScanPass {
                 VStack(spacing: 10) {
-                    stor("Snu tingen, ta en runde til", ikon: "arrow.triangle.2.circlepath") { runder += 1; okt.beginNewScanPassAfterFlip() }
+                    stor("Snu tingen, ta en runde til", ikon: "arrow.triangle.2.circlepath") { snu() }
                     HStack(spacing: 10) {
-                        liten("Runde til uten å snu") { runder += 1; okt.beginNewScanPass() }
+                        liten("Runde til uten å snu") {
+                            guard !bytter, case .capturing = okt.state else { return }
+                            runder += 1; okt.beginNewScanPass()
+                        }
                         liten("Ferdig") { okt.finish() }
                     }
                 }
@@ -106,6 +112,25 @@ struct TingSkannView: View {
             }
         default:
             EmptyView()
+        }
+    }
+
+    /// Ny runde etter at tingen er snudd. Økta må stå på pause først, ellers stopper
+    /// Object Capture appen («Can't beginNewScanPassAfterFlip() from state == capturing»).
+    private func snu() {
+        guard !bytter, case .capturing = okt.state else { return }
+        bytter = true
+        okt.pause()
+        Task { @MainActor in
+            // Pausen slår ikke alltid inn med en gang
+            var vent = 0
+            while !okt.isPaused && vent < 40 { try? await Task.sleep(for: .milliseconds(50)); vent += 1 }
+            guard okt.isPaused else { bytter = false; return }
+            okt.beginNewScanPassAfterFlip()
+            runder += 1
+            // Neste runde starter i «klar»: da må kameraet gå igjen
+            if okt.isPaused { okt.resume() }
+            bytter = false
         }
     }
 

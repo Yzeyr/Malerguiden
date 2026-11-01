@@ -13,8 +13,8 @@ targets:
       path: Romskanner/Info.plist
       properties:
         CFBundleDisplayName: Romskanner
-        CFBundleShortVersionString: "2.3"
-        CFBundleVersion: "14"
+        CFBundleShortVersionString: "2.4"
+        CFBundleVersion: "15"
         NSCameraUsageDescription: Kameraet og LiDAR-sensoren brukes til å måle opp rom og skanne ting til 3D-modeller.
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities: [arkit]
