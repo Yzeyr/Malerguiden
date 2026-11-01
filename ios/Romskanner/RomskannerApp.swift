@@ -5,7 +5,88 @@ import UIKit
 @main
 struct RomskannerApp: App {
     var body: some Scene {
-        WindowGroup { ContentView() }
+        WindowGroup { RotView() }
+    }
+}
+
+/// Appen er Malerguiden: nettappen fyller skjermen, og skanneren, romvelgeren og
+/// prøvemalingen åpnes oppå den når nettsiden ber om det.
+struct RotView: View {
+    @StateObject private var lager = RomLager()
+    @StateObject private var tingLager = TingLager()
+    @StateObject private var web = WebKobling()
+
+    var body: some View {
+        MalerguidenWebView(kobling: web)
+            .ignoresSafeArea()
+            .background(Color(red: 0.96, green: 0.94, blue: 0.90).ignoresSafeArea())
+            .sheet(isPresented: Binding(get: { web.visRomVelger }, set: { if !$0 { web.romValgt(nil) } })) {
+                RomVelger(lager: lager, tingLager: tingLager) { web.romValgt($0) }
+            }
+            .fullScreenCover(isPresented: $web.visSkanner) {
+                ContentView(lager: lager, tingLager: tingLager) { web.visSkanner = false }
+            }
+            .fullScreenCover(item: $web.proveFarger) { p in
+                ProveMalView(farger: p.farger) { web.proveFarger = nil }
+            }
+    }
+}
+
+/// Velg skannede rom som skal inn i Malerguiden, eller skann nye først.
+struct RomVelger: View {
+    @ObservedObject var lager: RomLager
+    @ObservedObject var tingLager: TingLager
+    let ferdig: (String?) -> Void
+    @State private var valgte = Set<UUID>()
+    @State private var skanner = false
+
+    private var grupper: [(navn: String, rom: [SkannetRom])] {
+        let prosjekter = lager.prosjekter.sorted { $0.dato > $1.dato }.map { (navn: $0.navn, rom: lager.rom(i: $0.id)) }
+        return (prosjekter + [(navn: "Uten prosjekt", rom: lager.rom(i: nil))]).filter { !$0.rom.isEmpty }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(selection: $valgte) {
+                if grupper.isEmpty {
+                    Section {
+                        Text("Ingen rom er skannet ennå. Trykk «Åpne skanneren», lag et prosjekt og skann rommene.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                ForEach(grupper, id: \.navn) { g in
+                    Section(g.navn) {
+                        ForEach(g.rom) { rom in RomRad(rom: rom).tag(rom.id) }
+                    }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Velg rom")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { ferdig(nil) } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(valgte.isEmpty ? "Legg inn" : "Legg inn \(valgte.count)") {
+                        let utvalg = lager.rom.filter { valgte.contains($0.id) }
+                        ferdig(Eksport(rom: utvalg).json())
+                    }
+                    .disabled(valgte.isEmpty)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button { skanner = true } label: {
+                    Label("Åpne skanneren", systemImage: "camera.viewfinder").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.73, green: 0.28, blue: 0.16))
+                .controlSize(.large)
+                .padding()
+                .background(.bar)
+            }
+            .fullScreenCover(isPresented: $skanner) {
+                ContentView(lager: lager, tingLager: tingLager) { skanner = false }
+            }
+        }
     }
 }
 
@@ -18,8 +99,10 @@ enum Rute: Hashable {
 
 /// Startskjermen: prosjektene. Rom skannet før prosjektene kom, ligger under «Uten prosjekt».
 struct ContentView: View {
-    @StateObject private var lager = RomLager()
-    @StateObject private var tingLager = TingLager()
+    @ObservedObject var lager: RomLager
+    @ObservedObject var tingLager: TingLager
+    /// Lukker skanneren og går tilbake til Malerguiden.
+    var lukk: (() -> Void)? = nil
     @State private var skannerTing = false
     @State private var nyTing = UUID()
     @State private var ventendeTing: UUID?
@@ -88,7 +171,14 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("Romskanner")
+            .navigationTitle("Skanner")
+            .toolbar {
+                if let lukk {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { lukk() } label: { Label("Malerguiden", systemImage: "chevron.backward") }
+                    }
+                }
+            }
             .navigationDestination(for: Rute.self) { rute in
                 switch rute {
                 case .prosjekt(let id): ProsjektView(lager: lager, prosjektId: id)
@@ -364,7 +454,7 @@ struct ProsjektView: View {
         .alert("Kopiert", isPresented: Binding(get: { kopiert > 0 }, set: { if !$0 { kopiert = 0 } })) {
             Button("OK") { kopiert = 0 }
         } message: {
-            Text("\(kopiert) rom er kopiert. Åpne Malerguiden, gå til jobben → Mål → Skanning, og trykk «Lim inn».")
+            Text("\(kopiert) rom er kopiert. I Malerguiden: jobben → Mål → Skanning → «Hent fra skanneren» henter rommene direkte.")
         }
     }
 }

@@ -16,6 +16,8 @@ import { romPanel, prisPanel, forTimerArk, handlelisteArk } from './pris.js';
 import { blokk, blokkInnhold, prisRad, sammenlegg } from './blokk.js';
 import { beregn, romFremgang, fremgangPerEtasje, STEG } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
+import { fargeprove, lesSpannet, proveMal, jobbFarger, finnFarge, tekstFarge } from './farger.js';
+import { iApp } from '../native.js';
 
 const FANER = [
   { id: 'arbeid', navn: 'Arbeid' },
@@ -538,11 +540,15 @@ async function bildeviser(jobId, bildeId) {
 function fargePanel(j) {
   const ut = h('div');
   ut.append(h('p.dempet', { style: { margin: '2px 2px 12px' } }, 'Produkt, kode, glans og strøk per rom. Det er dette kunden ringer om når en flekk skal fikses.'));
+  // Prøvemaling i kameraet (appen) og fargeprøve fra veggen (overalt)
+  ut.append(h('div.bildeknapper', { style: { marginBottom: '12px' } },
+    iApp && h('button.knapp', { type: 'button', onclick: () => proveMal(jobbFarger(j)) }, ikon('kamera'), 'Prøv på veggen'),
+    h('button.knapp.sekundar', { type: 'button', onclick: async () => { const f = await fargeprove(); if (f) fargeArk(j, null, { kode: f.kode, produkt: f.merke === 'Jotun' ? 'Jotun' : '' }); } }, ikon('sok'), 'Finn fargekode')));
   if (j.farger.length) {
     ut.append(h('div.rad-liste', j.farger.slice().sort((a, b) => (a.dato || '').localeCompare(b.dato || '')).map((f) => h('button.rad', {
       type: 'button', style: { width: '100%', border: '0', background: 'none', textAlign: 'left' }, onclick: () => fargeArk(j, f),
     },
-      h('span.farge-prove', f.glans ? f.glans : '•'),
+      h('span.farge-prove', finnFarge(f.kode) ? { style: { background: finnFarge(f.kode).hex, color: tekstFarge(finnFarge(f.kode).hex) } } : null, f.glans ? f.glans : '•'),
       h('span.hoved', h('b', f.rom || 'Uten rom'), h('small', [f.produkt, f.kode].filter(Boolean).join(' · ')), h('small', fargeDetaljer(f))),
       h('span.dempet', { style: { display: 'flex' } }, ikon('pil'))))));
   } else {
@@ -552,11 +558,11 @@ function fargePanel(j) {
   return ut;
 }
 
-function fargeArk(j, f = null) {
+function fargeArk(j, f = null, forslag = {}) {
   ark((lukk) => {
     const verdier = {};
     const felt = FARGE_FELT.map((d) => {
-      const start = f ? f[d.id] : d.id === 'rom' ? j.rom : d.id === 'strok' ? '2' : d.id === 'dato' ? iDagIso() : '';
+      const start = forslag[d.id] || (f ? f[d.id] : d.id === 'rom' ? j.rom : d.id === 'strok' ? '2' : d.id === 'dato' ? iDagIso() : '');
       const inn = h('input', { type: d.type || 'text', maxlength: d.maxlength, inputmode: d.inputmode, autocomplete: 'off', value: start || '', placeholder: d.hint || '' });
       verdier[d.id] = inn;
       return h('label.felt', h('span', d.label), inn);
@@ -577,6 +583,20 @@ function fargeArk(j, f = null) {
       },
     },
       h('h2', f ? 'Endre farge' : 'Ny farge'),
+      // Fyll inn fra et bilde av spannet (appen) eller fra veggen
+      h('div.bildeknapper', { style: { marginBottom: '10px' } },
+        iApp && h('button.knapp.sekundar', { type: 'button', onclick: async () => {
+          const e = await lesSpannet();
+          if (!e) return;
+          if (e.produkt) verdier.produkt.value = e.produkt;
+          if (e.kode) verdier.kode.value = e.kode + (e.farge?.navn ? ' ' + e.farge.navn : '');
+          if (e.glans) verdier.glans.value = e.glans;
+          toast('Fant: ' + e.oppsummering);
+        } }, ikon('kamera'), 'Les spannet'),
+        h('button.knapp.sekundar', { type: 'button', onclick: async () => {
+          const r = await fargeprove();
+          if (r) verdier.kode.value = r.kode + (r.navn ? ' ' + r.navn : '');
+        } }, ikon('sok'), 'Fra veggen')),
       felt, feil,
       h('div.knapprad',
         f && h('button.knapp.fare', {

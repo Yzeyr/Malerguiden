@@ -108,6 +108,18 @@ export function lastNed(fil) {
  * Returnerer 'delt' | 'avbrutt' | 'lastet-ned' (delingen feilet, fila ble lastet ned i stedet).
  */
 export async function delKopi(fil) {
+  // I iPhone-appen deler appen selv fila (Filer, AirDrop, e-post)
+  const app = globalThis.webkit?.messageHandlers?.mg;
+  if (app) {
+    const b64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1] || '');
+      r.onerror = () => reject(new Error('Klarte ikke lese fila.'));
+      r.readAsDataURL(fil);
+    });
+    const svar = await app.postMessage({ type: 'del', fil: b64, navn: fil.name, mime: fil.type || 'application/json' });
+    return svar?.delt ? 'delt' : 'avbrutt';
+  }
   if (!kanDele(fil)) { lastNed(fil); return 'lastet-ned'; }
   try {
     await navigator.share({ files: [fil], title: fil.name });

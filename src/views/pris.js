@@ -3,7 +3,9 @@
 
 import { h, tom, ikon, toast, ark, bekreft, velg, kopierTekst } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
-import { endreJobb, hentJobb, KLADD_ID, timerBrukt } from '../jobs.js';
+import { endreJobb, hentJobb, KLADD_ID, timerBrukt, forbeholdTekster } from '../jobs.js';
+import { tilbudsData, tilbudTekst, tilbudPrompt, tallStemmer } from '../tilbud.js';
+import { iApp, appInfo, kall } from '../native.js';
 import { etasjeFor, fremgangPerEtasje, handleliste, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { gaTil } from '../nav.js';
@@ -301,10 +303,69 @@ export function prisPanel(j) {
     prisRad({ tittel: 'Legg til tillegg', under: 'F.eks. flytte møbler eller ekstra rydding', pil: '',
       ekstra: h('span.belop.pluss', ikon('pluss')), klikk: () => tilleggArk(j.id) })));
 
+  ut.append(h('button.knapp.hel', { type: 'button', style: { marginTop: '4px' }, onclick: () => tilbudArk(j.id) }, ikon('notat'), 'Lag tilbudstekst'));
   ut.append(h('div', { style: { textAlign: 'center', marginTop: '12px' } },
     h('a.lenkeknapp', { href: '#mitt/priser' }, 'Timepris og normtall', ikon('pil'))));
   ut.append(h('p.dempet.liten', { style: { textAlign: 'center' } }, 'Et overslag. Juster normtallene til din egen fart under Mitt.'));
   return ut;
+}
+
+/* ---------- Tilbudstekst ----------
+   Malen settes sammen av kalkylen. I appen kan Apples språkmodell skrive om
+   arbeidsbeskrivelsen; prisene settes alltid inn av oss, aldri av modellen. */
+
+function tilbudArk(jobId) {
+  const j = hentJobb(jobId);
+  if (!j) return;
+  const r = beregn(j.kalkyle || tomKalkyle(j.klasse), egnePriser());
+  let forbehold = [];
+  try { forbehold = forbeholdTekster(j); } catch { /* hurtigprisen har ingen forbehold */ }
+  // Hurtigprisen er ingen kunde: da står det ikke noe navn øverst
+  const d = tilbudsData(j.id === KLADD_ID ? { ...j, kunde: {} } : j, r, { tork: dagerMedTork(r), forbehold });
+  ark(() => {
+    const felt = h('textarea', { rows: 16, style: { width: '100%', fontSize: '15px', lineHeight: '1.45' } });
+    felt.value = tilbudTekst(d);
+    const melding = h('p.dempet.liten', { hidden: true, style: { margin: '6px 2px' } });
+    const ki = h('div');
+    if (iApp) {
+      appInfo().then((info) => {
+        if (!info?.ki) {
+          if (info?.kiGrunn) ki.append(h('p.dempet.liten', { style: { margin: '0 2px 8px' } }, info.kiGrunn));
+          return;
+        }
+        const knapp = h('button.knapp.sekundar.hel', { type: 'button', style: { marginBottom: '8px' }, onclick: async () => {
+          knapp.disabled = true; knapp.textContent = 'Skriver …';
+          try {
+            const svar = await kall('skrivTekst', tilbudPrompt(d));
+            const tekst = String(svar?.tekst || '').trim();
+            if (!tekst) throw new Error('Fikk ikke noe svar.');
+            if (!tallStemmer(tekst, d)) {
+              melding.textContent = 'Teksten hadde tall som ikke står i kalkylen, så malen er beholdt. Prøv igjen.';
+            } else {
+              felt.value = tilbudTekst(d, { beskrivelse: tekst });
+              melding.textContent = 'Skrevet om på telefonen. Les gjennom før du sender.';
+            }
+          } catch (e) { melding.textContent = e.message || 'Klarte ikke skrive om teksten.'; }
+          melding.hidden = false;
+          knapp.disabled = false; tom(knapp, '✨ Skriv om igjen');
+        } }, '✨ Skriv om med Apple Intelligence');
+        ki.append(knapp);
+      });
+    }
+    return h('div',
+      h('h2', 'Tilbudstekst'),
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Laget av kalkylen. Rett i teksten før du sender den. Timer og timepris står ikke i den.'),
+      ki, melding, felt,
+      h('div.knapprad',
+        h('button.knapp.sekundar', { type: 'button', onclick: async () => { if (await kopierTekst(felt.value)) toast('Kopiert.'); } }, ikon('kopier'), 'Kopier'),
+        h('button.knapp', { type: 'button', onclick: async () => {
+          try {
+            if (iApp) await kall('del', { tekst: felt.value });
+            else if (navigator.share) await navigator.share({ text: felt.value });
+            else if (await kopierTekst(felt.value)) toast('Kopiert.');
+          } catch { /* avbrutt */ }
+        } }, ikon('del'), 'Del')));
+  });
 }
 
 /** Legg til et tillegg på jobben: tekst, timer og/eller kroner. */
@@ -760,8 +821,12 @@ function importerSkanning(jobId) {
     });
     return h('div',
       h('h2', 'Importer skanning'),
-      h('p.dempet', { style: { marginTop: '-6px' } }, 'Skann rommene med Romskanner-appen og trykk «Kopier til Malerguiden». Kom så tilbake hit og trykk «Lim inn».'),
-      h('button.knapp.hel', {
+      iApp && h('button.knapp.hel', { type: 'button', style: { marginBottom: '10px' }, onclick: async () => {
+        try { const svar = await kall('hentRom'); if (svar?.tekst) leggInn(svar.tekst); }
+        catch (e) { feil.textContent = e.message; feil.hidden = false; }
+      } }, ikon('kamera'), 'Hent fra skanneren'),
+      h('p.dempet', { style: { marginTop: iApp ? '0' : '-6px' } }, iApp ? 'Velg rommene du har skannet, eller skann et nytt.' : 'Skann rommene med Romskanner-appen og trykk «Kopier til Malerguiden». Kom så tilbake hit og trykk «Lim inn».'),
+      !iApp && h('button.knapp.hel', {
         type: 'button',
         onclick: async () => {
           try { leggInn(await navigator.clipboard.readText()); }

@@ -12,6 +12,8 @@ import { alleJobber, hentJobb, endreJobb, jobbNavn, hovedfag } from '../jobs.js'
 import { MAAL_GRUPPER } from '../data/misc.js';
 import { gaTil } from '../nav.js';
 import { topp, nyJobbArk } from './felles.js';
+import { iApp } from '../native.js';
+import { lesSpannet } from './farger.js';
 
 const KALK = Object.fromEntries(KALKULATORER.map((k) => [k.id, k]));
 // Verdier som skal settes i neste kalkulator (fra «Bruk veggareal i …»).
@@ -92,6 +94,7 @@ export function visRegn(rot, sti) {
   }, k.navn, h('small', k.under)))));
 
   const resultatEl = h('div');
+  const inndata = {}; // feltene, så lesing av spannet kan fylle dem inn
   const feltEl = (f) => {
     if (f.type === 'avkrysning') {
       const inn = h('input.bryter', { type: 'checkbox', checked: !!verdier[f.id], onchange: (e) => { verdier[f.id] = e.target.checked; husk(f.id, e.target.checked); tegnResultat(); } });
@@ -112,6 +115,7 @@ export function visRegn(rot, sti) {
       value: String(verdier[f.id] ?? ''), 'aria-label': f.label,
       oninput: (e) => { verdier[f.id] = e.target.value; merke.hidden = true; fraStandard.delete(f.id); husk(f.id, e.target.value); tegnResultat(); },
     });
+    inndata[f.id] = inn;
     const steg = (retning) => {
       let v = tall(inn.value);
       if (!Number.isFinite(v)) v = tall(String(std[f.id])) || 0;
@@ -129,8 +133,23 @@ export function visRegn(rot, sti) {
     return langHint ? h('div', rad, langHint) : rad;
   };
 
+  // I appen: ta bilde av spannet eller sekken, så fylles forbruket inn
+  const LES = { 'calc-maling': 'mal-forbruk', 'calc-sparkel': 'sp-forbruk' };
+  const lesKnapp = iApp && LES[calcId] && h('button.knapp.sekundar.hel', { type: 'button', style: { marginBottom: '12px' }, onclick: async () => {
+    const e = await lesSpannet();
+    if (!e) return;
+    const id = LES[calcId];
+    const v = calcId === 'calc-maling' ? e.forbruk?.snitt : (e.kgForbruk?.enhet === 'kg/m²' ? e.kgForbruk.snitt : null);
+    if (!(v > 0) || !inndata[id]) { toast('Fant: ' + e.oppsummering + '. Ingen forbrukstall å fylle inn.'); return; }
+    inndata[id].value = fmt(v, v % 1 ? 1 : 0).replace(/\s/g, '');
+    inndata[id].dispatchEvent(new Event('input'));
+    inndata[id].closest('details')?.setAttribute('open', '');
+    toast('Forbruk ' + inndata[id].value + ' ' + (calcId === 'calc-maling' ? 'm²/L' : 'kg/m²') + ' fra ' + (e.produkt || 'etiketten') + '.');
+  } }, ikon('kamera'), calcId === 'calc-maling' ? 'Les forbruket på spannet' : 'Les forbruket på sekken');
+
   const vanlige = kalk.felt.filter((f) => !f.avansert);
   const avanserte = kalk.felt.filter((f) => f.avansert);
+  if (lesKnapp) side.append(lesKnapp);
   side.append(h('section.kort',
     vanlige.map(feltEl),
     avanserte.length && h('details.flere', h('summary', 'Forbruk, svinn og sekkestørrelse'), avanserte.map(feltEl)),

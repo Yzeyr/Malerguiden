@@ -9,6 +9,11 @@ on:
     paths:
       - "ios/**"
       - ".github/workflows/romskanner.yml"
+      # Nettappen ligger inne i iPhone-appen, så den bygges på nytt når den endres
+      - "index.html"
+      - "app.css"
+      - "src/**"
+      - "icons/**"
   workflow_dispatch:
 
 permissions:
@@ -28,6 +33,9 @@ jobs:
         working-directory: ios
         run: |
           brew install xcodegen
+          # Nettappen (samme filer som på GitHub Pages) legges inn i appen
+          rm -rf Web && mkdir Web
+          cp -R ../index.html ../app.css ../manifest.webmanifest ../icons ../src Web/
           xcodegen generate
 
       - name: Bygg (usignert)

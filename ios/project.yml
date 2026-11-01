@@ -9,13 +9,19 @@ targets:
     platform: iOS
     sources:
       - Romskanner
+      # Nettappen, kopiert inn av byggejobben (se .github/workflows/romskanner.yml)
+      - path: Web
+        type: folder
+        optional: true
     info:
       path: Romskanner/Info.plist
       properties:
-        CFBundleDisplayName: Romskanner
-        CFBundleShortVersionString: "2.4"
-        CFBundleVersion: "15"
-        NSCameraUsageDescription: Kameraet og LiDAR-sensoren brukes til å måle opp rom og skanne ting til 3D-modeller.
+        CFBundleDisplayName: Malerguiden
+        CFBundleShortVersionString: "3.0"
+        CFBundleVersion: "16"
+        NSCameraUsageDescription: Kameraet og LiDAR-sensoren brukes til å måle opp rom, skanne ting til 3D-modeller, lese etiketter og prøvemale vegger.
+        NSPhotoLibraryUsageDescription: Bilder fra biblioteket kan legges på jobbene.
+        NSPhotoLibraryAddUsageDescription: Bilder av prøvemalingen kan lagres i Bilder.
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities: [arkit]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

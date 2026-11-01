@@ -13,7 +13,7 @@
  *
  * VERSJON oppdateres av tools/versjon.mjs (kjøres før hver publisering).
  */
-const VERSJON = 'malerguiden-19c473c4';
+const VERSJON = 'malerguiden-cba59798';
 const FILER = [
   './',
   './index.html',
@@ -37,6 +37,11 @@ const FILER = [
   './src/priser.js',
   './src/ki.js',
   './src/plangjenkjenning.js',
+  './src/native.js',
+  './src/etikett.js',
+  './src/farge.js',
+  './src/tilbud.js',
+  './src/data/farger.js',
   './src/data/checklists.js',
   './src/data/facts.js',
   './src/data/misc.js',
@@ -52,6 +57,7 @@ const FILER = [
   './src/views/blokk.js',
   './src/views/hurtigpris.js',
   './src/views/plantegning.js',
+  './src/views/farger.js',
 ];
 const VENT_MS = 2500;
 

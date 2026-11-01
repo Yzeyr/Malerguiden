@@ -35,9 +35,19 @@ export function les(nokkel) {
   try { return localStorage.getItem(nokkel); } catch { return null; }
 }
 
+/* I iPhone-appen speiles lagringen til en fil i appen, så jobbene ikke kan
+   forsvinne om nettlesermotoren rydder. Appen legger dem tilbake ved oppstart
+   hvis de mangler. Små UI-valg og KI-nøkkelen speiles ikke. */
+const speil = typeof window !== 'undefined' && window.webkit?.messageHandlers?.mg;
+const speiles = (n) => speil && n.startsWith('malerguiden') && !n.startsWith('malerguiden:ui:') && n !== 'malerguiden:ki-nokkel';
+function speilSkriv(nokkel, verdi) {
+  if (!speiles(nokkel)) return;
+  try { speil.postMessage({ type: 'speil', nokkel, verdi }).catch(() => {}); } catch { /* appen svarer ikke */ }
+}
+
 /** Skriver en streng. Returnerer true/false, og melder fra ved feil. */
 export function skriv(nokkel, verdi) {
-  try { localStorage.setItem(nokkel, verdi); return true; }
+  try { localStorage.setItem(nokkel, verdi); speilSkriv(nokkel, verdi); return true; }
   catch (e) {
     meld(nokkel, e, erFull(e)
       ? 'Lagringen på telefonen er full. Det siste du gjorde er ikke lagret. Ta en sikkerhetskopi og slett gamle bilder.'
@@ -46,7 +56,7 @@ export function skriv(nokkel, verdi) {
   }
 }
 
-export function fjern(nokkel) { try { localStorage.removeItem(nokkel); } catch { /* ingenting å gjøre */ } }
+export function fjern(nokkel) { try { localStorage.removeItem(nokkel); speilSkriv(nokkel, null); } catch { /* ingenting å gjøre */ } }
 
 /**
  * Leser JSON. Skiller mellom «finnes ikke» og «finnes, men er ødelagt»:

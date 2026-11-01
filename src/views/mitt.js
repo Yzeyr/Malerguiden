@@ -14,11 +14,21 @@ import { byggKopi, delKopi, lastNed, markerKopiTatt, dagerSidenKopi, kanDele, le
 import { plassBrukt, beOmVarigLagring } from '../store.js';
 import { topp } from './felles.js';
 import { faktumKort } from './oppslag.js';
+import { iApp, kall } from '../native.js';
 
 export function visMitt(rot, del) {
   const side = h('div.visning');
   rot.append(side);
   side.append(topp('Lagret på denne telefonen', 'Mitt'));
+  // I iPhone-appen: rom- og tingskanneren
+  if (iApp) {
+    side.append(h('button.kort', {
+      type: 'button', style: { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', textAlign: 'left', marginBottom: '12px', border: '0', font: 'inherit', color: 'inherit' },
+      onclick: () => kall('apneSkanner').catch((e) => toast(e.message)),
+    }, h('span.farge-prove.k-terrakotta', { style: { background: 'var(--c)', color: 'var(--pa)' } }, ikon('kamera')),
+      h('span', { style: { flex: '1' } }, h('b', { style: { display: 'block' } }, 'Skanner'), h('small.dempet', 'Skann rom med LiDAR og ting til 3D-modeller')),
+      ikon('pil')));
+  }
   const kopiEl = h('section', { id: 'kopi' });
   side.append(kopiEl);
   tegnKopi(kopiEl);
