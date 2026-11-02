@@ -288,6 +288,32 @@ export function ytterhjornerAuto(poly) {
   return n;
 }
 
+/**
+ * Innerhjørner i et rom med kjent form: hjørnene der to vegger møtes inn mot rommet (de som
+ * sparkles når rommet er listefritt). Ytterhjørnene får hjørnelist og regnes for seg.
+ * Samme regel for små hakk som ytterhjornerAuto. Et rektangel har 4, et L-formet rom 5.
+ */
+export function innerhjornerAuto(poly) {
+  const p = (poly || []).map((q) => (Array.isArray(q) ? q : [q.x, q.y])).filter((q) => q.every(Number.isFinite));
+  if (p.length < 3) return 4;
+  let areal = 0, omkrets = 0;
+  for (let i = 0; i < p.length; i++) {
+    const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length];
+    areal += x1 * y2 - x2 * y1;
+    omkrets += Math.hypot(x2 - x1, y2 - y1);
+  }
+  const retning = Math.sign(areal), kortest = omkrets * 0.025;
+  let n = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[(i + p.length - 1) % p.length], b = p[i], c = p[(i + 1) % p.length];
+    const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
+    const lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+    if (lu < kortest || lv < kortest) continue;
+    if (((ux * vy - uy * vx) / (lu * lv)) * retning > 0.3) n++; // bøyer samme vei som rommet
+  }
+  return n;
+}
+
 export function romMengder(rom) {
   const L = tall(rom.lengde), B = tall(rom.bredde);
   const H = ellers(tall(rom.hoyde), STANDARD_HOYDE);
@@ -315,7 +341,11 @@ export function romMengder(rom) {
   // Ytterhjørner: det som er skrevet inn, ellers talt fra formen på rommet (plantegning eller skanning)
   const skrevet = tall(rom.ytterhjorner);
   const ytterhjorner = Number.isFinite(skrevet) ? Math.max(0, Math.round(skrevet)) : ytterhjornerAuto(rom.polygon || rom.skannplan?.gulv);
-  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H, inneVegg, ...vindusStorrelse(rom, vinduer) };
+  // Innerhjørner: fra formen (tegning eller skanning), ellers 4 pluss ett per ytterhjørne (rette
+  // vinkler). En vegg inne i rommet som males, gir to innerhjørner der den møter veggen.
+  const form = Array.isArray(rom.polygon) && rom.polygon.length >= 3 ? rom.polygon : (rom.skannplan?.gulv?.length >= 3 ? rom.skannplan.gulv : null);
+  const innerhjorner = (form ? innerhjornerAuto(form) : 4 + ytterhjorner) + 2 * inne.filter((l) => (l.sider || 0) > 0).length;
+  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H, innerhjorner, inneVegg, ...vindusStorrelse(rom, vinduer) };
 }
 
 /**
@@ -393,10 +423,10 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
       if (m.ytterLm > 0) { mengder.ytter += m.ytterLm; flater.ytter.push({ m2: m.ytterLm, faktor }); }
     }
     if (med.tak && med.sparkling) { mengder.takSparkles += m.tak; flater.takSparkles.push({ m2: m.tak, faktor }); }
-    // Overgangen tak/vegg følger omkretsen. Hjørnene: antall hjørner × takhøyde (4 i et firkantet rom).
+    // Overgangen tak/vegg følger omkretsen. Hjørnene: innerhjørner × takhøyde (4 i et firkantet rom).
     if (med.vegg || med.tak) { mengder.taklinje += m.omkrets; flater.taklinje.push({ m2: m.omkrets, faktor }); }
     if (med.vegg) {
-      const hjorner = (Array.isArray(rom.polygon) && rom.polygon.length >= 3 ? rom.polygon.length : 4) * m.hoyde;
+      const hjorner = m.innerhjorner * m.hoyde;
       mengder.hjorner += hjorner; flater.hjorner.push({ m2: hjorner, faktor });
     }
     if (med.tak) { mengder.tak += m.tak; flater.tak.push({ m2: m.tak, faktor }); }

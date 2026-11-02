@@ -738,7 +738,7 @@ function arbeidArk(jobId, del = 'flater') {
       const lf = a.listefritt || {};
       const mengde = {
         tak: fmt(r.mengder.taklinje, 1) + ' m overgang tak/vegg',
-        hjorner: fmt(r.mengder.hjorner, 1) + ' m hjørner',
+        hjorner: fmt(r.mengder.hjorner, 1) + ' m innerhjørner. Ytterhjørner får hjørnelist og regnes for seg',
         vinduer: flertall(r.mengder.vinduer, 'vindu', 'vinduer') + ', smyg uten gerikt',
         dorer: flertall(r.mengder.dorer, 'dørside', 'dørsider') + ' uten gerikt',
       };

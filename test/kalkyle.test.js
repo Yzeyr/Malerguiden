@@ -591,3 +591,19 @@ test('skannet rom: veggen som regnestykke, og ingen list under brede dører og �
   assert.ok(Math.abs(romMengder(som).lister - romMengder(rom).lister) < 1e-9);
   assert.equal(veggRegnestykke({ navn: 'Manuelt', lengde: '4', bredde: '3' }), null);
 });
+
+test('listefrie hjørner: bare innerhjørner, fra formen på rommet', async () => {
+  const { innerhjornerAuto, romMengder } = await import('../src/kalkyle.js');
+  assert.equal(innerhjornerAuto([[0, 0], [4, 0], [4, 3], [0, 3]]), 4);
+  const L = [[0, 0], [5, 0], [5, 2], [3, 2], [3, 4], [0, 4]];
+  assert.equal(innerhjornerAuto(L), 5);
+  assert.equal(innerhjornerAuto([...L].reverse()), 5);
+  // Lite hakk (smyg) teller ikke
+  assert.equal(innerhjornerAuto([[0, 0], [4, 0], [4, 1.5], [3.9, 1.5], [3.9, 2.3], [4, 2.3], [4, 3], [0, 3]]), 4);
+  // Uten form: 4 + ett per ytterhjørne
+  assert.equal(romMengder({ lengde: '4', bredde: '3', ytterhjorner: '2' }).innerhjorner, 6);
+  // Skannet rom med gulvform og to skillevegger som males
+  const gulv = L.map(([x, y]) => ({ x, y }));
+  const m = romMengder({ gulv: 16, omkrets: 18, vegg: 30, hoyde: '2,4', skannplan: { gulv, vegger: [], dorer: [], vinduer: [], apninger: [], inne: [{ a: { x: 0, y: 1 }, b: { x: 1, y: 1 }, sider: 2 }, { a: { x: 0, y: 3 }, b: { x: 1, y: 3 }, sider: 0 }] } });
+  assert.equal(m.innerhjorner, 5 + 2);
+});
