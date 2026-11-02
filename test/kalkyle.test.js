@@ -562,3 +562,32 @@ test('vinduer etter størrelse: timene følger omkretsen, antallet står', async
   assert.ok(Math.abs(stor.timer / vanlig.timer - 2.49 / 2) < 0.01);
   assert.match(stor.detalj, /12,2 m karm og foring/);
 });
+
+test('skannet rom: veggen som regnestykke, og ingen list under brede dører og åpninger', async () => {
+  const { veggRegnestykke, romMengder } = await import('../src/kalkyle.js');
+  const linje = (bredde, hoyde) => ({ a: { x: 0, y: 0 }, b: { x: bredde, y: 0 }, bredde, hoyde });
+  // Som «Galguften 2etg»: 82,0 m² yttervegg, 4 vinduer, 3 dører, 2 skillevegger
+  const rom = {
+    id: 'r', navn: 'Galguften', hoyde: '2,42', gulv: 57.3, omkrets: 33.9, vinduer: '4', dorer: '3', vegg: 54.02,
+    skannplan: {
+      gulv: [], vegger: [], utenfor: [], apninger: [],
+      vinduer: [linje(3.86, 0.57), linje(2.31, 0.65), linje(1.75, 2.27), linje(2.30, 0.53)],
+      dorer: [linje(2.34, 2.39), linje(2.13, 2.39), linje(3.52, 2.39)],
+      inne: [{ ...linje(2.70, 2.42), sider: 2 }, { ...linje(1.94, 2.42), sider: 2 }],
+    },
+  };
+  const v = veggRegnestykke(rom);
+  assert.ok(Math.abs(v.total - 104.4) < 0.1, String(v.total));
+  assert.ok(Math.abs(v.vinduer - 8.9) < 0.05);
+  assert.ok(Math.abs(v.dorer - 19.1) < 0.05);
+  assert.ok(Math.abs(v.males - 76.5) < 0.1, String(v.males));
+  assert.ok(Math.abs(v.total - v.vinduer - v.dorer - v.apninger - v.males) < 1e-9);
+  // Lister: omkrets minus dørenes bredde (7,99 m), pluss skilleveggene
+  assert.ok(Math.abs(romMengder(rom).lister - (33.9 - 7.99 + 2 * 4.64)) < 0.01);
+  // En «dør» gjort om til åpning: fortsatt ingen list der
+  const som = structuredClone(rom);
+  som.skannplan.apninger = som.skannplan.dorer.splice(2, 1);
+  som.dorer = '2';
+  assert.ok(Math.abs(romMengder(som).lister - romMengder(rom).lister) < 1e-9);
+  assert.equal(veggRegnestykke({ navn: 'Manuelt', lengde: '4', bredde: '3' }), null);
+});

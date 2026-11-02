@@ -6,7 +6,7 @@ import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt, forbeholdTekster } from '../jobs.js';
 import { tilbudsData, tilbudTekst, tilbudPrompt, tallStemmer } from '../tilbud.js';
 import { iApp, appInfo, kall } from '../native.js';
-import { etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
+import { veggRegnestykke, etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { klokkeTimer, klokkeTekst, timerTilForing, LANG_KLOKKE, startTikker } from '../klokke.js';
 import { gaTil } from '../nav.js';
@@ -86,12 +86,23 @@ export function romArk(jobId, romId, forslag = null) {
     const resultat = h('div.merker', { style: { margin: '2px 0 14px' } });
     const oppdater = () => {
       const m = romMengder(verdi);
-      tom(resultat, m.ok
-        ? [h('span.merke', 'Gulv ' + m2(m.gulv)), h('span.merke', 'Vegg ' + m2(m.vegg)), h('span.merke', 'Lister ' + fmt(m.lister, 1) + ' m')]
-        : h('span.merke', 'Fyll inn lengde og bredde'));
+      const v = m.ok ? veggRegnestykke(verdi) : null;
+      // Skannet rom: vis hele regnestykket, så det er lett å se at tallene henger sammen
+      const rad = (navn, tall, sterk) => h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '3px 0', fontWeight: sterk ? '700' : '500', borderTop: sterk ? '1px solid var(--linje)' : '0' } },
+        h('span', navn), h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, tall));
+      tom(resultat, !m.ok ? h('span.merke', 'Fyll inn lengde og bredde')
+        : v ? h('div.kort', { style: { padding: '8px 12px', width: '100%' } },
+          rad('Vegg totalt, før fradrag', m2(v.total)),
+          v.vinduer > 0 && rad('Minus vinduer', '−' + m2(v.vinduer)),
+          v.dorer > 0 && rad('Minus dører', '−' + m2(v.dorer)),
+          v.apninger > 0 && rad('Minus åpninger', '−' + m2(v.apninger)),
+          rad('Vegg som males', m2(v.males), true),
+          v.inne > 0 && h('div.dempet.liten', 'Av det ' + m2(v.inne) + ' på vegger inne i rommet'),
+          h('div.dempet.liten', { style: { marginTop: '4px' } }, 'Gulv ' + m2(m.gulv) + ' · lister ' + fmt(m.lister, 1) + ' m'))
+        : [h('span.merke', 'Gulv ' + m2(m.gulv)), h('span.merke', 'Vegg ' + m2(m.vegg)), h('span.merke', 'Lister ' + fmt(m.lister, 1) + ' m')]);
     };
     const felt = (navn, label, attrs = {}) => h('label.felt', { style: { flex: '1', marginBottom: '10px' } }, h('span', label),
-      h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: verdi[navn] || '', ...attrs, oninput: (e) => { verdi[navn] = e.target.value; oppdater(); } }));
+      h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: verdi[navn] || '', 'data-felt': navn, ...attrs, oninput: (e) => { verdi[navn] = e.target.value; oppdater(); } }));
     const bryter = (navn, label, under) => h('label.tallfelt', h('span', label, under && h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, under)),
       h('input.bryter', { type: 'checkbox', checked: !!verdi.med[navn], onchange: (e) => { verdi.med[navn] = e.target.checked; } }));
     oppdater();
@@ -130,6 +141,44 @@ export function romArk(jobId, romId, forslag = null) {
             endreVinduer(nye);
           } }, 'Lagre'))));
     };
+    // Dører og åpninger: rett målet, eller gjør en bred «dør» om til en åpning (ingen dør å male)
+    const dorArk = (type, i) => {
+      const p = verdi.skannplan;
+      const l = p[type][i];
+      const b = h('input', { type: 'text', inputmode: 'decimal', value: l.bredde ? fmt(l.bredde, 2) : '', placeholder: '0,90' });
+      const hh = h('input', { type: 'text', inputmode: 'decimal', value: l.hoyde ? fmt(l.hoyde, 2) : '', placeholder: '2,10' });
+      let somApning = type === 'apninger';
+      const valg = h('div.velger', { style: { marginBottom: '10px' } });
+      const tegnValg = () => tom(valg, [[false, 'Dør'], [true, 'Åpning uten dør']].map(([v, t]) =>
+        h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(somApning === v), style: { flex: '1' }, onclick: () => { somApning = v; tegnValg(); } }, t)));
+      tegnValg();
+      ark((lukkD) => h('div',
+        h('h2', (type === 'dorer' ? 'Dør ' : 'Åpning ') + (i + 1)),
+        h('p.dempet', { style: { marginTop: '-6px' } }, 'En åpning er en gjennomgang uten dør: den trekkes fra veggen, men males ikke som dør og har ingen list i gulvet.'
+          + (type === 'dorer' && l.bredde > 1.3 ? ' Denne er ' + fmt(l.bredde, 2) + ' m bred, så den er trolig en åpning.' : '')),
+        valg,
+        h('div', { style: { display: 'flex', gap: '10px' } },
+          h('label.felt', { style: { flex: '1' } }, h('span', 'Bredde (m)'), b),
+          h('label.felt', { style: { flex: '1' } }, h('span', 'Høyde (m)'), hh)),
+        h('div.knapprad',
+          h('button.knapp.sekundar', { type: 'button', onclick: () => lukkD() }, 'Avbryt'),
+          h('button.knapp', { type: 'button', onclick: () => {
+            const nb = tallEl(b.value), nh = tallEl(hh.value);
+            if (!(nb > 0 && nb < 8) || !(nh > 0 && nh < 4)) { toast('Skriv bredde og høyde i meter, f.eks. 0,90.'); return; }
+            const for_ = vindusareal([l]);
+            const ny = { ...l, bredde: nb, hoyde: nh, fast: true };
+            // Samme type: bytt på plassen, så nummeret står. Ny type: flytt den over.
+            if (somApning === (type === 'apninger')) p[type][i] = ny;
+            else { p[type].splice(i, 1); if (somApning) p.apninger = [...(p.apninger || []), ny]; else p.dorer = [...p.dorer, ny]; }
+            // Veggarealet fra skanningen har hullet trukket fra: rett det med forskjellen
+            if (Number.isFinite(verdi.vegg) && verdi.vegg > 0) verdi.vegg = Math.max(0, Math.round((verdi.vegg + for_ - vindusareal([ny])) * 100) / 100);
+            verdi.dorer = String(p.dorer.length);
+            const dorFelt = planKort.closest('form')?.querySelector('[data-felt="dorer"]');
+            if (dorFelt) dorFelt.value = verdi.dorer;
+            lukkD();
+            tegnPlan(); oppdater();
+          } }, 'Lagre'))));
+    };
     const veggRad = (l, hvor, i) => {
       const sider = hvor === 'inne' ? l.sider : 0;
       const velg = (v) => {
@@ -152,8 +201,12 @@ export function romArk(jobId, romId, forslag = null) {
         (p.vinduer.length > 0 || p.dorer.length > 0) && h('div.merker', { style: { padding: '6px 4px 2px' } },
           p.vinduer.map((l, i) => h('button.merke', { type: 'button', onclick: () => vinduArk(i), 'aria-label': 'Rett målet på vindu ' + (i + 1) },
             'Vindu ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '') + (l.fast ? ' ✓' : ''))),
-          p.dorer.map((l, i) => h('span.merke', 'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '')))),
-        p.vinduer.length > 0 && h('p.dempet.liten', { style: { margin: '4px 4px 2px' } }, 'Trykk på et vindu for å rette målet. ✓ = rettet for hånd.'),
+          p.dorer.map((l, i) => h('button.merke', { type: 'button', onclick: () => dorArk('dorer', i), 'aria-label': 'Rett dør ' + (i + 1) },
+            'Dør ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '') + (l.fast ? ' ✓' : '') + (l.bredde > 1.3 && !l.fast ? ' ⚠︎' : ''))),
+          (p.apninger || []).map((l, i) => h('button.merke', { type: 'button', onclick: () => dorArk('apninger', i), 'aria-label': 'Rett åpning ' + (i + 1) },
+            'Åpning ' + (i + 1) + (l.bredde && l.hoyde ? ': ' + fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) + ' m' : '') + (l.fast ? ' ✓' : '')))),
+        (p.vinduer.length > 0 || p.dorer.length > 0) && h('p.dempet.liten', { style: { margin: '4px 4px 2px' } }, 'Trykk på et vindu eller en dør for å rette målet. ✓ = rettet for hånd.'
+          + (p.dorer.some((l) => l.bredde > 1.3 && !l.fast) ? ' ⚠︎ = så bred at det trolig er en åpning uten dør.' : '')),
         ulikt && h('button.knapp.sekundar', { type: 'button', style: { margin: '8px 4px 2px', width: 'calc(100% - 8px)' }, onclick: () => { endreVinduer(like); toast('Like vinduer har fått samme mål.'); } },
           'Gi like vinduer samme mål'),
         [...(p.inne || []).map((l, i) => veggRad(l, 'inne', i)), ...(p.utenfor || []).map((l, i) => veggRad(l, 'ute', i))]);

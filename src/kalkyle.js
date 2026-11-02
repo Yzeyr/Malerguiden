@@ -227,8 +227,22 @@ export function likeVinduer(vinduer, toleranse = 0.15) {
   return v;
 }
 
-/** Arealet vinduene tar av veggen (m²). */
-export const vindusareal = (vinduer) => vinduer.reduce((s, l) => s + (l.bredde > 0 && l.hoyde > 0 ? l.bredde * l.hoyde : 0), 0);
+/** Arealet vinduene tar av veggen (m²). Gjelder også dører og åpninger. */
+export const vindusareal = (vinduer) => (vinduer || []).reduce((s, l) => s + (l.bredde > 0 && l.hoyde > 0 ? l.bredde * l.hoyde : 0), 0);
+
+/**
+ * Veggen i et skannet rom, delt opp som et regnestykke: alle vegger, minus vinduer, dører og
+ * åpninger, gir veggen som males. Skilleveggene (inne) er med i både totalen og det som males.
+ * null når rommet ikke er skannet.
+ */
+export function veggRegnestykke(rom) {
+  const p = rom?.skannplan;
+  if (!p || !(Number.isFinite(rom.vegg) && rom.vegg > 0)) return null;
+  const m = romMengder(rom);
+  const vinduer = vindusareal(p.vinduer), dorer = vindusareal(p.dorer), apninger = vindusareal(p.apninger);
+  const males = m.vegg;
+  return { total: males + vinduer + dorer + apninger, vinduer, dorer, apninger, males, inne: m.inneVegg || 0 };
+}
 
 /* ---------- Mengder per rom ---------- */
 
@@ -291,7 +305,13 @@ export function romMengder(rom) {
   const inneLister = inne.reduce((s, l) => s + (l.sider || 0) * linjelengde(l), 0);
   // Fra LiDAR-skanning er veggarealet målt direkte, med vinduer og dører trukket fra.
   const vegg = (Number.isFinite(rom.vegg) && rom.vegg > 0 ? rom.vegg : Math.max(0, brutto - vinduer * VINDU_M2 - dorer * DOR_M2)) + inneVegg;
-  const lister = Math.max(0, omkrets - dorer * DOR_BREDDE) + inneLister;
+  // Ingen list der det er dør eller åpning. Fra skanningen er bredden kjent; ellers 0,9 m per dør.
+  const p = rom.skannplan;
+  const planDorer = p && Array.isArray(p.dorer) && p.dorer.length === dorer && p.dorer.every((l) => l.bredde > 0) ? p.dorer : null;
+  const uten = planDorer
+    ? planDorer.reduce((s, l) => s + l.bredde, 0) + (p.apninger || []).reduce((s, l) => s + (l.bredde > 0 ? l.bredde : 0), 0)
+    : dorer * DOR_BREDDE;
+  const lister = Math.max(0, omkrets - uten) + inneLister;
   // Ytterhjørner: det som er skrevet inn, ellers talt fra formen på rommet (plantegning eller skanning)
   const skrevet = tall(rom.ytterhjorner);
   const ytterhjorner = Number.isFinite(skrevet) ? Math.max(0, Math.round(skrevet)) : ytterhjornerAuto(rom.polygon || rom.skannplan?.gulv);
