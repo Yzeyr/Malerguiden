@@ -80,6 +80,26 @@ final class WebKobling: NSObject, ObservableObject {
         skannSvar = nil
     }
 
+    /// Jobben som skal åpnes når siden er lastet (trykk på låseskjermen).
+    private var ventendeJobb: String?
+
+    /// malerguiden://jobb/<id> fra låseskjermen: åpner jobben i Malerguiden.
+    func apne(_ url: URL) {
+        guard url.scheme == Self.skjema else { return }
+        let id = url.host == "jobb" ? (url.pathComponents.last ?? "") : ""
+        let trygt = id.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        ventendeJobb = trygt.isEmpty ? "" : trygt
+        if !webView.isLoading && webView.url != nil { kjorVentende() }
+    }
+
+    fileprivate func kjorVentende() {
+        guard let id = ventendeJobb else { return }
+        ventendeJobb = nil
+        // Lukk det appen viser oppå siden, så jobben synes
+        visRomVelger = false
+        webView.evaluateJavaScript("location.hash = '\(id.isEmpty ? "#jobber" : "#jobb-" + id)';", completionHandler: nil)
+    }
+
     func romLukket() {
         apentRom = nil
         apneSvar?()
@@ -160,6 +180,17 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             }
             guard let etter = lager?.rom.first(where: { $0.id == for_.id }) else { return ["endret": false, "tekst": NSNull()] }
             return ["endret": !RomLager.sammeMal(for_, etter), "tekst": Eksport(rom: [etter]).json()]
+        case "laaseskjerm":
+            // De aktive jobbene til låseskjermen
+            let jobber = m.liste("jobber").compactMap { d -> Tavlejobb? in
+                guard let id = d["id"] as? String else { return nil }
+                return Tavlejobb(id: id, navn: d["navn"] as? String ?? "", adresse: d["adresse"] as? String ?? "",
+                                 neste: d["neste"] as? String ?? "", husk: d["husk"] as? [String] ?? [],
+                                 klokke: (d["klokke"] as? NSNumber)?.doubleValue, tork: (d["tork"] as? NSNumber)?.doubleValue,
+                                 torkTekst: d["torkTekst"] as? String ?? "")
+            }
+            let ok = Delt.skriv(Jobbtavle(oppdatert: Date().timeIntervalSince1970 * 1000, jobber: jobber))
+            return ["ok": ok]
         case "kopiMappe":
             return ["mappe": Autokopi.mappeNavn().map { $0 as Any } ?? NSNull()]
         case "velgKopiMappe":
@@ -281,6 +312,8 @@ enum AppInfo {
             "kobling": true,
             // Daglig sikkerhetskopi til en mappe du velger
             "autokopi": true,
+            // Jobbene på låseskjermen
+            "laaseskjerm": true,
         ]
     }
 }
@@ -288,6 +321,10 @@ enum AppInfo {
 // MARK: - Lenker ut av appen
 
 extension WebKobling: WKNavigationDelegate, WKUIDelegate {
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if ventendeJobb != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.kjorVentende() } }
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         guard let url = navigationAction.request.url else { return .cancel }
         if url.scheme == Self.skjema || url.scheme == "about" || url.scheme == "blob" || url.scheme == "data" { return .allow }

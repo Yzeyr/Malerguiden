@@ -46,6 +46,17 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
           test -d build/Release-iphoneos/Romskanner.app
+          test -d build/Release-iphoneos/Romskanner.app/PlugIns/Laaseskjerm.appex
+
+      - name: Legg inn rettighetene (delt mappe for låseskjermen)
+        working-directory: ios
+        run: |
+          # Uten signering mangler rettighetene i fila. Ad hoc-signering legger dem inn,
+          # så Sideloadly ser at appen og låseskjermdelen deler en mappe (App Group).
+          APP=build/Release-iphoneos/Romskanner.app
+          codesign -f -s - --entitlements Laaseskjerm/Laaseskjerm.entitlements "$APP/PlugIns/Laaseskjerm.appex"
+          codesign -f -s - --entitlements Romskanner/Romskanner.entitlements "$APP"
+          codesign -d --entitlements - "$APP/PlugIns/Laaseskjerm.appex"
 
       - name: Pakk som .ipa
         working-directory: ios

@@ -22,6 +22,7 @@ struct RotView: View {
             .ignoresSafeArea()
             .background(Color(red: 0.96, green: 0.94, blue: 0.90).ignoresSafeArea())
             .onAppear { web.lager = lager }
+            .onOpenURL { web.apne($0) }
             .sheet(isPresented: Binding(get: { web.visRomVelger }, set: { if !$0 { web.romValgt(nil) } })) {
                 RomVelger(lager: lager, tingLager: tingLager, jobb: web.romJobb) { web.romValgt($0) }
             }
