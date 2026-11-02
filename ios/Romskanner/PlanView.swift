@@ -237,6 +237,7 @@ struct RomDetalj: View {
     @State private var visModell: URL?
     @State private var visning: VistModell?
     @State private var sletter = false
+    @State private var skann3D = false
     @Environment(\.dismiss) private var lukk
 
     private var rom: SkannetRom? { lager.rom.first { $0.id == id } }
@@ -296,6 +297,20 @@ struct RomDetalj: View {
                                 Text("Lager 3D med bilder …").foregroundStyle(.secondary)
                             }
                         }
+                        if Fargemodell.finnes(rom.id) {
+                            Button { visning = VistModell(url: Fargemodell.url(rom.id), tittel: rom.navn) } label: {
+                                Label("Vis ekte 3D med farger", systemImage: "cube.fill")
+                            }
+                        } else if lager.fargeUnderArbeid.contains(rom.id) {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text("Lager ekte 3D med farger …").foregroundStyle(.secondary)
+                            }
+                        } else if Skann3DView.stottet {
+                            Button { skann3D = true } label: {
+                                Label("Lag ekte 3D med farger", systemImage: "camera.metering.matrix")
+                            }
+                        }
                         Button { visning = VistModell(url: Modell.url(rom.id), tittel: rom.navn) } label: {
                             Label("Vis rommet i 3D", systemImage: "cube.transparent")
                         }
@@ -307,6 +322,26 @@ struct RomDetalj: View {
                         }
                     } footer: {
                         Text("3D viser modellen på svart bakgrunn. AR setter den ut i rommet du står i.")
+                    }
+                }
+                if let ting = rom.gjenstander, !ting.isEmpty {
+                    Section {
+                        ForEach(Array(ting.enumerated()), id: \.offset) { _, g in
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(g.navn)
+                                    Text("\(m(g.bredde, 2)) × \(m(g.dybde, 2)) × \(m(g.hoyde, 2)) m").font(.footnote).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(g.festeTekst)
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(g.feste == .fast ? Color.orange : g.feste == .los ? Color.green : Color.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("I rommet")
+                    } footer: {
+                        Text("Hva det er og om det er fast, er skannerens gjetning ut fra formen. Se det i 3D med bilder for å være sikker.")
                     }
                 }
                 Section("Mål") {
@@ -338,6 +373,15 @@ struct RomDetalj: View {
             }
             .quickLookPreview($visModell)
             .fullScreenCover(item: $visning) { ModellVisning(modell: $0) }
+            .fullScreenCover(isPresented: $skann3D) {
+                Skann3DView { bitene, bilder in
+                    DispatchQueue.main.async {
+                        skann3D = false
+                        lager.lagFargemodell(bitene, bilder: bilder, id: id)
+                    }
+                }
+                .ignoresSafeArea()
+            }
             .toolbar {
                 Button("Endre navn") { navn = rom.navn; endrer = true }
             }

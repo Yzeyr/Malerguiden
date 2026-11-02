@@ -290,6 +290,10 @@ struct ProsjektView: View {
     @State private var kopiert = 0
     @State private var velger = false
     @State private var valgte = Set<UUID>()
+    @State private var velgModus = false
+    @State private var modus: Skannemodus = .noyaktig
+    /// Rommet som får en runde til med ekte 3D (modus «ekte 3D»)
+    @State private var ekte3D: SkannetRom?
 
     private let stottet = RoomCaptureSession.isSupported
     private var rommene: [SkannetRom] { lager.rom(i: prosjektId) }
@@ -382,7 +386,7 @@ struct ProsjektView: View {
                 }
                 if !velger {
                     HStack(spacing: 10) {
-                        Button { skanner = true } label: {
+                        Button { velgModus = true } label: {
                             Label("Skann rom", systemImage: "camera.viewfinder").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -400,7 +404,7 @@ struct ProsjektView: View {
             .background(.bar)
         }
         .fullScreenCover(isPresented: $skanner) {
-            SkannView { rom, bilder in
+            SkannView(medBilder: modus.medBilder) { rom, bilder in
                 DispatchQueue.main.async {
                     skanner = false
                     guard let rom else { return }
@@ -413,11 +417,33 @@ struct ProsjektView: View {
                     lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                     ventende = nytt
                     navn = nytt.navn
-                    // Vent til skanneskjermen er borte før spørsmålet vises.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { sporNavn = true }
+                    // Vent til skanneskjermen er borte før neste skjerm eller spørsmålet vises.
+                    let tredje = modus == .ekte3D && Skann3DView.stottet
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        if tredje { ekte3D = nytt } else { sporNavn = true }
+                    }
                 }
             }
             .ignoresSafeArea()
+        }
+        // Runde to: hele rommet som ekte 3D med farger. Navnet spørres om etterpå.
+        .fullScreenCover(item: $ekte3D) { rom in
+            Skann3DView { bitene, bilder in
+                DispatchQueue.main.async {
+                    ekte3D = nil
+                    lager.lagFargemodell(bitene, bilder: bilder, id: rom.id)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { sporNavn = true }
+                }
+            }
+            .ignoresSafeArea()
+        }
+        .confirmationDialog("Hvordan vil du skanne?", isPresented: $velgModus, titleVisibility: .visible) {
+            ForEach(Skannemodus.allCases.filter { $0 != .ekte3D || Skann3DView.stottet }) { m in
+                Button(m.tittel) { modus = m; skanner = true }
+            }
+            Button("Avbryt", role: .cancel) {}
+        } message: {
+            Text(Skannemodus.allCases.filter { $0 != .ekte3D || Skann3DView.stottet }.map { $0.tittel + ": " + $0.forklaring }.joined(separator: "\n\n"))
         }
         // Etasje: rom for rom i samme økt. Hvert rom lagres med en gang, med navn «Rom N».
         .fullScreenCover(isPresented: $skannerEtasje) {

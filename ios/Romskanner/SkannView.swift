@@ -7,16 +7,19 @@ import UIKit
 /// når brukeren går videre, og alle rommene får samme koordinater, så de kan vises som én etasje.
 struct SkannView: UIViewControllerRepresentable {
     var etasje = false
+    /// Hurtig skanning tar ingen bilder.
+    var medBilder = true
     var nyttRom: ((CapturedRoom, [Fotobilde]) -> Void)? = nil
     var ferdig: (CapturedRoom?, [Fotobilde]) -> Void
 
-    func makeUIViewController(context: Context) -> SkannKontroller { SkannKontroller(etasje: etasje, nyttRom: nyttRom, ferdig: ferdig) }
+    func makeUIViewController(context: Context) -> SkannKontroller { SkannKontroller(etasje: etasje, medBilder: medBilder, nyttRom: nyttRom, ferdig: ferdig) }
     func updateUIViewController(_ vc: SkannKontroller, context: Context) {}
 }
 
 final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
     private var captureView: RoomCaptureView!
     private let etasje: Bool
+    private let medBilder: Bool
     private let nyttRom: ((CapturedRoom, [Fotobilde]) -> Void)?
     private let ferdig: (CapturedRoom?, [Fotobilde]) -> Void
     private var resultat: CapturedRoom?
@@ -32,8 +35,9 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
     private let avbrytknapp = UIButton(configuration: .gray())
     private let tellerEtikett = UILabel()
 
-    init(etasje: Bool, nyttRom: ((CapturedRoom, [Fotobilde]) -> Void)?, ferdig: @escaping (CapturedRoom?, [Fotobilde]) -> Void) {
+    init(etasje: Bool, medBilder: Bool, nyttRom: ((CapturedRoom, [Fotobilde]) -> Void)?, ferdig: @escaping (CapturedRoom?, [Fotobilde]) -> Void) {
         self.etasje = etasje
+        self.medBilder = medBilder
         self.nyttRom = nyttRom
         self.ferdig = ferdig
         super.init(nibName: nil, bundle: nil)
@@ -106,9 +110,10 @@ final class SkannKontroller: UIViewController, RoomCaptureViewDelegate {
     private func start() {
         skanner = true
         captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
-        // Bilder til 3D-modellen med bilder: ett når kameraet har flyttet seg nok.
+        // Bilder til 3D-modellen med bilder: ett når kameraet har flyttet seg nok og står rolig.
         bildeTimer?.invalidate()
-        bildeTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        guard medBilder else { return }
+        bildeTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self, let frame = self.captureView.captureSession.arSession.currentFrame else { return }
             self.samler.vurder(frame)
         }

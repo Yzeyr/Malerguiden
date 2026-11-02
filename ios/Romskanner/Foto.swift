@@ -13,32 +13,69 @@ struct Fotobilde {
     /// Kameraets fulle oppløsning. JPEG-en er skalert ned med `skala`.
     let opplosning: CGSize
     let skala: CGFloat
+    /// Avstand i meter fra kameraet for hvert punkt i bildet (LiDAR, lav oppløsning), når den finnes.
+    /// Brukes til å se om noe står foran en flate i bildet.
+    var dybde: [Float]? = nil
+    var dybdeBredde = 0
+    var dybdeHoyde = 0
+
+    /// Avstanden LiDAR målte i et punkt i kamerabildet (fulle piksler), eller nil.
+    func dybde(x: CGFloat, y: CGFloat) -> Float? {
+        guard let dybde, dybdeBredde > 0, dybdeHoyde > 0 else { return nil }
+        let i = Int(x / opplosning.width * CGFloat(dybdeBredde)), j = Int(y / opplosning.height * CGFloat(dybdeHoyde))
+        guard i >= 0, j >= 0, i < dybdeBredde, j < dybdeHoyde else { return nil }
+        let d = dybde[j * dybdeBredde + i]
+        return d.isFinite && d > 0 ? d : nil
+    }
 }
 
 /// Samler bilder under skanningen: et nytt bilde når kameraet har flyttet seg
 /// eller snudd seg nok, så bildene dekker rommet fra ulike vinkler.
+/// Bilder tatt mens telefonen beveger seg fort, blir uskarpe og hoppes over.
 final class Bildesamler {
     private(set) var bilder: [Fotobilde] = []
     private var siste: simd_float4x4?
+    private var forrige: (transform: simd_float4x4, tid: TimeInterval)?
     private var opptatt = false
     private let ko = DispatchQueue(label: "romskanner.bildesamler", qos: .utility)
     private let ci = CIContext()
-    private let maks = 45
-    private let skala: CGFloat = 0.5
+    private let maks: Int
+    private let skala: CGFloat
+    private let minFlytt: Float
+    private let medDybde: Bool
 
-    /// Kalles fra hovedtråden med det siste kamerabildet.
+    init(maks: Int = 80, skala: CGFloat = 0.75, minFlytt: Float = 0.3, medDybde: Bool = false) {
+        self.maks = maks
+        self.skala = skala
+        self.minFlytt = minFlytt
+        self.medDybde = medDybde
+    }
+
+    /// Kalles fra hovedtråden med det siste kamerabildet, gjerne ti ganger i sekundet.
     func vurder(_ frame: ARFrame) {
+        let t = frame.camera.transform
+        let tid = frame.timestamp
+        let fra = forrige
+        forrige = (t, tid)
         guard bilder.count < maks, !opptatt else { return }
         guard case .normal = frame.camera.trackingState else { return }
-        let t = frame.camera.transform
+
+        // Uskarpt? Hvor fort telefonen flyttet og snudde seg siden forrige gang
+        guard let fra, tid - fra.tid > 0.02, tid - fra.tid < 1 else { return }
+        let dt = Float(tid - fra.tid)
+        let fart = simd_distance(posisjon(t), posisjon(fra.transform)) / dt
+        let snu = max(vinkel(akse(t, 2), akse(fra.transform, 2)), vinkel(akse(t, 0), akse(fra.transform, 0))) / dt
+        if fart > 0.4 || snu > 0.5 { return }
+
         if let s = siste {
-            let flytt = simd_distance(SIMD3(t.columns.3.x, t.columns.3.y, t.columns.3.z), SIMD3(s.columns.3.x, s.columns.3.y, s.columns.3.z))
-            let retning = simd_dot(SIMD3(t.columns.2.x, t.columns.2.y, t.columns.2.z), SIMD3(s.columns.2.x, s.columns.2.y, s.columns.2.z))
-            if flytt < 0.3 && retning > 0.97 { return } // nesten samme sted og retning
+            let flytt = simd_distance(posisjon(t), posisjon(s))
+            let retning = simd_dot(akse(t, 2), akse(s, 2))
+            if flytt < minFlytt && retning > 0.97 { return } // nesten samme sted og retning
         }
         siste = t
         opptatt = true
         let buffer = frame.capturedImage
+        let dybdekart = medDybde ? frame.sceneDepth?.depthMap : nil
         let kamera = frame.camera
         let opplosning = kamera.imageResolution
         let skala = self.skala
@@ -48,60 +85,137 @@ final class Bildesamler {
             let data = self.ci.jpegRepresentation(
                 of: bilde,
                 colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
-                options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.7])
+                options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.75])
+            var foto = data.map { Fotobilde(jpeg: $0, kamera: kamera, opplosning: opplosning, skala: skala) }
+            if let dybdekart, foto != nil, let kopi = Bildesamler.kopier(dybdekart) {
+                foto?.dybde = kopi.0; foto?.dybdeBredde = kopi.1; foto?.dybdeHoyde = kopi.2
+            }
             DispatchQueue.main.async {
-                if let data { self.bilder.append(Fotobilde(jpeg: data, kamera: kamera, opplosning: opplosning, skala: skala)) }
+                if let foto { self.bilder.append(foto) }
                 self.opptatt = false
             }
         }
     }
+
+    private func posisjon(_ t: simd_float4x4) -> SIMD3<Float> { SIMD3(t.columns.3.x, t.columns.3.y, t.columns.3.z) }
+    private func akse(_ t: simd_float4x4, _ i: Int) -> SIMD3<Float> {
+        let c = t[i]
+        return simd_normalize(SIMD3(c.x, c.y, c.z))
+    }
+    private func vinkel(_ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Float { acos(min(1, max(-1, simd_dot(a, b)))) }
+
+    /// Kopierer LiDAR-dybden (Float32) ut av bufferen, rad for rad.
+    private static func kopier(_ buffer: CVPixelBuffer) -> ([Float], Int, Int)? {
+        guard CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_DepthFloat32 else { return nil }
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+        let b = CVPixelBufferGetWidth(buffer), h = CVPixelBufferGetHeight(buffer)
+        let rad = CVPixelBufferGetBytesPerRow(buffer)
+        var ut = [Float](repeating: 0, count: b * h)
+        for j in 0..<h {
+            let p = base.advanced(by: j * rad).assumingMemoryBound(to: Float.self)
+            for i in 0..<b { ut[j * b + i] = p[i] }
+        }
+        return (ut, b, h)
+    }
 }
 
-/// 3D-modell der veggene og gulvet har bilder fra skanningen.
+//// Noe som kan stå mellom kameraet og en flate: en vegg eller et møbel, sett som en kloss.
+struct Hindring {
+    let fraVerden: simd_float4x4
+    let halv: SIMD3<Float>
+
+    /// Går linjen fra a til b gjennom klossen?
+    func krysser(fra a: SIMD3<Float>, til b: SIMD3<Float>) -> Bool {
+        let p = simd_mul(fraVerden, SIMD4<Float>(a.x, a.y, a.z, 1)), q = simd_mul(fraVerden, SIMD4<Float>(b.x, b.y, b.z, 1))
+        let o = SIMD3<Float>(p.x, p.y, p.z), d = SIMD3<Float>(q.x, q.y, q.z) - o
+        var t0: Float = 0, t1: Float = 1
+        for i in 0..<3 {
+            if abs(d[i]) < 1e-6 {
+                if abs(o[i]) > halv[i] { return false }
+            } else {
+                var ta = (-halv[i] - o[i]) / d[i], tb = (halv[i] - o[i]) / d[i]
+                if ta > tb { swap(&ta, &tb) }
+                t0 = max(t0, ta); t1 = min(t1, tb)
+                if t0 > t1 { return false }
+            }
+        }
+        return true
+    }
+}
+
+/// 3D-modell der vegger, gulv, tak og møbler har bilder fra skanningen.
 enum Fotomodell {
     static func url(_ id: UUID) -> URL { Modell.mappe.appendingPathComponent(id.uuidString + "-foto.usdz") }
     static func finnes(_ id: UUID) -> Bool { FileManager.default.fileExists(atPath: url(id).path) }
     static func slett(_ id: UUID) { try? FileManager.default.removeItem(at: url(id)) }
 
-    private static let pikslerPerMeter: CGFloat = 160
-    private static let rute: Float = 0.5 // meter
+    private static let pikslerPerMeter: CGFloat = 220
+    private static let rute: Float = 0.4 // meter
 
     /// Lager modellen og lagrer den som USDZ. Tar noen sekunder; kjør den i bakgrunnen.
     static func lag(rom: CapturedRoom, bilder: [Fotobilde], til url: URL) {
         let ci = CIContext()
         let kilder = bilder.map { CIImage(data: $0.jpeg) }
         let scene = SCNScene()
+        // Vegger og møbler kan skjule hverandre: et bilde der noe står i veien, brukes ikke for den biten.
+        let hindringer = rom.walls.map { Hindring(fraVerden: simd_inverse($0.transform), halv: SIMD3($0.dimensions.x / 2, $0.dimensions.y / 2, 0.04)) }
+            + rom.objects.map { Hindring(fraVerden: simd_inverse($0.transform), halv: $0.dimensions / 2) }
+
+        func flate(_ t: simd_float4x4, _ w: Float, _ h: Float) -> SCNNode? {
+            guard w > 0.05, h > 0.05 else { return nil }
+            let tekstur = teksturer(transform: t, bredde: w, hoyde: h, bilder: bilder, kilder: kilder, hindringer: hindringer, ci: ci)
+            let plan = SCNPlane(width: CGFloat(w), height: CGFloat(h))
+            plan.materials = [materiale(tekstur)]
+            let node = SCNNode(geometry: plan)
+            node.simdTransform = t
+            return node
+        }
 
         // Veggene: én flate per vegg, med bilde
         for vegg in rom.walls {
-            let w = vegg.dimensions.x, h = vegg.dimensions.y
-            guard w > 0.1, h > 0.1 else { continue }
-            let tekstur = teksturer(transform: vegg.transform, bredde: w, hoyde: h, bilder: bilder, kilder: kilder, ci: ci)
-            let flate = SCNPlane(width: CGFloat(w), height: CGFloat(h))
-            flate.materials = [materiale(tekstur)]
-            let node = SCNNode(geometry: flate)
-            node.simdTransform = vegg.transform
-            scene.rootNode.addChildNode(node)
+            if let n = flate(vegg.transform, vegg.dimensions.x, vegg.dimensions.y) { scene.rootNode.addChildNode(n) }
         }
 
-        // Gulvet: mangekanten fra RoomPlan, med bilde ovenfra
-        if let gulv = gulvnode(rom: rom, bilder: bilder, kilder: kilder, ci: ci) {
+        // Gulvet og taket: mangekanten fra RoomPlan, med bilde ovenfra og nedenfra
+        let gulvY = rom.walls.map { $0.transform.columns.3.y - $0.dimensions.y / 2 }.min()
+        let takY = rom.walls.map { $0.transform.columns.3.y + $0.dimensions.y / 2 }.max()
+        if let gulv = flatnode(rom: rom, y: gulvY, tak: false, bilder: bilder, kilder: kilder, hindringer: hindringer, ci: ci) {
             scene.rootNode.addChildNode(gulv)
         }
+        if let takY, let tak = flatnode(rom: rom, y: takY, tak: true, bilder: bilder, kilder: kilder, hindringer: hindringer, ci: ci) {
+            scene.rootNode.addChildNode(tak)
+        }
 
-        // Møbler som lyse klosser
+        // Møblene: hver side med bilde, så du ser hva som står der
         for o in rom.objects {
-            let boks = SCNBox(width: CGFloat(o.dimensions.x), height: CGFloat(o.dimensions.y), length: CGFloat(o.dimensions.z), chamferRadius: 0.02)
-            let m = SCNMaterial()
-            m.diffuse.contents = UIColor(white: 0.82, alpha: 1)
-            boks.materials = [m]
-            let node = SCNNode(geometry: boks)
-            node.simdTransform = o.transform
-            scene.rootNode.addChildNode(node)
+            for (lokal, w, h) in sider(o.dimensions) {
+                if let n = flate(simd_mul(o.transform, lokal), w, h) { scene.rootNode.addChildNode(n) }
+            }
         }
 
         try? FileManager.default.removeItem(at: url)
         _ = scene.write(to: url, options: nil, delegate: nil, progressHandler: nil)
+    }
+
+    /// De fem sidene av en kloss man ser (ikke bunnen), som flater i klossens koordinater:
+    /// transform, bredde og høyde. En SCNPlane ligger i xy-planet og vender mot +z.
+    static func sider(_ d: SIMD3<Float>) -> [(simd_float4x4, Float, Float)] {
+        func flytt(_ x: Float, _ y: Float, _ z: Float) -> simd_float4x4 {
+            var m = matrix_identity_float4x4
+            m.columns.3 = SIMD4(x, y, z, 1)
+            return m
+        }
+        func snu(_ vinkel: Float, _ akse: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(simd_quatf(angle: vinkel, axis: akse)) }
+        let y = SIMD3<Float>(0, 1, 0), x = SIMD3<Float>(1, 0, 0)
+        return [
+            (flytt(0, 0, d.z / 2), d.x, d.y),
+            (simd_mul(flytt(0, 0, -d.z / 2), snu(.pi, y)), d.x, d.y),
+            (simd_mul(flytt(d.x / 2, 0, 0), snu(.pi / 2, y)), d.z, d.y),
+            (simd_mul(flytt(-d.x / 2, 0, 0), snu(-.pi / 2, y)), d.z, d.y),
+            (simd_mul(flytt(0, d.y / 2, 0), snu(-.pi / 2, x)), d.x, d.z),
+        ]
     }
 
     private static func materiale(_ tekstur: CGImage?) -> SCNMaterial {
@@ -113,16 +227,18 @@ enum Fotomodell {
     }
 
     /// Bilde for en flate i flatens eget plan (x langs bredden, y opp, sentrert i origo).
-    /// Flaten deles i ruter; hver rute får bildet som ser den best.
+    /// Flaten deles i ruter; hver rute får bildet som ser den best. Naboruter foretrekker
+    /// samme bilde, så det blir færre skjøter.
     static func teksturer(transform t: simd_float4x4, bredde w: Float, hoyde h: Float,
-                          bilder: [Fotobilde], kilder: [CIImage?], ci: CIContext) -> CGImage? {
+                          bilder: [Fotobilde], kilder: [CIImage?], hindringer: [Hindring], ci: CIContext) -> CGImage? {
         guard !bilder.isEmpty else { return nil }
         let kolonner = max(1, Int((w / rute).rounded(.up))), rader = max(1, Int((h / rute).rounded(.up)))
         let tw = w / Float(kolonner), th = h / Float(rader)
-        var bredPx = CGFloat(w) * pikslerPerMeter, hoyPx = CGFloat(h) * pikslerPerMeter
+        var bredPx = max(8, CGFloat(w) * pikslerPerMeter), hoyPx = max(8, CGFloat(h) * pikslerPerMeter)
         let maksPx: CGFloat = 2048
         if bredPx > maksPx { hoyPx *= maksPx / bredPx; bredPx = maksPx }
         if hoyPx > maksPx { bredPx *= maksPx / hoyPx; hoyPx = maksPx }
+        bredPx = bredPx.rounded(); hoyPx = hoyPx.rounded()
         let ruteB = bredPx / CGFloat(kolonner), ruteH = hoyPx / CGFloat(rader)
         let normal = simd_normalize(SIMD3(t.columns.2.x, t.columns.2.y, t.columns.2.z))
         func verden(_ x: Float, _ y: Float) -> SIMD3<Float> {
@@ -132,15 +248,20 @@ enum Fotomodell {
 
         var lerret = CIImage(color: CIColor(red: 0.88, green: 0.88, blue: 0.88)).cropped(to: CGRect(x: 0, y: 0, width: bredPx, height: hoyPx))
         var noeFunnet = false
+        var valgt = [Int?](repeating: nil, count: rader * kolonner)
         for r in 0..<rader {
             for k in 0..<kolonner {
                 let x0 = -w / 2 + Float(k) * tw, x1 = x0 + tw
                 let yTopp = h / 2 - Float(r) * th, yBunn = yTopp - th
                 let hjorner = [verden(x0, yTopp), verden(x1, yTopp), verden(x0, yBunn), verden(x1, yBunn)]
                 let midt = verden((x0 + x1) / 2, (yTopp + yBunn) / 2)
-                guard let treff = beste(hjorner: hjorner, midt: midt, normal: normal, bilder: bilder),
+                let venstre = k > 0 ? valgt[r * kolonner + k - 1] : nil
+                let over = r > 0 ? valgt[(r - 1) * kolonner + k] : nil
+                let naboer = Set([venstre, over].compactMap { $0 })
+                guard let treff = beste(hjorner: hjorner, midt: midt, normal: normal, bilder: bilder, hindringer: hindringer, naboer: naboer),
                       let kilde = kilder[treff.0] else { continue }
                 let i = treff.0, punkter = treff.1
+                valgt[r * kolonner + k] = i
                 let b = bilder[i]
                 // Fra kameraets pikselkoordinater (origo oppe til venstre) til JPEG-ens Core Image-koordinater (origo nede til venstre)
                 let hoyde = b.opplosning.height * b.skala
@@ -163,9 +284,10 @@ enum Fotomodell {
         return ci.createCGImage(lerret, from: CGRect(x: 0, y: 0, width: bredPx, height: hoyPx))
     }
 
-    /// Bildet som ser ruta best: alle hjørner i bildet, så mest rett forfra, så nærmest.
+    /// Bildet som ser ruta best: alle hjørner i bildet og ingenting i veien, så mest rett forfra,
+    /// så nærmest. Et bilde naboruta brukte, får et lite fortrinn.
     private static func beste(hjorner: [SIMD3<Float>], midt: SIMD3<Float>, normal: SIMD3<Float>,
-                              bilder: [Fotobilde]) -> (Int, [CGPoint])? {
+                              bilder: [Fotobilde], hindringer: [Hindring], naboer: Set<Int>) -> (Int, [CGPoint])? {
         var best: (Int, [CGPoint], Float)?
         for (i, b) in bilder.enumerated() {
             let kam = b.kamera.transform
@@ -179,42 +301,50 @@ enum Fotomodell {
             guard inne >= 3 else { continue }
             let kamPos = SIMD3(kam.columns.3.x, kam.columns.3.y, kam.columns.3.z)
             let mot = simd_normalize(kamPos - midt)
+            // Står en vegg eller et møbel mellom kameraet og ruta?
+            let utenfor = midt + mot * 0.08
+            if hindringer.contains(where: { $0.krysser(fra: kamPos, til: utenfor) }) { continue }
+            // Så LiDAR noe nærmere kameraet enn ruta (en person, en stol RoomPlan ikke fant)?
+            let p = b.kamera.projectPoint(midt, orientation: .landscapeRight, viewportSize: b.opplosning)
+            let z = -simd_mul(fraKamera, SIMD4<Float>(midt.x, midt.y, midt.z, 1)).z
+            if let d = b.dybde(x: p.x, y: p.y), d < z - 0.15 { continue }
             let forfra = abs(simd_dot(mot, normal))
             let avstand = simd_distance(kamPos, midt)
-            let poeng = Float(inne) * 10 + forfra * 4 - avstand * 0.5
+            let poeng = Float(inne) * 10 + forfra * 4 - avstand * 0.5 + (naboer.contains(i) ? 1.5 : 0)
             if best == nil || poeng > best!.2 { best = (i, punkter, poeng) }
         }
         return best.map { ($0.0, $0.1) }
     }
 
-    /// Gulvet som egen flate: hjørnene fra RoomPlan i rommets koordinater, triangulert, med bilde ovenfra.
-    private static func gulvnode(rom: CapturedRoom, bilder: [Fotobilde], kilder: [CIImage?], ci: CIContext) -> SCNNode? {
+    /// Gulvet eller taket som egen flate: hjørnene fra RoomPlan, triangulert, med bilde ovenfra eller nedenfra.
+    private static func flatnode(rom: CapturedRoom, y hoydeY: Float?, tak: Bool, bilder: [Fotobilde], kilder: [CIImage?],
+                                 hindringer: [Hindring], ci: CIContext) -> SCNNode? {
         guard let g = rom.floors.first, g.polygonCorners.count >= 3 else { return nil }
         let punkter = g.polygonCorners.map { c -> SIMD3<Float> in
             let w = simd_mul(g.transform, SIMD4<Float>(c.x, c.y, c.z, 1))
             return SIMD3(w.x, w.y, w.z)
         }
-        let gulvY = rom.walls.map { $0.transform.columns.3.y - $0.dimensions.y / 2 }.min() ?? (punkter.map(\.y).min() ?? 0)
-        let xs = punkter.map(\.x), zs = punkter.map(\.z)
+        let planY = hoydeY ?? (punkter.map { $0.y }.min() ?? 0)
+        let xs = punkter.map { $0.x }, zs = punkter.map { $0.z }
         guard let minX = xs.min(), let maxX = xs.max(), let minZ = zs.min(), let maxZ = zs.max() else { return nil }
         let w = maxX - minX, d = maxZ - minZ
         guard w > 0.2, d > 0.2 else { return nil }
         let cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2
 
-        // Flatens plan: lokal x = verdens x, lokal y = −z, normal opp.
+        // Flatens plan: lokal x = verdens x, lokal y = −z, normal opp (taket: ned).
         var t = matrix_identity_float4x4
         t.columns.0 = SIMD4(1, 0, 0, 0)
         t.columns.1 = SIMD4(0, 0, -1, 0)
-        t.columns.2 = SIMD4(0, 1, 0, 0)
-        t.columns.3 = SIMD4(cx, gulvY, cz, 1)
-        let tekstur = teksturer(transform: t, bredde: w, hoyde: d, bilder: bilder, kilder: kilder, ci: ci)
+        t.columns.2 = SIMD4(0, tak ? -1 : 1, 0, 0)
+        t.columns.3 = SIMD4(cx, planY, cz, 1)
+        let tekstur = teksturer(transform: t, bredde: w, hoyde: d, bilder: bilder, kilder: kilder, hindringer: hindringer, ci: ci)
 
         // Egen geometri: hjørnene som trekanter, med teksturkoordinater fra x og z.
-        let hjorner = punkter.map { SIMD3<Float>($0.x, gulvY + 0.005, $0.z) }
+        let hjorner = punkter.map { SIMD3<Float>($0.x, planY + (tak ? -0.005 : 0.005), $0.z) }
         let trekanter = triangulerXZ(hjorner)
         guard !trekanter.isEmpty else { return nil }
         let posisjoner = hjorner.map { SCNVector3($0.x, $0.y, $0.z) }
-        let normaler = hjorner.map { _ in SCNVector3(0, 1, 0) }
+        let normaler = hjorner.map { _ in SCNVector3(0, tak ? -1 : 1, 0) }
         let uv = hjorner.map { CGPoint(x: CGFloat(($0.x - minX) / w), y: CGFloat(($0.z - minZ) / d)) }
         let geometri = SCNGeometry(
             sources: [SCNGeometrySource(vertices: posisjoner), SCNGeometrySource(normals: normaler), SCNGeometrySource(textureCoordinates: uv)],

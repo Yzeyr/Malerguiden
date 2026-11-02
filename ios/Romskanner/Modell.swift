@@ -23,6 +23,7 @@ enum Modell {
     static func slett(_ id: UUID) {
         try? FileManager.default.removeItem(at: url(id))
         Fotomodell.slett(id)
+        Fargemodell.slett(id)
     }
 
     /// En kopi med rommets navn, så fila får et forståelig navn når den deles.

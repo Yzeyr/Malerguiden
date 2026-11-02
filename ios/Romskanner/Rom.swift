@@ -34,6 +34,53 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     /// Etasjeskanningen rommet ble skannet i. Rom fra samme skanning har samme koordinater
     /// og kan tegnes sammen som én etasje.
     var okt: UUID?
+    /// Det som står i rommet (møbler, skap, vask …). Mangler på rom skannet før appen lagret det.
+    var gjenstander: [Gjenstand]?
+}
+
+/// Noe som står i rommet, slik RoomPlan så det: en kloss med navn og mål.
+struct Gjenstand: Codable, Hashable {
+    enum Feste: String, Codable { case fast, los, usikker }
+    var navn: String
+    var feste: Feste
+    var bredde: Double
+    var dybde: Double
+    var hoyde: Double
+
+    var festeTekst: String {
+        switch feste {
+        case .fast: return "Fast montert"
+        case .los: return "Løs, kan flyttes"
+        case .usikker: return "Kan være fast"
+        }
+    }
+
+    /// Navn og feste ut fra hva RoomPlan tror det er. Det maleren må vite: kan det flyttes,
+    /// eller må det dekkes til og males rundt?
+    static func fra(_ o: CapturedRoom.Object) -> Gjenstand {
+        let (navn, feste): (String, Feste)
+        switch o.category {
+        case .storage: (navn, feste) = ("Skap eller hylle", .usikker)
+        case .refrigerator: (navn, feste) = ("Kjøleskap", .usikker)
+        case .stove: (navn, feste) = ("Komfyr", .los)
+        case .oven: (navn, feste) = ("Stekeovn", .fast)
+        case .dishwasher: (navn, feste) = ("Oppvaskmaskin", .fast)
+        case .sink: (navn, feste) = ("Vask", .fast)
+        case .washerDryer: (navn, feste) = ("Vaskemaskin eller tørketrommel", .los)
+        case .toilet: (navn, feste) = ("Toalett", .fast)
+        case .bathtub: (navn, feste) = ("Badekar", .fast)
+        case .fireplace: (navn, feste) = ("Peis", .fast)
+        case .stairs: (navn, feste) = ("Trapp", .fast)
+        case .bed: (navn, feste) = ("Seng", .los)
+        case .table: (navn, feste) = ("Bord", .los)
+        case .sofa: (navn, feste) = ("Sofa", .los)
+        case .chair: (navn, feste) = ("Stol", .los)
+        case .television: (navn, feste) = ("TV", .usikker)
+        @unknown default: (navn, feste) = ("Ting", .usikker)
+        }
+        let d = o.dimensions
+        return Gjenstand(navn: navn, feste: feste, bredde: Maling.avrund(Double(d.x)), dybde: Maling.avrund(Double(d.z)), hoyde: Maling.avrund(Double(d.y)))
+    }
 }
 
 /// En samling rom, f.eks. én kunde eller én bolig.
@@ -140,7 +187,8 @@ enum Maling {
             gulv: avrund(gulv), omkrets: avrund(omkrets), takhoyde: avrund(takhoyde),
             veggBrutto: avrund(veggBrutto), veggNetto: avrund(max(0, veggBrutto - hull)),
             vinduer: p.vinduer.count, dorer: p.dorer.count, apninger: p.apninger.count,
-            plan: p, utenforVegger: utenfor.count, apneDorer: apne + somDor)
+            plan: p, utenforVegger: utenfor.count, apneDorer: apne + somDor,
+            gjenstander: r.objects.map(Gjenstand.fra))
     }
 
     /// RoomPlan legger ofte en vegg litt skjevt, særlig ved små fremspring. De fleste rom har rette
@@ -480,6 +528,8 @@ final class RomLager: ObservableObject {
     @Published var prosjekter: [Prosjekt] = [] { didSet { lagreProsjekter() } }
     /// Rom der 3D-modellen med bilder fortsatt lages.
     @Published var fotoUnderArbeid = Set<UUID>()
+    /// Rom der ekte 3D med farger fortsatt lages.
+    @Published var fargeUnderArbeid = Set<UUID>()
     private let nokkel = "skannede-rom"
     private let prosjektNokkel = "prosjekter"
 
@@ -560,6 +610,20 @@ final class RomLager: ObservableObject {
                 _ = self.fotoUnderArbeid.remove(id)
                 // Rommet ble forkastet eller slettet mens modellen ble laget: ikke la fila ligge igjen
                 if !self.rom.contains(where: { $0.id == id }) { Fotomodell.slett(id) }
+            }
+        }
+    }
+
+    /// Lager ekte 3D med farger i bakgrunnen (kan ta et halvt minutt).
+    func lagFargemodell(_ bitene: [Nettbit], bilder: [Fotobilde], id: UUID) {
+        guard !bitene.isEmpty else { return }
+        fargeUnderArbeid.insert(id)
+        let url = Fargemodell.url(id)
+        Task.detached(priority: .utility) {
+            Fargemodell.lag(bitene: bitene, bilder: bilder, til: url)
+            await MainActor.run {
+                _ = self.fargeUnderArbeid.remove(id)
+                if !self.rom.contains(where: { $0.id == id }) { Fargemodell.slett(id) }
             }
         }
     }
