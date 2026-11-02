@@ -309,7 +309,7 @@ export function prisPanel(j) {
   const timerTekst = 'Timer × ' + fmt(r.timepris, 0) + ' kr';
   ut.append(h('section.blokk',
     h('header', h('h3', 'Hva skal gjøres'), h('span', 'alle rom')),
-    prisRad({ tittel: 'Vegger', under: m2(r.mengder.vegg), belop: valgTekst(a.vegg), valg: true, klikk: () => arbeidArk(j.id, 'flater') }),
+    prisRad({ tittel: 'Vegger', under: m2(r.mengder.vegg) + ', uten vinduer og dører', belop: valgTekst(a.vegg), valg: true, klikk: () => arbeidArk(j.id, 'flater') }),
     prisRad({ tittel: 'Tak', under: m2(r.mengder.tak), belop: valgTekst(a.tak), valg: true, klikk: () => arbeidArk(j.id, 'flater') }),
     prisRad({ tittel: 'Maling av listverk, vinduer og dører', under: snekkerTekst(a), klikk: () => arbeidArk(j.id, 'snekker') }),
     prisRad({ tittel: 'Listefritt', under: listefrittTekst(a), klikk: () => arbeidArk(j.id, 'listefritt') }),
