@@ -91,7 +91,7 @@ struct Jobbvisning: View {
             if let start = j.klokke { Text(Date(timeIntervalSince1970: start / 1000), style: .timer) + Text(" · " + j.navn) }
             else { Text(j.navn + (j.husk.isEmpty ? "" : " · Husk: " + j.husk.joined(separator: ", "))) }
         } else {
-            Text(innslag.mangler && innslag.synlig ? "Åpne Malerguiden" : "")
+            Text(innslag.mangler ? "Åpne Malerguiden" : innslag.synlig ? "Ingen aktive jobber" : "Jobbene vises fra 06:45")
         }
     }
 
@@ -111,10 +111,18 @@ struct Jobbvisning: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        } else if innslag.mangler && innslag.synlig {
+        } else if innslag.mangler {
             Text("Åpne Malerguiden én gang, så kommer jobbene hit.").font(.caption)
         } else {
-            Color.clear
+            // Utenom arbeidstiden: en liten tekst, så du ser at den virker
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Malerguiden").font(.headline)
+                Text(innslag.synlig ? "Ingen aktive jobber nå" : "Jobbene vises 06:45–15:00").font(.caption)
+                if !innslag.synlig && !innslag.jobber.isEmpty {
+                    Text(innslag.jobber.count == 1 ? "1 aktiv jobb" : "\(innslag.jobber.count) aktive jobber").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
