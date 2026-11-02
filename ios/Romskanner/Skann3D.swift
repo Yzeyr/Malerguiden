@@ -48,7 +48,7 @@ struct Skann3DView: UIViewControllerRepresentable {
 final class Skann3DKontroller: UIViewController {
     private var arView: ARView!
     private let ferdig: ([Nettbit], [Fotobilde]) -> Void
-    private let samler = Bildesamler(maks: 50, skala: 0.5, minFlytt: 0.3, medDybde: true)
+    private let samler = Bildesamler(maks: 110, skala: 0.5, minFlytt: 0.3, medDybde: true)
     private var timer: Timer?
     private var avsluttet = false
     private let hovedknapp = UIButton(configuration: .filled())
@@ -139,10 +139,17 @@ final class Skann3DKontroller: UIViewController {
     }
 
     private func oppdaterInfo() {
-        let n = samler.bilder.count
-        let tekst = n < 8
-            ? "  Gå sakte langs veggene. Pek mot gulv, tak og hjørner, og hold telefonen rolig. Bilder: \(n)  "
-            : "  Bilder: \(n) av 50. Rutenettet viser det som er skannet. Trykk «Ferdig» når alt er dekket.  "
+        let n = samler.bilder.count, maks = samler.maksAntall
+        let tekst: String
+        if n < 8 {
+            tekst = "  Gå sakte langs veggene. Pek mot gulv, tak og hjørner, og hold telefonen rolig. Bilder: \(n)  "
+        } else if n >= maks {
+            tekst = "  Bilder: \(n), fullt. Skann ferdig resten og trykk «Ferdig».  "
+        } else if n >= 15 && samler.oppover < 3 {
+            tekst = "  Pek opp mot taket også, så taket får bilder. Bilder: \(n) av \(maks)  "
+        } else {
+            tekst = "  Bilder: \(n) av \(maks). Rutenettet viser det som er skannet. Trykk «Ferdig» når alt er dekket.  "
+        }
         if info.text != tekst { info.text = tekst }
     }
 

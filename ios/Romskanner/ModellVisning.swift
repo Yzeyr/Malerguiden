@@ -98,6 +98,8 @@ struct ModellVisning: View {
     @State private var egen = Color(red: 0.85, green: 0.80, blue: 0.72)
     @State private var malte: [MaltFlate] = []
     @State private var ekteLys = true
+    /// Som i Sims: vegger og tak mellom kameraet og rommet skjules, så du ser inn.
+    @State private var gjem = true
 
     init(modell: VistModell, lagre: (([Avstand]) -> Void)? = nil) {
         self.modell = modell
@@ -109,7 +111,7 @@ struct ModellVisning: View {
 
     private var hint: String {
         switch modus {
-        case .se: return "Dra for å snu · knip for å zoome · to fingre for å flytte"
+        case .se: return gjem ? "Veggene nærmest deg er gjemt · trykk på kuben for å vise alt" : "Dra for å snu · knip for å zoome · to fingre for å flytte"
         case .mal: return ventende == nil ? "Trykk på første punkt. Zoom inn mot hjørnet for å treffe nøyaktig." : "Trykk på andre punkt."
         case .farge: return malte.isEmpty ? "Velg en farge og trykk på en vegg." : "Trykk på flere vegger, eller på en malt vegg for å bytte farge."
         }
@@ -125,7 +127,7 @@ struct ModellVisning: View {
         ZStack {
             Color.black.ignoresSafeArea()
             Scenevisning(url: modell.url, ref: ref, modus: modus, avstander: avstander, ventende: ventende,
-                         malte: malte, ekteLys: ekteLys, trykk: punkt, trykkVegg: malVegg)
+                         malte: malte, ekteLys: ekteLys, gjem: gjem, trykk: punkt, trykkVegg: malVegg)
                 .ignoresSafeArea()
             VStack {
                 topplinje.padding()
@@ -160,6 +162,15 @@ struct ModellVisning: View {
         HStack(spacing: 10) {
             Text(modell.tittel).font(.headline).foregroundStyle(.white).lineLimit(1)
             Spacer()
+            Button { gjem.toggle() } label: {
+                Image(systemName: gjem ? "cube.transparent" : "cube")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(gjem ? Color.orange : Color.white.opacity(0.2), in: Capsule())
+                    .foregroundStyle(.white)
+            }
+            .accessibilityLabel(gjem ? "Vis alle vegger" : "Gjem veggene nærmest")
             modusknapp("Farge", ikon: "paintpalette", .farge)
             modusknapp("Mål", ikon: "ruler", .mal)
             Button { lukk() } label: {
@@ -334,6 +345,7 @@ struct Scenevisning: UIViewRepresentable {
     var ventende: SIMD3<Float>? = nil
     var malte: [MaltFlate] = []
     var ekteLys = true
+    var gjem = true
     var trykk: (SIMD3<Float>) -> Void = { _ in }
     var trykkVegg: (SIMD3<Float>, SIMD3<Float>) -> Void = { _, _ in }
 
@@ -365,6 +377,8 @@ struct Scenevisning: UIViewRepresentable {
         let storst = max(hoy.x - lav.x, hoy.y - lav.y, hoy.z - lav.z, 1)
         // Modellene er i meter. Er en modell lest inn i cm, er den over 50 enheter stor.
         lag.skala = storst > 50 ? 0.01 : 1
+        lag.midt = SIMD3(senter.x, senter.y, senter.z)
+        lag.forbered(scene.rootNode)
         let kamera = SCNNode()
         kamera.camera = SCNCamera()
         kamera.camera?.zNear = 0.01
@@ -392,6 +406,7 @@ struct Scenevisning: UIViewRepresentable {
         lag.ventende = ventende
         lag.trykk = trykk
         lag.trykkVegg = trykkVegg
+        lag.settGjem(gjem)
         lag.mal(malte, ekteLys: ekteLys)
         lag.tegn()
     }
@@ -417,6 +432,60 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
     private var tegnes = false
     private let laas = NSLock()
 
+    // MARK: Gjem veggene nærmest (som i Sims)
+
+    /// Midten av modellen, i scenens koordinater.
+    var midt = SIMD3<Float>(0, 0, 0)
+    private(set) var gjem = true
+    private var materialer: [SCNMaterial] = []
+
+    /// Hver flate snus mot midten av rommet. Vender den da bort fra kameraet, står kameraet
+    /// på utsiden av den: da er den en vegg eller et tak i veien, og skjules.
+    /// Virker uansett hvilken vei flatene i fila vender.
+    static let gjemKode = """
+    #pragma arguments
+    float3 rommidt;
+    float gjem;
+    #pragma body
+    if (gjem > 0.5) {
+        float3 n = normalize(_surface.normal);
+        float3 p = _surface.position;
+        float3 c = (scn_frame.viewTransform * float4(rommidt, 1.0)).xyz;
+        if (dot(n, c - p) < 0.0) { n = -n; }
+        if (dot(n, -p) < -0.03 * length(p)) { discard_fragment(); }
+    }
+    """
+
+    /// Samme regel på CPU-en, så trykk går gjennom veggene som er skjult.
+    func skjult(_ p: SIMD3<Float>, _ normal: SIMD3<Float>, kamera: SIMD3<Float>) -> Bool {
+        guard gjem else { return false }
+        var n = normal
+        if simd_dot(n, midt - p) < 0 { n = -n }
+        let mot = kamera - p
+        return simd_dot(n, mot) < -0.03 * simd_length(mot)
+    }
+
+    /// Legger regelen på alle materialene i modellen.
+    func forbered(_ rot: SCNNode) {
+        rot.enumerateHierarchy { node, _ in
+            node.geometry?.materials.forEach { self.gjor($0) }
+        }
+    }
+
+    private func gjor(_ m: SCNMaterial, husk: Bool = true) {
+        m.shaderModifiers = [.fragment: Malerlag.gjemKode]
+        m.setValue(NSValue(scnVector3: SCNVector3(midt.x, midt.y, midt.z)), forKey: "rommidt")
+        m.setValue(NSNumber(value: gjem ? 1 : 0), forKey: "gjem")
+        if husk { materialer.append(m) }
+    }
+
+    func settGjem(_ ja: Bool) {
+        guard ja != gjem else { return }
+        gjem = ja
+        let alle = materialer + maling.childNodes.compactMap { $0.geometry?.materials }.flatMap { $0 }
+        alle.forEach { $0.setValue(NSNumber(value: ja ? 1 : 0), forKey: "gjem") }
+    }
+
     /// Alle trekantene i modellen, i scenens koordinater. Leses første gang noe males.
     private struct Trekant { var a, b, c, n, s: SIMD3<Float> }
     private var trekanter: [Trekant]?
@@ -437,11 +506,17 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
     @objc func trykket(_ g: UITapGestureRecognizer) {
         guard modus != .se, let v = visning else { return }
         let treff = v.hitTest(g.location(in: v), options: [
-            .searchMode: SCNHitTestSearchMode.closest.rawValue,
+            .searchMode: SCNHitTestSearchMode.all.rawValue,
             .ignoreHiddenNodes: true,
             .categoryBitMask: 1,
         ])
-        guard let t = treff.first else { return }
+        // Det første treffet som ikke er en skjult vegg
+        let k = v.pointOfView?.worldPosition ?? SCNVector3Zero
+        let kamera = SIMD3(k.x, k.y, k.z)
+        guard let t = treff.first(where: { h in
+            let p = h.worldCoordinates, n = h.worldNormal
+            return !skjult(SIMD3(p.x, p.y, p.z), simd_normalize(SIMD3(n.x, n.y, n.z)), kamera: kamera)
+        }) else { return }
         let p = t.worldCoordinates
         let punkt = SIMD3(p.x, p.y, p.z) * skala
         if modus == .farge {
@@ -542,6 +617,7 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
                 mat.lightingModel = .constant
             }
             geo.materials = [mat]
+            gjor(mat, husk: false)
             let node = SCNNode(geometry: geo)
             node.categoryBitMask = 2
             maling.addChildNode(node)

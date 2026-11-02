@@ -29,12 +29,17 @@ struct Fotobilde {
     }
 }
 
-/// Samler bilder under skanningen: et nytt bilde når kameraet har flyttet seg
-/// eller snudd seg nok, så bildene dekker rommet fra ulike vinkler.
+/// Samler bilder under skanningen: et nytt bilde når kameraet står et sted og peker en vei
+/// det ikke har gjort før, så bildene fordeles over hele rommet i stedet for å brukes opp
+/// på samme vegg.
 /// Bilder tatt mens telefonen beveger seg fort, blir uskarpe og hoppes over.
 final class Bildesamler {
     private(set) var bilder: [Fotobilde] = []
-    private var siste: simd_float4x4?
+    /// Hvor mange bilder som peker opp mot taket.
+    private(set) var oppover = 0
+    var maksAntall: Int { maks }
+    /// Stedene og retningene bildene er tatt fra.
+    private var tatt: [simd_float4x4] = []
     private var forrige: (transform: simd_float4x4, tid: TimeInterval)?
     private var opptatt = false
     private let ko = DispatchQueue(label: "romskanner.bildesamler", qos: .utility)
@@ -67,12 +72,12 @@ final class Bildesamler {
         let snu = max(vinkel(akse(t, 2), akse(fra.transform, 2)), vinkel(akse(t, 0), akse(fra.transform, 0))) / dt
         if fart > 0.4 || snu > 0.5 { return }
 
-        if let s = siste {
-            let flytt = simd_distance(posisjon(t), posisjon(s))
-            let retning = simd_dot(akse(t, 2), akse(s, 2))
-            if flytt < minFlytt && retning > 0.97 { return } // nesten samme sted og retning
-        }
-        siste = t
+        // Finnes det alt et bilde fra nesten samme sted, pekt nesten samme vei?
+        let her = posisjon(t), retning = akse(t, 2)
+        if tatt.contains(where: { simd_distance(posisjon($0), her) < minFlytt && simd_dot(akse($0, 2), retning) > 0.95 }) { return }
+        tatt.append(t)
+        // Kameraet ser langs −z: peker det opp?
+        let opp = -retning.y > 0.45
         opptatt = true
         let buffer = frame.capturedImage
         let dybdekart = medDybde ? frame.sceneDepth?.depthMap : nil
@@ -91,7 +96,7 @@ final class Bildesamler {
                 foto?.dybde = kopi.0; foto?.dybdeBredde = kopi.1; foto?.dybdeHoyde = kopi.2
             }
             DispatchQueue.main.async {
-                if let foto { self.bilder.append(foto) }
+                if let foto { self.bilder.append(foto); if opp { self.oppover += 1 } }
                 self.opptatt = false
             }
         }
