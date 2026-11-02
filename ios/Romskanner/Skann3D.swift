@@ -258,12 +258,12 @@ enum Fargemodell {
                 guard avstand > 0.15, avstand < 6 else { continue }
                 let forfra = abs(simd_dot(mot / avstand, normal))
                 guard forfra > 0.25 else { continue }
-                guard let (qm, zm) = k.projiser(midt), k.inne(qm),
-                      let (qa, _) = k.projiser(a), k.inne(qa),
-                      let (qb, _) = k.projiser(b), k.inne(qb),
-                      let (qc, _) = k.projiser(c), k.inne(qc) else { continue }
+                guard let pm = k.projiser(midt), k.inne(pm.0),
+                      let pa = k.projiser(a), k.inne(pa.0),
+                      let pb = k.projiser(b), k.inne(pb.0),
+                      let pc = k.projiser(c), k.inne(pc.0) else { continue }
                 // Står noe foran trekanten i dette bildet?
-                if let d = bilder[i].dybde(x: CGFloat(qm.x), y: CGFloat(qm.y)), d < zm - 0.06 { continue }
+                if let d = bilder[i].dybdeVed(x: CGFloat(pm.0.x), y: CGFloat(pm.0.y)), d < pm.1 - 0.06 { continue }
                 liste.append((i, forfra * 2 - avstand * 0.5))
             }
             guard !liste.isEmpty else { continue }
@@ -298,8 +298,8 @@ enum Fargemodell {
             for q in hjorner {
                 posisjoner.append(SCNVector3(q.x, q.y, q.z))
                 normaler.append(n.x.isFinite ? SCNVector3(n.x, n.y, n.z) : SCNVector3(0, 1, 0))
-                if i >= 0, let (pk, _) = kameraer[i].projiser(q) {
-                    uv.append(CGPoint(x: CGFloat(pk.x / kameraer[i].b), y: CGFloat(pk.y / kameraer[i].h)))
+                if i >= 0, let pk = kameraer[i].projiser(q) {
+                    uv.append(CGPoint(x: CGFloat(pk.0.x / kameraer[i].b), y: CGFloat(pk.0.y / kameraer[i].h)))
                 } else {
                     uv.append(.zero)
                 }

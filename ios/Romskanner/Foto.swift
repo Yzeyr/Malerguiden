@@ -20,7 +20,7 @@ struct Fotobilde {
     var dybdeHoyde = 0
 
     /// Avstanden LiDAR målte i et punkt i kamerabildet (fulle piksler), eller nil.
-    func dybde(x: CGFloat, y: CGFloat) -> Float? {
+    func dybdeVed(x: CGFloat, y: CGFloat) -> Float? {
         guard let dybde, dybdeBredde > 0, dybdeHoyde > 0 else { return nil }
         let i = Int(x / opplosning.width * CGFloat(dybdeBredde)), j = Int(y / opplosning.height * CGFloat(dybdeHoyde))
         guard i >= 0, j >= 0, i < dybdeBredde, j < dybdeHoyde else { return nil }
@@ -307,7 +307,7 @@ enum Fotomodell {
             // Så LiDAR noe nærmere kameraet enn ruta (en person, en stol RoomPlan ikke fant)?
             let p = b.kamera.projectPoint(midt, orientation: .landscapeRight, viewportSize: b.opplosning)
             let z = -simd_mul(fraKamera, SIMD4<Float>(midt.x, midt.y, midt.z, 1)).z
-            if let d = b.dybde(x: p.x, y: p.y), d < z - 0.15 { continue }
+            if let d = b.dybdeVed(x: p.x, y: p.y), d < z - 0.15 { continue }
             let forfra = abs(simd_dot(mot, normal))
             let avstand = simd_distance(kamPos, midt)
             let poeng = Float(inne) * 10 + forfra * 4 - avstand * 0.5 + (naboer.contains(i) ? 1.5 : 0)

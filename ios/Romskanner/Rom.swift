@@ -58,28 +58,27 @@ struct Gjenstand: Codable, Hashable {
     /// Navn og feste ut fra hva RoomPlan tror det er. Det maleren må vite: kan det flyttes,
     /// eller må det dekkes til og males rundt?
     static func fra(_ o: CapturedRoom.Object) -> Gjenstand {
-        let (navn, feste): (String, Feste)
-        switch o.category {
-        case .storage: (navn, feste) = ("Skap eller hylle", .usikker)
-        case .refrigerator: (navn, feste) = ("Kjøleskap", .usikker)
-        case .stove: (navn, feste) = ("Komfyr", .los)
-        case .oven: (navn, feste) = ("Stekeovn", .fast)
-        case .dishwasher: (navn, feste) = ("Oppvaskmaskin", .fast)
-        case .sink: (navn, feste) = ("Vask", .fast)
-        case .washerDryer: (navn, feste) = ("Vaskemaskin eller tørketrommel", .los)
-        case .toilet: (navn, feste) = ("Toalett", .fast)
-        case .bathtub: (navn, feste) = ("Badekar", .fast)
-        case .fireplace: (navn, feste) = ("Peis", .fast)
-        case .stairs: (navn, feste) = ("Trapp", .fast)
-        case .bed: (navn, feste) = ("Seng", .los)
-        case .table: (navn, feste) = ("Bord", .los)
-        case .sofa: (navn, feste) = ("Sofa", .los)
-        case .chair: (navn, feste) = ("Stol", .los)
-        case .television: (navn, feste) = ("TV", .usikker)
-        @unknown default: (navn, feste) = ("Ting", .usikker)
+        let par: (String, Feste) = switch o.category {
+        case .storage: ("Skap eller hylle", .usikker)
+        case .refrigerator: ("Kjøleskap", .usikker)
+        case .stove: ("Komfyr", .los)
+        case .oven: ("Stekeovn", .fast)
+        case .dishwasher: ("Oppvaskmaskin", .fast)
+        case .sink: ("Vask", .fast)
+        case .washerDryer: ("Vaskemaskin eller tørketrommel", .los)
+        case .toilet: ("Toalett", .fast)
+        case .bathtub: ("Badekar", .fast)
+        case .fireplace: ("Peis", .fast)
+        case .stairs: ("Trapp", .fast)
+        case .bed: ("Seng", .los)
+        case .table: ("Bord", .los)
+        case .sofa: ("Sofa", .los)
+        case .chair: ("Stol", .los)
+        case .television: ("TV", .usikker)
+        @unknown default: ("Ting", .usikker)
         }
         let d = o.dimensions
-        return Gjenstand(navn: navn, feste: feste, bredde: Maling.avrund(Double(d.x)), dybde: Maling.avrund(Double(d.z)), hoyde: Maling.avrund(Double(d.y)))
+        return Gjenstand(navn: par.0, feste: par.1, bredde: Maling.avrund(Double(d.x)), dybde: Maling.avrund(Double(d.z)), hoyde: Maling.avrund(Double(d.y)))
     }
 }
 

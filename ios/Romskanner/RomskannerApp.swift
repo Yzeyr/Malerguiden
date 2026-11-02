@@ -309,6 +309,10 @@ struct ProsjektView: View {
     }
 
     var body: some View {
+        skannevalg(liste)
+    }
+
+    private var liste: some View {
         List(selection: $valgte) {
             if !velger {
                 ForEach(Array(etasjer.enumerated()), id: \.offset) { i, etasje in
@@ -426,25 +430,6 @@ struct ProsjektView: View {
             }
             .ignoresSafeArea()
         }
-        // Runde to: hele rommet som ekte 3D med farger. Navnet spørres om etterpå.
-        .fullScreenCover(item: $ekte3D) { rom in
-            Skann3DView { bitene, bilder in
-                DispatchQueue.main.async {
-                    ekte3D = nil
-                    lager.lagFargemodell(bitene, bilder: bilder, id: rom.id)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { sporNavn = true }
-                }
-            }
-            .ignoresSafeArea()
-        }
-        .confirmationDialog("Hvordan vil du skanne?", isPresented: $velgModus, titleVisibility: .visible) {
-            ForEach(Skannemodus.allCases.filter { $0 != .ekte3D || Skann3DView.stottet }) { m in
-                Button(m.tittel) { modus = m; skanner = true }
-            }
-            Button("Avbryt", role: .cancel) {}
-        } message: {
-            Text(Skannemodus.allCases.filter { $0 != .ekte3D || Skann3DView.stottet }.map { $0.tittel + ": " + $0.forklaring }.joined(separator: "\n\n"))
-        }
         // Etasje: rom for rom i samme økt. Hvert rom lagres med en gang, med navn «Rom N».
         .fullScreenCover(isPresented: $skannerEtasje) {
             SkannView(etasje: true, nyttRom: { rom, bilder in
@@ -482,6 +467,30 @@ struct ProsjektView: View {
         } message: {
             Text("\(kopiert) rom er kopiert. I Malerguiden: jobben → Mål → Skanning → «Hent fra skanneren» henter rommene direkte.")
         }
+    }
+
+    /// Valget av skannemåte, og runde to med ekte 3D. Egen funksjon, så kompilatoren klarer resten.
+    private func skannevalg<V: View>(_ v: V) -> some View {
+        v
+        // Runde to: hele rommet som ekte 3D med farger. Navnet spørres om etterpå.
+            .fullScreenCover(item: $ekte3D) { rom in
+                Skann3DView { bitene, bilder in
+                    DispatchQueue.main.async {
+                        ekte3D = nil
+                        lager.lagFargemodell(bitene, bilder: bilder, id: rom.id)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { sporNavn = true }
+                    }
+                }
+                .ignoresSafeArea()
+            }
+            .confirmationDialog("Hvordan vil du skanne?", isPresented: $velgModus, titleVisibility: .visible) {
+                ForEach(Skannemodus.allCases.filter { $0 != .ekte3D || Skann3DView.stottet }) { m in
+                    Button(m.tittel) { modus = m; skanner = true }
+                }
+                Button("Avbryt", role: .cancel) {}
+            } message: {
+                Text(Skannemodus.allCases.filter { $0 != .ekte3D || Skann3DView.stottet }.map { $0.tittel + ": " + $0.forklaring }.joined(separator: "\n\n"))
+            }
     }
 }
 
