@@ -25,6 +25,10 @@ import { spannForslag } from './calc.js';
 
 export const DOR_M2 = 1.6;      // samme som romkalkulatoren
 export const VINDU_M2 = 1.5;
+// Vinduet normtallet «vindu med karm og foring, per stk» regnes for: 1,2 × 1,25 m (1,5 m²),
+// altså 4,9 m karm og foring rundt. Etter størrelse teller et vindu like mange slike som
+// omkretsen tilsier: et vindu på 2,4 × 1,25 m er 1,5 standardvinduer.
+export const STANDARD_VINDU_OMKRETS = 2 * (1.2 + 1.25);
 export const DOR_BREDDE = 0.9;  // trekkes fra gulvlist
 
 /* Estetiske klasser i NS 3420-T. K1: funksjonell, skjøter og hull tettes (bod, teknisk rom).
@@ -45,7 +49,7 @@ export function standardArbeid(klasse = '') {
     vegg: { sparkling: sp, grunning: false, strok: 2 },
     tak: { sparkling: 'ingen', grunning: false, strok: 2 },
     lister: { strok: 0 },
-    vinduer: { strok: 0 },
+    vinduer: { strok: 0, etterStorrelse: false },
     dorer: { strok: 0 },
     // Overganger som sparkles i stedet for å dekkes med list.
     listefritt: { tak: false, hjorner: false, vinduer: false, dorer: false },
@@ -93,7 +97,7 @@ export function rensKalkyle(k, klasse = '') {
       vegg: rensFlate(a.vegg, std.vegg),
       tak: rensFlate(a.tak, std.tak),
       lister: strokBare(a.lister, std.lister),
-      vinduer: strokBare(a.vinduer, std.vinduer),
+      vinduer: { ...strokBare(a.vinduer, std.vinduer), etterStorrelse: a.vinduer?.etterStorrelse === true },
       dorer: strokBare(a.dorer, std.dorer),
       listefritt: Object.fromEntries(['tak', 'hjorner', 'vinduer', 'dorer'].map((x) => [x, !!(a.listefritt && a.listefritt[x] === true)])),
     },
@@ -278,7 +282,7 @@ export function romMengder(rom) {
   const vinduer = Math.max(0, Math.round(ellers(tall(rom.vinduer), 0)));
   const dorer = Math.max(0, Math.round(ellers(tall(rom.dorer), 0)));
   if (!(gulv > 0) || !(omkrets > 0) || !(H > 0)) {
-    return { ok: false, gulv: 0, tak: 0, vegg: 0, lister: 0, omkrets: 0, hoyde: H, vinduer, dorer };
+    return { ok: false, gulv: 0, tak: 0, vegg: 0, lister: 0, omkrets: 0, hoyde: H, vinduer, dorer, ...vindusStorrelse(rom, vinduer) };
   }
   const brutto = omkrets * H;
   // Vegger inne i rommet (skillevegger) kommer i tillegg: én eller begge sider, med lister langs.
@@ -291,7 +295,18 @@ export function romMengder(rom) {
   // Ytterhjørner: det som er skrevet inn, ellers talt fra formen på rommet (plantegning eller skanning)
   const skrevet = tall(rom.ytterhjorner);
   const ytterhjorner = Number.isFinite(skrevet) ? Math.max(0, Math.round(skrevet)) : ytterhjornerAuto(rom.polygon || rom.skannplan?.gulv);
-  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H, inneVegg };
+  return { ok: true, gulv, tak: gulv, vegg, brutto, lister, omkrets, hoyde: H, vinduer, dorer, ytterhjorner, ytterLm: ytterhjorner * H, inneVegg, ...vindusStorrelse(rom, vinduer) };
+}
+
+/**
+ * Vinduene etter størrelse: løpemeter karm og foring (omkretsen av vinduene med mål), og hvor
+ * mange standardvinduer det tilsvarer. Vinduer uten mål teller som ett standardvindu hver.
+ */
+export function vindusStorrelse(rom, antall) {
+  const medMal = (rom.skannplan?.vinduer || []).filter((l) => l.bredde > 0 && l.hoyde > 0).slice(0, antall);
+  const vindusLm = medMal.reduce((s, l) => s + 2 * (l.bredde + l.hoyde), 0);
+  const vinduerEkv = vindusLm / STANDARD_VINDU_OMKRETS + Math.max(0, antall - medMal.length);
+  return { vindusLm: rund(vindusLm, 2), vinduerEkv: rund(vinduerEkv, 2), vinduerMedMal: medMal.length };
 }
 
 /* ---------- Priser og normtall ---------- */
@@ -336,7 +351,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   const k = kalkyle || tomKalkyle();
   const a = k.arbeid || standardArbeid();
   const linjer = [];
-  const mengder = { vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0, dekking: 0, gulvbelegg: 0, ytter: 0 };
+  const mengder = { vindusLm: 0, vinduerEkv: 0, vinduerMedMal: 0, vegg: 0, tak: 0, lister: 0, vinduer: 0, dorer: 0, gulv: 0, rom: 0, taklinje: 0, hjorner: 0, veggSparkles: 0, takSparkles: 0, dekking: 0, gulvbelegg: 0, ytter: 0 };
   // Trappehull tar lengre tid per m²: samme mengde, men timene ganges med faktoren.
   const flater = { vegg: [], tak: [], taklinje: [], hjorner: [], veggSparkles: [], takSparkles: [], ytter: [] };
   let manglerMal = 0;
@@ -366,7 +381,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     }
     if (med.tak) { mengder.tak += m.tak; flater.tak.push({ m2: m.tak, faktor }); }
     if (med.lister) mengder.lister += m.lister;
-    if (med.vinduer) mengder.vinduer += m.vinduer;
+    if (med.vinduer) { mengder.vinduer += m.vinduer; mengder.vindusLm += m.vindusLm || 0; mengder.vinduerEkv += m.vinduerEkv ?? m.vinduer; mengder.vinduerMedMal += m.vinduerMedMal || 0; }
     if (med.dorer) mengder.dorer += m.dorer;
   }
 
@@ -475,7 +490,12 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
   if (lf.tak) leggTil('listefritt-taklinje', mengder.taklinje, { faktorTimer: vektet(flater.taklinje) });
 
   for (let s = 1; s <= (a.lister?.strok || 0); s++) leggTil('lister-strok', mengder.lister, { navn: 'Lister, strøk ' + s });
-  for (let s = 1; s <= (a.vinduer?.strok || 0); s++) leggTil('vindu-strok', mengder.vinduer, { navn: 'Vinduer, strøk ' + s });
+  // Etter størrelse: samme antall vinduer, men timene etter hvor mye karm og foring det er
+  const storrelse = a.vinduer?.etterStorrelse && mengder.vinduerMedMal > 0;
+  const vinduValg = storrelse
+    ? { faktorTimer: mengder.vinduerEkv, detalj: 'etter størrelse: ' + String(rund(mengder.vindusLm, 1)).replace('.', ',') + ' m karm og foring' }
+    : {};
+  for (let s = 1; s <= (a.vinduer?.strok || 0); s++) leggTil('vindu-strok', mengder.vinduer, { navn: 'Vinduer, strøk ' + s, ...vinduValg });
   for (let s = 1; s <= (a.dorer?.strok || 0); s++) leggTil('dor-strok', mengder.dorer, { navn: 'Dører, strøk ' + s });
 
   for (const t of medFelles ? k.tillegg || [] : []) {
@@ -804,6 +824,28 @@ export function linjerForHandel(kalkyle, lagredePriser, { bareIgjen = false, eta
     if (etasje != null && (etasjeFor(rom, k.planer || []) || 'Andre rom') !== etasje) continue;
     const b = beregn({ ...k, rom: [rom], tillegg: [] }, lagredePriser, { medFelles: false, medJustering: 'bareUt' });
     for (const l of b.linjer) if (!(bareIgjen && rom.gjort && rom.gjort[stegFor(l.id)] === true)) ut.push(l);
+  }
+  return ut;
+}
+
+/**
+ * Linjene som limes inn i Handleliste-appen: én vare per linje. Handleliste leser et tall først
+ * i linja som antall og kutter navnet ved komma og parentes, så linjene starter med navnet
+ * («Veggmaling: 2 × 9 L + 1 × 2,7 L») og blir stående som de er. Fargene på jobben tas med,
+ * så man vet hva som skal blandes.
+ */
+export function handlelisteLinjer(liste, farger = []) {
+  const kort = (navn) => navn.replace(/\s*\(.*\)\s*$/, '');
+  const ut = [];
+  for (const m of liste) {
+    if (m.forslag && m.trenger > 0) ut.push(kort(m.navn) + ': ' + m.forslag.tekst);
+    else if (!m.forslag && m.mengde > 0) ut.push(kort(m.navn) + ': ' + String(rund(m.mengde, m.enhet === 'rom' ? 0 : 1)).replace('.', ',') + ' ' + m.enhet);
+  }
+  for (const f of farger) {
+    const navn = [f.produkt, f.kode].map((x) => (x || '').trim()).filter(Boolean).join(' ');
+    if (!navn) continue;
+    const linje = 'Farge: ' + navn + (f.glans ? ', glans ' + f.glans : '') + (f.rom ? ' (' + f.rom + ')' : '');
+    if (!ut.includes(linje)) ut.push(linje);
   }
   return ut;
 }

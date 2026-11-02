@@ -12,7 +12,10 @@ import { FORBEHOLD_VALG, BILDE_KATEGORIER, KLASSER, KLASSE_MERKNAD, FARGE_FELT, 
 import { lagreNyttBilde, slettBilde, miniatyrUrl, hentBilde, slippUrler } from '../photos.js';
 import { gaTil, tilbake } from '../nav.js';
 import { fagVelger, typeVelger, FAGFARGE } from './felles.js';
-import { romPanel, prisPanel, forTimerArk, handlelisteArk } from './pris.js';
+import { romPanel, prisPanel, forTimerArk, handlelisteArk, stoppKlokke } from './pris.js';
+import { rapportArk } from './rapportark.js';
+import { torkBlokk } from './torkark.js';
+import { klokkeTimer, klokkeTekst, startTikker } from '../klokke.js';
 import { blokk, blokkInnhold, prisRad, sammenlegg } from './blokk.js';
 import { beregn, romFremgang, fremgangPerEtasje, STEG } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
@@ -133,7 +136,10 @@ function hode(j, fag) {
           : handling('ring', 'Ring', { 'aria-disabled': 'true', onclick: () => kundeArk(j.id) }),
       h('label', { role: 'button', tabindex: '0', style: { cursor: 'pointer' } }, ikon('kamera'), 'Bilde', kamera),
       // Kopier som tekst ligger under Mer. Timer føres oftere, så den har plassen her.
-      handling('klokke', 'Timer', { onclick: () => forTimerArk(j.id) }),
+      // Går klokka, viser knappen tiden, og et trykk stopper den og fører timene
+      j.klokke ? (queueMicrotask(startTikker), h('button.klokke-gar', { type: 'button', onclick: () => stoppKlokke(j.id), 'aria-label': 'Stopp klokka' },
+        ikon('klokke'), h('span', { 'data-klokke': String(j.klokke.start) }, klokkeTekst(klokkeTimer(j.klokke)))))
+        : handling('klokke', 'Timer', { onclick: () => forTimerArk(j.id) }),
     ));
 }
 
@@ -171,6 +177,8 @@ function arbeidPanel(j, faseValg, tegnPanel) {
       h('h2', neste.item.label),
       h('div.dempet.liten', kontekst),
       h('button.knapp.farge.hel', { type: 'button', onclick: () => huk(j, neste.del.id, neste.item.id, true) }, ikon('hake'), 'Ferdig med dette')));
+    // Tørketid rett under neste steg: det er da man venter på at noe skal tørke
+    ut.append(torkBlokk(j));
   } else {
     ut.append(h('section.neste-kort.ferdig',
       h('div.overtittel', 'Alt er huket av'),
@@ -695,11 +703,12 @@ function merPanel(j) {
   // Beregninger
   ut.append(blokk('Beregninger', j.beregninger.length ? String(j.beregninger.length) : '',
     j.beregninger.length > 0 && h('div.rad-liste', j.beregninger.slice().sort((a, b) => b.tidspunkt - a.tidspunkt).map((b) => beregningRad(j, b))),
-    prisRad({ tittel: 'Regn for denne jobben', under: 'Maling, sparkel, bad og mer', klikk: () => gaTil('regn?jobb=' + encodeURIComponent(j.id)) })));
+    prisRad({ tittel: 'Regn for denne jobben', under: 'Maling, sparkel, bad og mer', klikk: () => gaTil('regn/?jobb=' + encodeURIComponent(j.id)) })));
 
   // Handlinger
   ut.append(blokk('Jobben', '', blokkInnhold(
     h('div', { style: { display: 'grid', gap: '8px' } },
+      h('button.knapp.sekundar.hel', { type: 'button', onclick: () => rapportArk(j.id) }, ikon('notat'), 'Rapport til kunden (PDF)'),
       h('button.knapp.sekundar.hel', { type: 'button', onclick: async () => toast(await kopierTekst(eksportTekst(hentJobb(j.id))) ? 'Kopiert. Lim inn i e-post, melding eller Notater.' : 'Klarte ikke kopiere.') }, ikon('kopier'), 'Kopier som tekst'),
       h('button.knapp.sekundar.hel', { type: 'button', onclick: () => dupliserArk(j) }, ikon('dupliser'), 'Dupliser til nytt rom'),
       h('button.knapp.fare.hel', { type: 'button', onclick: () => slettJobbSporsmal(j) }, ikon('slett'), 'Slett jobben')))));

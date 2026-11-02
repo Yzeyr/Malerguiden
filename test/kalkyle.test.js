@@ -522,3 +522,43 @@ test('like vinduer får samme mål (det største), et mål skrevet for hånd gå
   assert.deepEqual(fast.map((l) => [l.bredde, l.hoyde]), [[1.55, 1.70], [1.55, 1.70]]);
   assert.ok(Math.abs(vindusareal([v(1, 2), v(0.5, 0.5)]) - 2.25) < 1e-9);
 });
+
+test('handlelisteLinjer: navnet først, så Handleliste ikke kutter ved komma, og fargene med', async () => {
+  const { handlelisteLinjer } = await import('../src/kalkyle.js');
+  const liste = [
+    { navn: 'Veggmaling', mengde: 20, enhet: 'L', trenger: 22, forslag: { tekst: '2 × 9 L + 2 × 2,7 L' } },
+    { navn: 'Snekkermaling (lister, vinduer, dører)', mengde: 2, enhet: 'L', trenger: 2.2, forslag: { tekst: '1 × 2,7 L' } },
+    { navn: 'Dekkpapp', mengde: 45.25, enhet: 'm²', forslag: null },
+    { navn: 'Tape og plast', mengde: 3, enhet: 'rom', forslag: null },
+    { navn: 'Sparkel', mengde: 0, enhet: 'L', trenger: 0, forslag: { tekst: '' } },
+  ];
+  const farger = [{ produkt: 'Jotun Lady Pure Color', kode: '1453 Bomull', glans: '5', rom: 'Stue' }, { produkt: '', kode: '' }];
+  assert.deepEqual(handlelisteLinjer(liste, farger), [
+    'Veggmaling: 2 × 9 L + 2 × 2,7 L',
+    'Snekkermaling: 1 × 2,7 L',
+    'Dekkpapp: 45,3 m²',
+    'Tape og plast: 3 rom',
+    'Farge: Jotun Lady Pure Color 1453 Bomull, glans 5 (Stue)',
+  ]);
+  // Ingen linje starter med et tall (da ville Handleliste lest det som antall)
+  for (const l of handlelisteLinjer(liste, farger)) assert.ok(!/^\d/.test(l));
+});
+
+test('vinduer etter størrelse: timene følger omkretsen, antallet står', async () => {
+  const { beregn, tomKalkyle, vindusStorrelse } = await import('../src/kalkyle.js');
+  const rom = { id: 'r1', navn: 'Stue', lengde: '5', bredde: '4', hoyde: '2,4', vinduer: '2', dorer: '0',
+    skannplan: { gulv: [], vegger: [], dorer: [], vinduer: [{ a: { x: 0, y: 0 }, b: { x: 2.4, y: 0 }, bredde: 2.4, hoyde: 1.25 }, { a: { x: 0, y: 0 }, b: { x: 1.2, y: 0 }, bredde: 1.2, hoyde: 1.25 }], apninger: [] } };
+  const v = vindusStorrelse(rom, 2);
+  assert.equal(v.vindusLm, 12.2);
+  assert.equal(v.vinduerEkv, 2.49);
+  const k = tomKalkyle();
+  k.rom = [rom];
+  k.arbeid.vinduer.strok = 1;
+  const vanlig = beregn(k, {}).linjer.find((l) => l.id === 'vindu-strok');
+  k.arbeid.vinduer.etterStorrelse = true;
+  const stor = beregn(k, {}).linjer.find((l) => l.id === 'vindu-strok');
+  assert.equal(vanlig.mengde, 2);
+  assert.equal(stor.mengde, 2);
+  assert.ok(Math.abs(stor.timer / vanlig.timer - 2.49 / 2) < 0.01);
+  assert.match(stor.detalj, /12,2 m karm og foring/);
+});

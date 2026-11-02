@@ -3,7 +3,7 @@
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
 import { visTidspunkt, flertall, fmt } from '../util.js';
 import { egnePriser, settPris, nullstillPriser } from '../priser.js';
-import { beregn, ARBEID, timerPerArbeid } from '../kalkyle.js';
+import { beregn, ARBEID, timerPerArbeid, arbeidFor } from '../kalkyle.js';
 import { blokk, blokkInnhold, sammenlegg } from './blokk.js';
 import { NORMER, STANDARD_PRISER } from '../data/normer.js';
 import { harNokkel, glemNokkel } from '../ki.js';
@@ -55,7 +55,7 @@ export function visMitt(rot, del) {
 /* ---------- Priser og normtall ---------- */
 
 /** Ferdige jobber med førte timer: hvor mye tid som gikk i forhold til det beregnede, med dagens normtall. */
-function erfaring(egne) {
+function erfaring(egne, paNytt = () => {}) {
   const jobber = alleJobber()
     .filter((j) => j.status === 'ferdig' && j.kalkyle?.rom.length && timerBrukt(j) > 0)
     .map((j) => { const r = beregn(j.kalkyle, egne); return { j, brukt: timerBrukt(j), beregnet: r.sum.timer, per: timerPerArbeid(r) }; })
@@ -79,8 +79,13 @@ function erfaring(egne) {
   }
   const perRader = ARBEID.filter((a) => sumPer[a.id]).map((a) => {
     const s = sumPer[a.id], p = Math.round((s.brukt / s.beregnet - 1) * 100);
-    return h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid var(--linje)', fontSize: '15px' } },
-      h('span', a.navn), h('b', { style: { color: Math.abs(p) < 10 ? 'var(--gronn)' : 'var(--oker)' } }, (p > 0 ? '+' : '') + p + ' %'));
+    // 10 % eller mer av: tilby å rette normtimene for dette arbeidet med det du faktisk bruker
+    const normer = NORMER.filter((n) => arbeidFor(n.id) === a.id && n.timer > 0);
+    const juster = Math.abs(p) >= 10 && normer.length > 0 && h('button.lenkeknapp', { type: 'button', style: { padding: '0 0 0 8px' }, onclick: () => justerNormer(a, normer, s, egne, paNytt) }, 'Juster');
+    return h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid var(--linje)', fontSize: '15px' } },
+      h('span', a.navn, h('small.dempet', { style: { display: 'block', fontSize: '12px' } }, fmt(s.brukt, 1) + ' t brukt av ' + fmt(s.beregnet, 1) + ' t · ' + flertall(s.jobber.size, 'jobb', 'jobber'))),
+      h('span', { style: { display: 'flex', alignItems: 'center' } },
+        h('b', { style: { color: Math.abs(p) < 10 ? 'var(--gronn)' : 'var(--oker)' } }, (p > 0 ? '+' : '') + p + ' %'), juster));
   });
   return h('div',
     h('div.seksjon', 'Erfaring', h('span.tall', flertall(jobber.length, 'ferdig jobb', 'ferdige jobber'))),
@@ -93,6 +98,27 @@ function erfaring(egne) {
       jobber.slice(0, 5).map((x) => h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid var(--linje)', fontSize: '15px' } },
         h('span', jobbNavn(x.j)),
         h('b', fmt(x.brukt, 1) + ' / ' + fmt(x.beregnet, 1) + ' t')))));
+}
+
+/** Gang timene per enhet for et arbeid med forholdet mellom brukt og beregnet. */
+async function justerNormer(a, normer, s, egne, paNytt) {
+  const faktor = s.brukt / s.beregnet;
+  const p = Math.round((faktor - 1) * 100);
+  const ok = await bekreft({
+    tittel: 'Juster ' + a.navn.toLowerCase() + '?',
+    tekst: 'Timene per enhet går ' + (p > 0 ? 'opp' : 'ned') + ' ' + Math.abs(p) + ' % for ' + flertall(normer.length, 'operasjon', 'operasjoner')
+      + ', ut fra ' + flertall(s.jobber.size, 'ferdig jobb', 'ferdige jobber') + '.' + (s.jobber.size < 2 ? ' Det er bare én jobb, så tallet kan være tilfeldig.' : '')
+      + ' Du kan endre tilbake under Priser og normtall.',
+    ja: 'Juster',
+  });
+  if (!ok) return;
+  for (const n of normer) {
+    const egen = parseFloat(String(egne.normer?.[n.id]?.timer ?? '').replace(',', '.'));
+    const na = egen > 0 ? egen : n.timer;
+    settPris(['normer', n.id, 'timer'], String(Math.round(na * faktor * 1000) / 1000));
+  }
+  toast(a.navn + ' er justert.');
+  paNytt();
 }
 
 function tegnPriser(el) {
@@ -124,7 +150,7 @@ function tegnPriser(el) {
     return ['timer', 'pris', 'materialpris'].some((k) => e[k] != null && e[k] !== '');
   };
   tom(el,
-    erfaring(egne),
+    erfaring(egne, () => tegnPriser(el)),
     h('div.seksjon', 'Priser og normtall'),
     h('div.kort',
       rad('Timepris', 'kr per time eks. mva', inn(['timepris'], egne.timepris, STANDARD_PRISER.timepris)),

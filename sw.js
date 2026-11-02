@@ -13,7 +13,7 @@
  *
  * VERSJON oppdateres av tools/versjon.mjs (kjøres før hver publisering).
  */
-const VERSJON = 'malerguiden-ebfd45eb';
+const VERSJON = 'malerguiden-435e70a1';
 const FILER = [
   './',
   './index.html',
@@ -28,13 +28,16 @@ const FILER = [
   './src/dom.js',
   './src/util.js',
   './src/store.js',
+  './src/tork.js',
   './src/jobs.js',
+  './src/klokke.js',
   './src/egne.js',
   './src/photos.js',
   './src/backup.js',
   './src/calc.js',
   './src/kalkyle.js',
   './src/priser.js',
+  './src/rapport.js',
   './src/ki.js',
   './src/plangjenkjenning.js',
   './src/native.js',
@@ -54,6 +57,8 @@ const FILER = [
   './src/views/oppslag.js',
   './src/views/mitt.js',
   './src/views/pris.js',
+  './src/views/rapportark.js',
+  './src/views/torkark.js',
   './src/views/blokk.js',
   './src/views/hurtigpris.js',
   './src/views/plantegning.js',

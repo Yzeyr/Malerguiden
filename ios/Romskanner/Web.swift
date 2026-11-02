@@ -2,6 +2,7 @@ import SwiftUI
 import WebKit
 import Vision
 import UIKit
+import UserNotifications
 
 /// Malerguiden (nettappen) inne i iPhone-appen.
 ///
@@ -115,6 +116,32 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             ProveFarger.husk(farger)
             proveFarger = ProveFarger(farger: farger)
             return nil
+        case "varsle":
+            // Påminnelse om tørketid: et lokalt varsel på telefonen når neste strøk kan tas
+            guard let id = m.valgfriTekst("id"), let tid = d(m, "tid") else { throw Feil("Mangler tid for påminnelsen.") }
+            let senter = UNUserNotificationCenter.current()
+            let lov = try await senter.requestAuthorization(options: [.alert, .sound])
+            guard lov else { return ["lov": false] }
+            let innhold = UNMutableNotificationContent()
+            innhold.title = m.valgfriTekst("tittel") ?? "Malerguiden"
+            innhold.body = m.valgfriTekst("tekst") ?? "Klar for neste strøk."
+            innhold.sound = .default
+            let sekunder = max(5, tid / 1000 - Date().timeIntervalSince1970)
+            senter.removePendingNotificationRequests(withIdentifiers: [id])
+            try await senter.add(UNNotificationRequest(identifier: id, content: innhold, trigger: UNTimeIntervalNotificationTrigger(timeInterval: sekunder, repeats: false)))
+            return ["lov": true]
+        case "avlysVarsel":
+            if let id = m.valgfriTekst("id") { UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id]) }
+            return nil
+        case "pdf":
+            // Rapport til kunden: HTML fra nettappen blir en A4-PDF som deles
+            guard let html = m.valgfriTekst("html") else { throw Feil("Ingen rapport å lage.") }
+            let navn = (m.valgfriTekst("navn") ?? "Rapport.pdf").replacingOccurrences(of: "/", with: "-")
+            let data = try await PdfLager().lag(html: html)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(navn)
+            try data.write(to: url, options: .atomic)
+            let delt = await Deling.del([url])
+            return ["delt": delt]
         case "del":
             var ting: [Any] = []
             if let tekst = m.valgfriTekst("tekst") { ting.append(tekst) }
@@ -344,5 +371,67 @@ extension UIColor {
         if s.hasPrefix("#") { s.removeFirst() }
         guard s.count == 6, let n = UInt32(s, radix: 16) else { return nil }
         self.init(red: CGFloat((n >> 16) & 255) / 255, green: CGFloat((n >> 8) & 255) / 255, blue: CGFloat(n & 255) / 255, alpha: 1)
+    }
+}
+
+
+/// Gjør HTML om til en A4-PDF med sideskift: siden lastes i en usynlig nettvisning og skrives
+/// ut til PDF med iOS sin utskriftsmotor.
+@MainActor final class PdfLager: NSObject, WKNavigationDelegate {
+    private var web: WKWebView?
+    private var ferdig: CheckedContinuation<Data, Error>?
+    private var selv: PdfLager?
+
+    func lag(html: String) async throws -> Data {
+        let w = WKWebView(frame: CGRect(x: 0, y: 0, width: 595, height: 842))
+        w.navigationDelegate = self
+        web = w
+        selv = self // hold på objektet til PDF-en er ferdig
+        return try await withCheckedThrowingContinuation { c in
+            ferdig = c
+            w.loadHTMLString(html, baseURL: nil)
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Litt tid til bildene er tegnet
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [self] in
+            let data = tegn(webView)
+            ferdig?.resume(returning: data)
+            rydd()
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        ferdig?.resume(throwing: error)
+        rydd()
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        ferdig?.resume(throwing: error)
+        rydd()
+    }
+
+    private func rydd() {
+        ferdig = nil
+        web = nil
+        selv = nil
+    }
+
+    private func tegn(_ w: WKWebView) -> Data {
+        let r = UIPrintPageRenderer()
+        r.addPrintFormatter(w.viewPrintFormatter(), startingAtPageAt: 0)
+        let a4 = CGRect(x: 0, y: 0, width: 595.2, height: 841.8)
+        r.setValue(a4, forKey: "paperRect")
+        r.setValue(a4.insetBy(dx: 28, dy: 34), forKey: "printableRect")
+        let data = NSMutableData()
+        UIGraphicsBeginPDFContextToData(data, a4, nil)
+        r.prepare(forDrawingPages: NSRange(location: 0, length: r.numberOfPages))
+        for i in 0..<r.numberOfPages {
+            UIGraphicsBeginPDFPage()
+            r.drawPage(at: i, in: UIGraphicsGetPDFContextBounds())
+        }
+        UIGraphicsEndPDFContext()
+        return data as Data
     }
 }

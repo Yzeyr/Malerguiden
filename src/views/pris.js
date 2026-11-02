@@ -6,8 +6,9 @@ import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
 import { endreJobb, hentJobb, KLADD_ID, timerBrukt, forbeholdTekster } from '../jobs.js';
 import { tilbudsData, tilbudTekst, tilbudPrompt, tallStemmer } from '../tilbud.js';
 import { iApp, appInfo, kall } from '../native.js';
-import { etasjeFor, fremgangPerEtasje, handleliste, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
+import { etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
+import { klokkeTimer, klokkeTekst, timerTilForing, LANG_KLOKKE, startTikker } from '../klokke.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
 import { harNokkel, lagreNokkel, lesPlantegning, tilRom } from '../ki.js';
@@ -443,7 +444,12 @@ export function handlelisteArk(jobId, { bareIgjen = false } = {}) {
       h('p.dempet.liten', { style: { margin: '10px 2px 0' } }, 'Spann: maling 9 / 2,7 / 0,68 L, ferdigsparkel 10 / 3 L. Ardex A 828: sekk 12,5 kg og pose 5 kg. Sjekk produktet du bruker.'),
       h('div.knapprad',
         h('button.knapp.sekundar', { type: 'button', onclick: async () => toast(await kopierTekst(tekst()) ? 'Handlelista er kopiert.' : 'Klarte ikke kopiere.') }, ikon('kopier'), 'Kopier'),
-        h('button.knapp', { type: 'button', onclick: () => lukk() }, 'Ferdig')));
+        h('button.knapp', { type: 'button', onclick: async () => {
+          const linjer = handlelisteLinjer(liste, j.farger || []);
+          if (!linjer.length) { toast('Ingenting å handle.'); return; }
+          toast(await kopierTekst(linjer.join('\n')) ? 'Kopiert. Åpne Handleliste og lim inn i feltet øverst.' : 'Klarte ikke kopiere.', { ms: 5000 });
+        } }, 'Til Handleliste')),
+      h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, '«Til Handleliste» kopierer én vare per linje, med fargene på jobben. Lim inn i Handleliste, så kommer alle varene inn på én gang.'));
   };
   let lukk = () => {};
   tegn();
@@ -486,23 +492,79 @@ function timerPanel(j, r) {
         tittel: fmt(t.timer, t.timer % 1 ? 1 : 0) + ' t' + (t.arbeid ? ' · ' + (navnPa[t.arbeid] || t.arbeid) : ''),
         under: [t.dato ? visDato(t.dato) : 'Uten dato', t.tekst],
         ekstra: h('button.ikonknapp', { type: 'button', 'aria-label': 'Fjern', onclick: () => endreJobb(j.id, (x) => { x.timeforing = x.timeforing.filter((y) => y.id !== t.id); }) }, ikon('kryss')) }))),
+    klokkeRad(j),
     prisRad({ tittel: 'Før timer', under: 'Dato, timer og hva de gjelder', pil: '',
       ekstra: h('span.belop.pluss', ikon('pluss')), klikk: () => timerArk(j.id, arbeider, perArbeid) }));
 }
 
-/** Før timer fra hvor som helst (Arbeid-fanen, toppen av jobben). */
-export function forTimerArk(jobId) {
+/* ---------- Stoppeklokke ---------- */
+
+/** Raden med klokka: går den, vises tiden og Stopp; ellers Start klokka. */
+export function klokkeRad(j) {
+  const k = j.klokke;
+  if (!k) {
+    return prisRad({ tittel: 'Start klokka', under: 'Timene føres når du stopper', pil: '',
+      ekstra: h('span.belop', ikon('klokke')), klikk: () => velgOgStart(j.id) });
+  }
+  const navnPa = Object.fromEntries(ARBEID.map((a) => [a.id, a.navn]));
+  queueMicrotask(startTikker);
+  return prisRad({ tittel: h('span', 'Klokka går · ', h('span', { 'data-klokke': String(k.start) }, klokkeTekst(klokkeTimer(k)))),
+    under: (k.arbeid ? navnPa[k.arbeid] || k.arbeid : 'Hele jobben') + ' · startet ' + new Date(k.start).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' }),
+    ekstra: h('button.knapp.liten', { type: 'button', onclick: (e) => { e.stopPropagation(); stoppKlokke(j.id); } }, 'Stopp') });
+}
+
+/** Velg hva klokka gjelder, og start den. */
+export async function velgOgStart(jobId) {
+  const j = hentJobb(jobId);
+  if (!j) return;
+  const r = j.kalkyle?.rom.length ? beregn(j.kalkyle, egnePriser()) : { linjer: [] };
+  const per = timerPerArbeid(r);
+  const har = (a) => (per[a.id] || 0) > 0.05;
+  const arbeid = await velg({ tittel: 'Hva skal du jobbe med?', valg: [
+    { verdi: '', tekst: 'Hele jobben / ikke delt opp' },
+    ...ARBEID.filter(har).map((a) => ({ verdi: a.id, tekst: a.navn, under: fmt(per[a.id], 1) + ' t beregnet' })),
+    ...ARBEID.filter((a) => !har(a)).map((a) => ({ verdi: a.id, tekst: a.navn })),
+  ] });
+  if (arbeid == null) return;
+  startKlokke(jobId, arbeid);
+}
+
+export function startKlokke(jobId, arbeid = '') {
+  endreJobb(jobId, (x) => { x.klokke = { start: Date.now(), arbeid }; if (x.status === 'planlagt') x.status = 'pagar'; });
+  toast('Klokka går. Trykk Stopp når du er ferdig.');
+}
+
+/** Stopp klokka og før timene (nærmeste kvarter). Har den gått veldig lenge, sjekkes tallet først. */
+export function stoppKlokke(jobId) {
+  const k = hentJobb(jobId)?.klokke;
+  if (!k) return;
+  const t = klokkeTimer(k);
+  const dato = iDagIso(new Date(k.start));
+  if (t > LANG_KLOKKE) {
+    endreJobb(jobId, (x) => { x.klokke = null; });
+    forTimerArk(jobId, { timer: timerTilForing(t), arbeid: k.arbeid, dato });
+    toast('Klokka har gått i ' + fmt(t, 0) + ' t. Sjekk timene før du fører dem.', { ms: 5000 });
+    return;
+  }
+  const timer = timerTilForing(t);
+  const linje = { id: nyId('t-'), dato, timer, tekst: 'Stoppeklokke', arbeid: k.arbeid };
+  endreJobb(jobId, (x) => { x.klokke = null; x.timeforing.push(linje); });
+  toast(fmt(timer, timer % 1 ? 2 : 0) + ' t ført.', { angre: () => endreJobb(jobId, (x) => { x.timeforing = x.timeforing.filter((y) => y.id !== linje.id); x.klokke = k; }) });
+}
+
+/** Før timer fra hvor som helst (Arbeid-fanen, toppen av jobben). forhand: utfylte felt. */
+export function forTimerArk(jobId, forhand = null) {
   const j = hentJobb(jobId);
   if (!j) return;
   const r = j.kalkyle?.rom.length ? beregn(j.kalkyle, egnePriser()) : { linjer: [] };
   const perArbeid = timerPerArbeid(r);
   const bruktPer = {};
   for (const t of j.timeforing) if (t.arbeid) bruktPer[t.arbeid] = true;
-  timerArk(jobId, ARBEID.filter((a) => (perArbeid[a.id] || 0) > 0.05 || bruktPer[a.id]), perArbeid);
+  timerArk(jobId, ARBEID.filter((a) => (perArbeid[a.id] || 0) > 0.05 || bruktPer[a.id]), perArbeid, forhand);
 }
 
 /** Før timer på jobben, med plass til feltene. */
-function timerArk(jobId, arbeider, perArbeid) {
+function timerArk(jobId, arbeider, perArbeid, forhand = null) {
   ark((lukk) => {
     const hva = h('select', { 'aria-label': 'Hva timene gjelder' },
       h('option', { value: '' }, 'Hele jobben / ikke delt opp'),
@@ -511,6 +573,12 @@ function timerArk(jobId, arbeider, perArbeid) {
     const timer = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0', autocomplete: 'off' });
     const dato = h('input', { type: 'date', value: iDagIso() });
     const tekst = h('input', { type: 'text', placeholder: 'F.eks. sparklet stua', maxlength: 80, autocomplete: 'off' });
+    if (forhand) {
+      timer.value = String(forhand.timer ?? '').replace('.', ',');
+      if (forhand.arbeid) hva.value = forhand.arbeid;
+      if (forhand.dato) dato.value = forhand.dato;
+      tekst.value = 'Stoppeklokke';
+    }
     return h('form', {
       onsubmit: (e) => {
         e.preventDefault();
@@ -529,6 +597,8 @@ function timerArk(jobId, arbeider, perArbeid) {
         h('label.felt', { style: { flex: '1.4' } }, h('span', 'Dato'), dato)),
       h('label.felt', h('span', 'Hva gjelder timene'), hva),
       h('label.felt', h('span', 'Merknad', h('small', 'valgfritt')), tekst),
+      !forhand && !hentJobb(jobId)?.klokke && h('button.lenkeknapp', { type: 'button', onclick: () => { lukk(); startKlokke(jobId, hva.value); } },
+        ikon('klokke'), 'Start klokka i stedet'),
       h('div.knapprad',
         h('button.knapp.sekundar', { type: 'button', onclick: () => lukk() }, 'Avbryt'),
         h('button.knapp', { type: 'submit' }, 'Før timer')));
@@ -599,9 +669,18 @@ function arbeidArk(jobId, del = 'flater') {
         ['vinduer', 'Vinduer med karm og foring', flertall(r.mengder.vinduer, 'vindu', 'vinduer')],
         ['dorer', 'Dører, én side med karm', flertall(r.mengder.dorer, 'dør', 'dører')],
       ];
+      const m = r.mengder;
+      // Vinduer med mål fra skanningen (eller rettet for hånd): tilby å regne etter størrelse
+      const storrelse = m.vinduerMedMal > 0 && h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } },
+        h('span', 'Regn vinduene etter størrelse',
+          h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } },
+            fmt(m.vindusLm, 1) + ' m karm og foring på ' + flertall(m.vinduerMedMal, 'vindu', 'vinduer') + ' med mål = ' + fmt(m.vinduerEkv, 1) + ' standardvinduer')),
+        h('input.bryter', { type: 'checkbox', checked: !!a.vinduer.etterStorrelse, onchange: (e) => sett('vinduer', 'etterStorrelse', e.target.checked) }));
       deler = [h('div.kort', { style: { marginBottom: '8px' } }, linjer.map(([id, navn, mengde]) =>
         h('div', { style: { marginBottom: '8px' } }, h('div.liten', { style: { fontWeight: '650', margin: '0 0 5px' } }, navn, h('span.dempet', { style: { fontWeight: '500', marginLeft: '6px' } }, mengde)),
-          velger(valg, a[id].strok, (v) => sett(id, 'strok', v)))))];
+          velger(valg, a[id].strok, (v) => sett(id, 'strok', v)),
+          id === 'vinduer' && storrelse))),
+        m.vinduerMedMal > 0 && h('p.dempet.liten', { style: { margin: '0 2px 8px' } }, 'Normen per vindu gjelder et vindu på 1,2 × 1,25 m (4,9 m karm og foring). Etter størrelse får store vinduer flere timer og små færre. Vinduer uten mål teller som ett.')];
     } else {
       const lf = a.listefritt || {};
       const mengde = {

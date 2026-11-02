@@ -92,6 +92,14 @@ export function normaliserJobb(j) {
           arbeid: /^[a-z0-9]{1,20}$/.test(str(t.arbeid)) ? str(t.arbeid) : '', // strimling, maling osv. Tom: hele jobben
         }))
       : [],
+    // Stoppeklokka som går på jobben: når den ble startet og hvilket arbeid. null: står stille.
+    klokke: obj(j.klokke) && Number(j.klokke.start) > 0
+      ? { start: Number(j.klokke.start), arbeid: /^[a-z0-9]{1,20}$/.test(str(j.klokke.arbeid)) ? str(j.klokke.arbeid) : '' }
+      : null,
+    // Tørketid: når neste strøk tidligst kan tas, og hva som tørker. null: ingenting tørker.
+    tork: obj(j.tork) && Number(j.tork.klar) > 0
+      ? { klar: Number(j.tork.klar), tekst: str(j.tork.tekst).slice(0, 80), start: Number(j.tork.start) || 0 }
+      : null,
     // Prisberegningen (rom, arbeid, tillegg). null til den tas i bruk.
     kalkyle: null,
   };
