@@ -416,9 +416,12 @@ struct RomDetalj: View {
                     LabeledContent("Gulv", value: "\(m(rom.gulv)) m²")
                     LabeledContent("Omkrets", value: "\(m(rom.omkrets)) m")
                     LabeledContent("Takhøyde", value: "\(m(rom.takhoyde, 2)) m")
-                    LabeledContent("Vegg uten vinduer og dører", value: "\(m(rom.veggNetto + rom.veggInne)) m²")
+                    // Samme regnestykke som prisen: alle vegger, minus vinduer og dører, gir veggen som males.
+                    // Skilleveggene er med i begge tallene, så fradraget blir det vinduene og dørene faktisk tar.
+                    LabeledContent("Vegg totalt, før fradrag", value: "\(m(rom.veggBrutto + rom.veggInne)) m²")
+                    LabeledContent("Minus vinduer og dører", value: "−\(m(max(0, rom.veggBrutto - rom.veggNetto))) m²")
+                    LabeledContent { Text("\(m(rom.veggNetto + rom.veggInne)) m²").fontWeight(.semibold) } label: { Text("Vegg som males").fontWeight(.semibold) }
                     if rom.veggInne > 0 { LabeledContent("Av det: vegger inne i rommet", value: "\(m(rom.veggInne)) m²") }
-                    LabeledContent("Vegg totalt", value: "\(m(rom.veggBrutto)) m²")
                     LabeledContent("Vinduer", value: "\(rom.vinduer)")
                     LabeledContent("Dører", value: "\(rom.dorer)")
                 }
