@@ -36,6 +36,8 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     var okt: UUID?
     /// Det som står i rommet (møbler, skap, vask …). Mangler på rom skannet før appen lagret det.
     var gjenstander: [Gjenstand]?
+    /// Avstander målt i 3D-modellene av rommet.
+    var avstander: [Avstand]?
 }
 
 /// Noe som står i rommet, slik RoomPlan så det: en kloss med navn og mål.

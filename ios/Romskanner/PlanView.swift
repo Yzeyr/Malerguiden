@@ -243,6 +243,17 @@ struct RomDetalj: View {
     private var rom: SkannetRom? { lager.rom.first { $0.id == id } }
     private func m(_ v: Double, _ d: Int = 1) -> String { v.formatted(.number.precision(.fractionLength(d))) }
 
+    /// Åpner en modell med målene som er tatt i akkurat den modellen.
+    private func vis(_ url: URL, _ kilde: String) {
+        guard let rom else { return }
+        visning = VistModell(url: url, tittel: rom.navn, kilde: kilde, mal: (rom.avstander ?? []).filter { $0.kilde == kilde })
+    }
+
+    private func lagreAvstander(_ nye: [Avstand], kilde: String?) {
+        guard let kilde, let i = lager.rom.firstIndex(where: { $0.id == id }) else { return }
+        lager.rom[i].avstander = (lager.rom[i].avstander ?? []).filter { $0.kilde != kilde } + nye
+    }
+
     var body: some View {
         if let rom {
             List {
@@ -285,10 +296,33 @@ struct RomDetalj: View {
                         }
                     }
                 }
+                if let mal = rom.avstander, !mal.isEmpty {
+                    Section {
+                        ForEach(mal) { a in
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(a.navn)
+                                    Text(a.deler + " · i " + Avstand.kildenavn(a.kilde)).font(.footnote).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(a.tekst).monospacedDigit()
+                            }
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    if let i = lager.rom.firstIndex(where: { $0.id == id }) { lager.rom[i].avstander?.removeAll { $0.id == a.id } }
+                                } label: { Label("Slett", systemImage: "trash") }
+                            }
+                        }
+                    } header: {
+                        Text("Målt i 3D")
+                    } footer: {
+                        Text("Skarpe kanter blir litt avrundet i 3D-modellen, så regn med et par cm slingringsmonn. Trenger du helt nøyaktig mål, bruk tommestokken.")
+                    }
+                }
                 if Modell.finnes(rom.id) {
                     Section {
                         if Fotomodell.finnes(rom.id) {
-                            Button { visning = VistModell(url: Fotomodell.url(rom.id), tittel: rom.navn) } label: {
+                            Button { vis(Fotomodell.url(rom.id), "foto") } label: {
                                 Label("Vis med bilder i 3D", systemImage: "photo.on.rectangle.angled")
                             }
                         } else if lager.fotoUnderArbeid.contains(rom.id) {
@@ -298,7 +332,7 @@ struct RomDetalj: View {
                             }
                         }
                         if Fargemodell.finnes(rom.id) {
-                            Button { visning = VistModell(url: Fargemodell.url(rom.id), tittel: rom.navn) } label: {
+                            Button { vis(Fargemodell.url(rom.id), "3d") } label: {
                                 Label("Vis ekte 3D med farger", systemImage: "cube.fill")
                             }
                         } else if lager.fargeUnderArbeid.contains(rom.id) {
@@ -311,7 +345,7 @@ struct RomDetalj: View {
                                 Label("Lag ekte 3D med farger", systemImage: "camera.metering.matrix")
                             }
                         }
-                        Button { visning = VistModell(url: Modell.url(rom.id), tittel: rom.navn) } label: {
+                        Button { vis(Modell.url(rom.id), "plan") } label: {
                             Label("Vis rommet i 3D", systemImage: "cube.transparent")
                         }
                         Button { visModell = Fotomodell.finnes(rom.id) ? Fotomodell.url(rom.id) : Modell.url(rom.id) } label: {
@@ -372,7 +406,9 @@ struct RomDetalj: View {
                 Text("Plantegningen, målene og 3D-modellen blir borte.")
             }
             .quickLookPreview($visModell)
-            .fullScreenCover(item: $visning) { ModellVisning(modell: $0) }
+            .fullScreenCover(item: $visning) { v in
+                ModellVisning(modell: v) { nye in lagreAvstander(nye, kilde: v.kilde) }
+            }
             .fullScreenCover(isPresented: $skann3D) {
                 Skann3DView { bitene, bilder in
                     DispatchQueue.main.async {

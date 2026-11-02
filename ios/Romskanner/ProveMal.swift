@@ -78,6 +78,12 @@ struct ProveMalView: View {
     }
 }
 
+/// Skanninger som venter på å bli lest. Brukes bare fra ARKit-tråden.
+private final class Leseko: @unchecked Sendable {
+    var ventende: [UUID: ARMeshAnchor] = [:]
+    var sist: TimeInterval = 0
+}
+
 /// En vegg som skal males: et plan (punkt og retning) og fargen.
 private struct ValgtVegg {
     let punkt: SIMD3<Float>
@@ -96,9 +102,9 @@ private struct VeggBiter {
 final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     @Published var valgt = 0 { didSet { if alleVegger { tegnAlt() } } }
     @Published var alleVegger = false { didSet { tegnAlt() } }
-    @Published var dekning: Double = 0.92 { didSet { tegnAlt() } }
+    @Published var dekning: Double = 0.92 { didSet { oppdaterMaterialer() } }
     /// true: malingen får lys og skygge fra rommet. false: fargen vises flatt, akkurat som koden.
-    @Published var ekteLys = true { didSet { tegnAlt() } }
+    @Published var ekteLys = true { didSet { oppdaterMaterialer() } }
     @Published var melding = "Gå rolig rundt og pek på veggene. Trykk på en vegg for å male den."
     @Published private(set) var antallVegger = 0
 
@@ -110,17 +116,18 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     private var vegger: [ValgtVegg] = [] { didSet { antallVegger = vegger.count } }
     private var skitne = Set<UUID>()
     private var tidtaker: Timer?
+    /// Antall vegg-trekanter sist en del ble tegnet, og når. Små endringer tegnes ikke på nytt hver gang.
+    private var tegnet: [UUID: (antall: Int, tid: Date)] = [:]
+    /// Nye skanninger samles her (på ARKit-tråden) og leses høyst to ganger i sekundet.
+    private nonisolated let ko = Leseko()
 
     func start(_ v: ARView) {
         arView = v
         v.scene.addAnchor(rot)
         let oppsett = ARWorldTrackingConfiguration()
         oppsett.sceneReconstruction = .meshWithClassification
-        oppsett.planeDetection = [.vertical, .horizontal]
+        // Ingen flatesøk eller personsporing: det koster mye og trengs ikke. Skanningen skjuler møbler.
         oppsett.environmentTexturing = .automatic
-        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
-            oppsett.frameSemantics.insert(.personSegmentationWithDepth)
-        }
         v.environment.sceneUnderstanding.options.insert(.occlusion)
         v.renderOptions.insert(.disableMotionBlur)
         v.session.delegate = self
@@ -128,7 +135,7 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
         v.session.delegateQueue = DispatchQueue(label: "prøvemaling", qos: .userInitiated)
         v.session.run(oppsett)
         // Skanningen oppdateres mange ganger i sekundet: tegn de endrede delene samlet
-        tidtaker = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+        tidtaker = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tegnSkitne() }
         }
     }
@@ -145,15 +152,23 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     nonisolated func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
         let ider = anchors.compactMap { ($0 as? ARMeshAnchor)?.identifier }
         Task { @MainActor in
-            for id in ider { self.biter[id] = nil; self.entiteter[id]?.removeFromParent(); self.entiteter[id] = nil }
+            for id in ider { self.biter[id] = nil; self.tegnet[id] = nil; self.entiteter[id]?.removeFromParent(); self.entiteter[id] = nil }
         }
     }
 
     private nonisolated func oppdater(_ anchors: [ARAnchor]) {
         let mesh = anchors.compactMap { $0 as? ARMeshAnchor }
         guard !mesh.isEmpty else { return }
+        // ARKit melder endringer mange ganger i sekundet. Samle dem, og les bare siste utgave
+        // av hver del, høyst to ganger i sekundet.
+        for m in mesh { ko.ventende[m.identifier] = m }
+        let na = Date().timeIntervalSinceReferenceDate
+        guard na - ko.sist >= 0.5 else { return }
+        ko.sist = na
+        let klare = ko.ventende
+        ko.ventende.removeAll()
         // Les geometrien her (ARKit-tråden), og send bare vegg-trekantene videre
-        let lest = mesh.map { ($0.identifier, Self.lesVegger($0)) }
+        let lest = klare.map { ($0.key, Self.lesVegger($0.value)) }
         Task { @MainActor in
             for (id, b) in lest { self.biter[id] = b; self.skitne.insert(id) }
         }
@@ -240,19 +255,58 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
 
     // MARK: Tegning
 
+    /// Tegner deler av skanningen som har endret seg. Ingenting malt: ingenting å tegne.
+    /// Små endringer venter litt, og høyst åtte deler tegnes om gangen, så bildet ikke hakker.
     private func tegnSkitne() {
         guard !skitne.isEmpty else { return }
-        let ider = skitne
-        skitne.removeAll()
-        for id in ider { tegn(id) }
+        guard !vegger.isEmpty || alleVegger else { skitne.removeAll(); return }
+        let na = Date()
+        var tegnetNa = 0
+        for id in skitne {
+            guard tegnetNa < 8 else { break }
+            let antall = biter[id]?.senter.count ?? 0
+            if let t = tegnet[id] {
+                let endring = abs(antall - t.antall)
+                // Under 5 % flere eller færre trekanter: vent til det har gått 3 sekunder
+                if endring * 20 < max(t.antall, 1) && na.timeIntervalSince(t.tid) < 3 { continue }
+            }
+            skitne.remove(id)
+            tegn(id)
+            tegnetNa += 1
+        }
     }
 
     private func tegnAlt() { for id in biter.keys { tegn(id) } }
+
+    private func materiale(_ f: Int) -> RealityKit.Material {
+        if ekteLys {
+            var m = PhysicallyBasedMaterial()
+            m.baseColor = .init(tint: farger[f])
+            m.roughness = 1.0
+            m.metallic = 0.0
+            if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
+            return m
+        }
+        var m = UnlitMaterial(color: farger[f])
+        if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
+        return m
+    }
+
+    /// Dekning og romlys: bytt bare materialet, ikke hele malingen.
+    private func oppdaterMaterialer() {
+        for samling in entiteter.values {
+            for barn in samling.children {
+                guard let modell = barn as? ModelEntity, let f = Int(modell.name.dropFirst()), f < farger.count else { continue }
+                modell.model?.materials = [materiale(f)]
+            }
+        }
+    }
 
     /// Lager malingen for én del av skanningen: én modell per farge.
     private func tegn(_ id: UUID) {
         entiteter[id]?.removeFromParent()
         entiteter[id] = nil
+        tegnet[id] = (biter[id]?.senter.count ?? 0, Date())
         guard let b = biter[id], !b.senter.isEmpty, !farger.isEmpty else { return }
         let kamera = arView?.session.currentFrame.map { SIMD3<Float>($0.camera.transform.columns.3.x, $0.camera.transform.columns.3.y, $0.camera.transform.columns.3.z) } ?? .zero
         var perFarge: [Int: (pos: [SIMD3<Float>], nor: [SIMD3<Float>])] = [:]
@@ -287,20 +341,9 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
             while i < n { idx.append(contentsOf: [i, i + 1, i + 2, i, i + 2, i + 1]); i += 3 }
             d.primitives = .triangles(idx)
             guard let mesh = try? MeshResource.generate(from: [d]) else { continue }
-            let materiale: RealityKit.Material
-            if ekteLys {
-                var m = PhysicallyBasedMaterial()
-                m.baseColor = .init(tint: farger[f])
-                m.roughness = 1.0
-                m.metallic = 0.0
-                if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
-                materiale = m
-            } else {
-                var m = UnlitMaterial(color: farger[f])
-                if dekning < 0.99 { m.blending = .transparent(opacity: .init(scale: Float(dekning))) }
-                materiale = m
-            }
-            samling.addChild(ModelEntity(mesh: mesh, materials: [materiale]))
+            let modell = ModelEntity(mesh: mesh, materials: [materiale(f)])
+            modell.name = "f\(f)"
+            samling.addChild(modell)
         }
         rot.addChild(samling)
         entiteter[id] = samling
