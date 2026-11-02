@@ -21,7 +21,7 @@ enum Omrademodell {
     static func finnes(_ id: UUID) -> Bool { FileManager.default.fileExists(atPath: url(id).path) }
 
     /// Kan telefonen dette? Områdemodus kom i iOS 18 og krever LiDAR.
-    static var stottet: Bool {
+    @MainActor static var stottet: Bool {
         if #available(iOS 18.0, *) { return ObjectCaptureSession.isSupported && PhotogrammetrySession.isSupported }
         return false
     }
