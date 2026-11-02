@@ -718,6 +718,14 @@ extension UIColor {
 
 enum TredjeVisning {
     /// Den beste 3D-modellen av rommet, åpnet for å prøve farger: ekte 3D, så med bilder, så vanlig.
+    /// Den beste modellen, med målene som er tatt i den. farge: åpne rett i fargevalg.
+    static func beste(for r: SkannetRom, farger: [ProveFarger.Farge], farge: Bool) -> VistModell {
+        let (url, kilde) = Fargemodell.finnes(r.id) ? (Fargemodell.url(r.id), "3d")
+            : Fotomodell.finnes(r.id) ? (Fotomodell.url(r.id), "foto") : (Modell.url(r.id), "plan")
+        return VistModell(url: url, tittel: r.navn, kilde: kilde, mal: (r.avstander ?? []).filter { $0.kilde == kilde },
+                          farger: farger, startMedFarge: farge)
+    }
+
     static func modell(for r: SkannetRom, farger: [ProveFarger.Farge]) -> VistModell {
         let url = Fargemodell.finnes(r.id) ? Fargemodell.url(r.id) : Fotomodell.finnes(r.id) ? Fotomodell.url(r.id) : Modell.url(r.id)
         return VistModell(url: url, tittel: r.navn, farger: farger, startMedFarge: true)

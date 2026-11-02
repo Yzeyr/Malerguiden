@@ -1,7 +1,7 @@
 /* Mitt: sikkerhetskopi, favoritter og egne notater. */
 
 import { h, tom, ikon, toast, ark, bekreft } from '../dom.js';
-import { visTidspunkt, flertall, fmt } from '../util.js';
+import { visTidspunkt, flertall, fmt, iDagIso } from '../util.js';
 import { egnePriser, settPris, nullstillPriser } from '../priser.js';
 import { beregn, ARBEID, timerPerArbeid, arbeidFor } from '../kalkyle.js';
 import { blokk, blokkInnhold, sammenlegg } from './blokk.js';
@@ -15,6 +15,7 @@ import { plassBrukt, beOmVarigLagring } from '../store.js';
 import { topp } from './felles.js';
 import { faktumKort } from './oppslag.js';
 import { iApp, kall } from '../native.js';
+import { kanAutokopi, sisteAutokopi, taAutokopi } from '../autokopi.js';
 
 export function visMitt(rot, del) {
   const side = h('div.visning');
@@ -253,12 +254,50 @@ function tegnKopi(el) {
       h('p.dempet.liten', { style: { margin: '12px 0 0' } }, 'Alt ligger bare på denne telefonen. Mister du telefonen eller sletter appen, er jobbene borte. Ta en kopi én gang i uka.'),
       h('label.tallfelt', { style: { borderBottom: '0', paddingBottom: '0' } }, h('span', 'Ta med bilder', h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, 'Større fil, men alt kommer med')), medBilder),
       handling),
+    autoKort(el),
     h('details.flere', { style: { margin: '6px 2px 0' } },
       h('summary', 'Gjenopprett fra en kopi'),
       h('p.dempet.liten', 'Det som er i kopien, legges til det du har. Ingenting blir overskrevet.'),
       h('label.knapp.sekundar.hel', ikon('lastned'), 'Velg fila', filInn),
       h('label.felt', { style: { marginTop: '12px' } }, h('span', 'Eller lim inn teksten'), lim),
       h('button.knapp.sekundar.hel', { type: 'button', onclick: () => { if (lim.value.trim()) kjorGjenoppretting(lim.value, el); } }, 'Legg inn')));
+}
+
+/** Automatisk kopi hver dag (bare i appen): mappen den lagres i, og når den sist ble tatt. */
+function autoKort(el) {
+  const kort = h('div');
+  kanAutokopi().then(async (ja) => {
+    if (!ja) return;
+    let mappe = null;
+    try { mappe = (await kall('kopiMappe'))?.mappe || null; } catch { /* vises som ingen mappe */ }
+    const sist = sisteAutokopi();
+    const status = h('div.dempet.liten', { style: { marginTop: '6px' } }, sist
+      ? 'Sist: ' + (sist.dato === iDagIso() ? 'i dag' : sist.dato.split('-').reverse().join('.')) + ' · ' + (sist.mb < 0.1 ? 'under 0,1' : fmt(sist.mb, 1)) + ' MB · ' + sist.mappe
+      : 'Ingen kopi tatt ennå.');
+    const knapper = h('div.knapprad',
+      h('button.knapp' + (mappe ? '.sekundar' : ''), { type: 'button', onclick: async () => {
+        try {
+          const svar = await kall('velgKopiMappe');
+          if (svar?.mappe) { toast('Kopiene lagres i ' + svar.mappe + '.'); await taKopiNa(); }
+        } catch (e) { toast(e.message); }
+      } }, ikon('kopier'), mappe ? 'Bytt mappe' : 'Velg mappe'),
+      h('button.knapp.sekundar', { type: 'button', onclick: () => taKopiNa() }, ikon('skjold'), 'Ta kopi nå'));
+    async function taKopiNa() {
+      toast('Lager kopien …', { ms: 60000 });
+      try {
+        const r = await taAutokopi({ tving: true });
+        toast(r ? 'Kopien er lagret i ' + r.mappe + '.' : 'Ingen jobber å ta kopi av.', { ms: 4500 });
+      } catch (e) { toast('Klarte ikke ta kopien: ' + (e?.message || 'ukjent feil'), { ms: 6000 }); }
+      tegnKopi(el);
+    }
+    tom(kort, h('div.kort', { style: { marginTop: '10px' } },
+      h('b', 'Automatisk kopi hver dag'),
+      h('p.dempet.liten', { style: { margin: '6px 0 0' } }, mappe
+        ? 'Appen tar en kopi med bilder hver dag og legger den i mappen «' + mappe + '». De sju nyeste beholdes. Den blir liggende selv om appen slettes.'
+        : 'Appen tar en kopi med bilder hver dag. Velg en mappe i iCloud Drive, så blir kopiene liggende selv om appen eller telefonen blir borte. Uten mappe legges de i Filer under På min iPhone, og der slettes de sammen med appen.'),
+      status, knapper));
+  });
+  return kort;
 }
 
 async function kjorGjenoppretting(tekst, el) {

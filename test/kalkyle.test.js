@@ -1,7 +1,7 @@
 // Prisberegningen: mengder fra rom, trappehull, K2/K3, tillegg og summer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe, stegFor, romFremgang, etasjeFor, fremgangPerEtasje, STEG, handleliste, linjerForHandel } from '../src/kalkyle.js';
+import { romMengder, beregn, tomKalkyle, rensKalkyle, polygonMal, priser, arbeidsdager, fraSkanning, leggInnSkannet, perRom, dagerMedTork, materialer, timerPerArbeid, arbeidFor, ytterhjornerAuto, grupperLinjer, prisgruppe, stegFor, romFremgang, etasjeFor, fremgangPerEtasje, STEG, handleliste, linjerForHandel } from '../src/kalkyle.js';
 import { NORMER } from '../src/data/normer.js';
 
 const rom = (o = {}) => ({ id: 'r1', navn: 'Stue', lengde: '4', bredde: '3', hoyde: '2,4', vinduer: '1', dorer: '1', med: {}, ...o });
@@ -631,4 +631,25 @@ test('prisen delt på vegg og tak: samme sum, og ytterhjørner kan slås av', as
   assert.ok(beregn(k, {}).linjer.some((l) => l.id === 'ytterhjorne'));
   assert.equal(rensKalkyle(k).arbeid.ytterhjorner, true);
   assert.equal(rensKalkyle({}).arbeid.ytterhjorner, false);
+});
+
+test('skannet rom husker skanningen, og nye mål erstatter de gamle uten å røre valgene', () => {
+  const id = '0A1B2C3D-0000-4000-8000-123456789ABC';
+  const eks = (gulv) => JSON.stringify({ format: 'malerguiden-rom', rom: [{ id, navn: 'Stue', gulv, omkrets: 14, takhoyde: 2.4, vegg: 30, vinduer: 1, dorer: 1 }] });
+  const [r] = fraSkanning(eks(12));
+  assert.equal(r.skann, id);
+  assert.equal(fraSkanning(JSON.stringify({ format: 'malerguiden-rom', rom: [{ id: 'tull', navn: 'A', gulv: 12, omkrets: 14 }] }))[0].skann, null);
+  const k = tomKalkyle();
+  let n = 0;
+  assert.deepEqual(leggInnSkannet(k, [r], () => 'r-' + ++n), { nye: 1, oppdatert: 0 });
+  k.rom[0].navn = 'Stua'; k.rom[0].med.tak = false; k.rom[0].trapp = true;
+  assert.deepEqual(leggInnSkannet(k, fraSkanning(eks(15)), () => 'r-' + ++n), { nye: 0, oppdatert: 1 });
+  assert.equal(k.rom.length, 1);
+  assert.equal(k.rom[0].gulv, 15);
+  assert.equal(k.rom[0].navn, 'Stua');
+  assert.equal(k.rom[0].med.tak, false);
+  assert.equal(k.rom[0].trapp, true);
+  assert.equal(k.rom[0].id, 'r-1');
+  // Lagres og leses igjen med skanningen
+  assert.equal(rensKalkyle(k).rom[0].skann, id);
 });

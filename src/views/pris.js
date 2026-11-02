@@ -3,10 +3,11 @@
 
 import { h, tom, ikon, toast, ark, bekreft, velg, kopierTekst } from '../dom.js';
 import { nyId, fmt, flertall, iDagIso, visDato } from '../util.js';
-import { endreJobb, hentJobb, KLADD_ID, timerBrukt, forbeholdTekster } from '../jobs.js';
+import { endreJobb, hentJobb, KLADD_ID, timerBrukt, forbeholdTekster, jobbNavn } from '../jobs.js';
+import { jobbFarger } from './farger.js';
 import { tilbudsData, tilbudTekst, tilbudPrompt, tallStemmer } from '../tilbud.js';
 import { iApp, appInfo, kall } from '../native.js';
-import { veggRegnestykke, etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
+import { veggRegnestykke, etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, leggInnSkannet, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { uiLes, uiSkriv } from '../store.js';
 import { klokkeTimer, klokkeTekst, timerTilForing, LANG_KLOKKE, startTikker } from '../klokke.js';
@@ -34,7 +35,7 @@ export function romPanel(j) {
   const rom = j.kalkyle?.rom || [];
   ut.append(h('div.bildeknapper', { style: { marginBottom: '6px' } },
     h('button.knapp', { type: 'button', onclick: () => apnePlantegning(j.id) }, ikon('kart'), 'Plantegning'),
-    h('button.knapp.sekundar', { type: 'button', onclick: () => romArk(j.id, null) }, ikon('pluss'), 'Nytt rom')));
+    h('button.knapp.sekundar', { type: 'button', onclick: () => nyttRom(j.id) }, ikon('pluss'), 'Nytt rom')));
   ut.append(h('div.bildeknapper', { style: { marginTop: '8px' } },
     h('button.knapp.sekundar', { type: 'button', onclick: () => kiLes(j.id) }, '✨ Les med KI'),
     h('button.knapp.sekundar', { type: 'button', onclick: () => importerSkanning(j.id) }, ikon('lastned'), 'Skanning')));
@@ -67,7 +68,87 @@ export function romPanel(j) {
         ikon('rediger')),
       h('div.merker', { style: { marginTop: '8px' } }, brikker.map((b) => h('span.merke' + (b === 'Mangler mål' ? '.m-forfalt' : ''), b)))));
   }
-  ut.append(h('button.leggtil', { type: 'button', onclick: () => romArk(j.id, null) }, ikon('pluss'), 'Legg til rom'));
+  ut.append(h('button.leggtil', { type: 'button', onclick: () => nyttRom(j.id) }, ikon('pluss'), 'Legg til rom'));
+  return ut;
+}
+
+/* ---------- Skanneren i appen ---------- */
+
+/** Kan appen skanne rom rett inn i jobben og åpne dem igjen? (Eldre app-versjoner kan ikke.) */
+const harKobling = async () => iApp && !!(await appInfo())?.kobling;
+
+/** Nytt rom: i appen kan rommet skannes rett inn i jobben. */
+async function nyttRom(jobId) {
+  if (!(await harKobling())) { romArk(jobId, null); return; }
+  const valg = await velg({ tittel: 'Nytt rom', valg: [
+    { verdi: 'skann', tekst: 'Skann rommet', under: 'Med kameraet. Rommet kommer rett inn i jobben med alle mål.' },
+    { verdi: 'hent', tekst: 'Hent et rom du har skannet', under: 'Rom som ligger i skanneren fra før' },
+    { verdi: 'skriv', tekst: 'Skriv inn mål selv', under: 'Lengde, bredde og takhøyde' },
+  ] });
+  if (valg === 'skann') skannRom(jobId);
+  else if (valg === 'hent') hentSkannet(jobId);
+  else if (valg === 'skriv') romArk(jobId, null);
+}
+
+const jobbFor = (jobId) => { const j = hentJobb(jobId); return { jobb: j.id, navn: jobbNavn(j) }; };
+
+/** Skanner nye rom i appen. De havner i jobbens prosjekt i skanneren, og rett inn her. */
+async function skannRom(jobId) {
+  try {
+    const svar = await kall('skannRom', jobbFor(jobId));
+    if (svar?.tekst) leggInnSkanning(jobId, svar.tekst);
+  } catch (e) { toast(e.message); }
+}
+
+/** Velg rom som alt er skannet. */
+async function hentSkannet(jobId) {
+  try {
+    const svar = await kall('hentRom', jobbFor(jobId));
+    if (svar?.tekst) leggInnSkanning(jobId, svar.tekst);
+  } catch (e) { toast(e.message); }
+}
+
+/** Legger skannede rom inn i jobben. Rom som alt er der, får de nye målene. Kaster ved feil. */
+function leggInnSkanning(jobId, tekst, { stille = false } = {}) {
+  const rom = fraSkanning(tekst);
+  if (!rom.length) throw new Error('Skanningen har ingen rom med mål.');
+  let r = { nye: 0, oppdatert: 0 };
+  if (!endreKalkyle(jobId, (k) => { r = leggInnSkannet(k, rom, () => nyId('r-')); })) return r;
+  if (!stille) {
+    toast([r.nye && flertall(r.nye, 'rom', 'rom') + ' lagt til', r.oppdatert && flertall(r.oppdatert, 'rom', 'rom') + ' fikk nye mål'].filter(Boolean).join(', ') + '.');
+  }
+  return r;
+}
+
+/** Fargene i jobben, med fargene for dette rommet først. */
+function romFarger(job, romNavn) {
+  const alle = jobbFarger(job);
+  const navn = String(romNavn || '').trim().toLowerCase();
+  const her = (f) => navn && f.navn.toLowerCase().startsWith(navn + ':');
+  return [...alle.filter(her), ...alle.filter((f) => !her(f))].slice(0, 6);
+}
+
+/** Knappene for et skannet rom: 3D, prøv farge, og skanneren (mål på nytt). */
+function skannKnapper(jobId, verdi, lukk) {
+  const ut = h('div.bildeknapper', { style: { margin: '-4px 0 12px' } });
+  harKobling().then((ja) => {
+    if (!ja) return;
+    const id = verdi.skann;
+    tom(ut,
+      h('button.knapp.sekundar', { type: 'button', onclick: () => kall('vis3D', { id, modus: 'se' }).catch((e) => toast(e.message)) }, ikon('kube'), 'Se i 3D'),
+      h('button.knapp.sekundar', { type: 'button', onclick: () => kall('vis3D', { id, modus: 'farge', farger: romFarger(hentJobb(jobId), verdi.navn) }).catch((e) => toast(e.message)) }, ikon('kamera'), 'Prøv farge'),
+      h('button.knapp.sekundar', { type: 'button', onclick: async () => {
+        lukk();
+        try {
+          const svar = await kall('apneRom', { id });
+          if (svar?.endret && svar.tekst && await bekreft({
+            tittel: 'Bruke de nye målene?',
+            tekst: 'Målene er endret i skanneren. Rommet i jobben får de nye målene. Navnet og valgene for rommet beholdes.',
+            ja: 'Bruk nye mål',
+          })) leggInnSkanning(jobId, svar.tekst);
+        } catch (e) { toast(e.message); }
+      } }, ikon('rediger'), 'Mål på nytt'));
+  });
   return ut;
 }
 
@@ -228,6 +309,7 @@ export function romArk(jobId, romId, forslag = null) {
     },
       h('h2', finnes ? 'Endre rom' : 'Nytt rom'),
       verdi.skannplan && planKort,
+      finnes && verdi.skann && iApp && skannKnapper(jobId, verdi, lukk),
       h('div', { style: { display: 'flex', gap: '10px' } },
         h('label.felt', { style: { flex: '1.6' } }, h('span', 'Navn'), h('input', { type: 'text', maxlength: 40, value: verdi.navn, placeholder: 'F.eks. Stue', autocomplete: 'off', oninput: (e) => { verdi.navn = e.target.value; } })),
         // Etasjen brukes til fremgangen i Arbeid. Tomt: fra plantegningen eller navnet («Bad 2etg»).
@@ -954,11 +1036,7 @@ function importerSkanning(jobId) {
     const feil = h('p.feilmelding', { hidden: true });
     const tekst = h('textarea', { rows: 3, placeholder: '{"format":"malerguiden-rom",…}' });
     const leggInn = (innhold) => {
-      let rom;
-      try { rom = fraSkanning(innhold); } catch (e) { feil.textContent = e.message; feil.hidden = false; return; }
-      if (!rom.length) { feil.textContent = 'Skanningen har ingen rom med mål.'; feil.hidden = false; return; }
-      const nye = rom.map((r) => ({ ...r, id: nyId('r-'), trapp: false, med: { ...MED_ALT }, polygon: null, tegning: null }));
-      if (endreKalkyle(jobId, (k) => { k.rom.push(...nye); })) toast(flertall(nye.length, 'rom', 'rom') + ' fra skanningen er lagt til.');
+      try { leggInnSkanning(jobId, innhold); } catch (e) { feil.textContent = e.message; feil.hidden = false; return; }
       lukk();
     };
     const fil = h('input', {
@@ -968,7 +1046,7 @@ function importerSkanning(jobId) {
     return h('div',
       h('h2', 'Importer skanning'),
       iApp && h('button.knapp.hel', { type: 'button', style: { marginBottom: '10px' }, onclick: async () => {
-        try { const svar = await kall('hentRom'); if (svar?.tekst) leggInn(svar.tekst); }
+        try { const svar = await kall('hentRom', jobbFor(jobId)); if (svar?.tekst) leggInn(svar.tekst); }
         catch (e) { feil.textContent = e.message; feil.hidden = false; }
       } }, ikon('kamera'), 'Hent fra skanneren'),
       h('p.dempet', { style: { marginTop: iApp ? '0' : '-6px' } }, iApp ? 'Velg rommene du har skannet, eller skann et nytt.' : 'Skann rommene med Romskanner-appen og trykk «Kopier til Malerguiden». Kom så tilbake hit og trykk «Lim inn».'),

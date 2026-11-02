@@ -21,8 +21,43 @@ struct RotView: View {
         MalerguidenWebView(kobling: web)
             .ignoresSafeArea()
             .background(Color(red: 0.96, green: 0.94, blue: 0.90).ignoresSafeArea())
+            .onAppear { web.lager = lager }
             .sheet(isPresented: Binding(get: { web.visRomVelger }, set: { if !$0 { web.romValgt(nil) } })) {
-                RomVelger(lager: lager, tingLager: tingLager) { web.romValgt($0) }
+                RomVelger(lager: lager, tingLager: tingLager, jobb: web.romJobb) { web.romValgt($0) }
+            }
+            // Skann rom rett inn i en jobb: jobbens prosjekt, og rommet går tilbake til jobben når det er lagret
+            .fullScreenCover(item: Binding(get: { web.skannForJobb }, set: { if $0 == nil { web.skannFerdig(nil) } })) { j in
+                NavigationStack {
+                    ProsjektView(lager: lager, prosjektId: j.prosjekt, tilJobb: { rom in
+                        web.skannFerdig(rom.isEmpty ? nil : Eksport(rom: rom).json())
+                    }, startSkann: true)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button { web.skannFerdig(nil) } label: { Label("Jobben", systemImage: "chevron.backward") }
+                        }
+                    }
+                    .navigationDestination(for: Rute.self) { rute in
+                        if case .rom(let id) = rute { RomDetalj(lager: lager, id: id) }
+                    }
+                }
+            }
+            // Et rom fra jobben, åpnet i skanneren
+            .fullScreenCover(item: Binding(get: { web.apentRom }, set: { if $0 == nil { web.romLukket() } })) { r in
+                NavigationStack {
+                    RomDetalj(lager: lager, id: r.id)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button { web.romLukket() } label: { Label("Jobben", systemImage: "chevron.backward") }
+                            }
+                        }
+                }
+            }
+            // Et rom fra jobben, i 3D. Mål som tas, lagres på rommet.
+            .fullScreenCover(item: $web.modell3D) { v in
+                ModellVisning(modell: v) { nye in
+                    guard let kilde = v.kilde, let id = web.modell3DRom, let i = lager.rom.firstIndex(where: { $0.id == id }) else { return }
+                    lager.rom[i].avstander = (lager.rom[i].avstander ?? []).filter { $0.kilde != kilde } + nye
+                }
             }
             .fullScreenCover(isPresented: $web.visSkanner) {
                 ContentView(lager: lager, tingLager: tingLager) { web.visSkanner = false }
@@ -42,12 +77,17 @@ struct RotView: View {
 struct RomVelger: View {
     @ObservedObject var lager: RomLager
     @ObservedObject var tingLager: TingLager
+    /// Jobben rommene skal inn i. Prosjektet som hører til den, vises først.
+    var jobb: JobbRef? = nil
     let ferdig: (String?) -> Void
     @State private var valgte = Set<UUID>()
     @State private var skanner = false
 
     private var grupper: [(navn: String, rom: [SkannetRom])] {
-        let prosjekter = lager.prosjekter.sorted { $0.dato > $1.dato }.map { (navn: $0.navn, rom: lager.rom(i: $0.id)) }
+        let denne = jobb?.id
+        let prosjekter = lager.prosjekter
+            .sorted { ($0.jobb == denne && denne != nil ? 1 : 0, $0.dato) > ($1.jobb == denne && denne != nil ? 1 : 0, $1.dato) }
+            .map { (navn: $0.jobb == denne && denne != nil ? "Denne jobben" : $0.navn, rom: lager.rom(i: $0.id)) }
         return (prosjekter + [(navn: "Uten prosjekt", rom: lager.rom(i: nil))]).filter { !$0.rom.isEmpty }
     }
 
@@ -74,6 +114,7 @@ struct RomVelger: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(valgte.isEmpty ? "Legg inn" : "Legg inn \(valgte.count)") {
                         let utvalg = lager.rom.filter { valgte.contains($0.id) }
+                        if let jobb { lager.koble(valgte, tilJobb: jobb.id, navn: jobb.navn) }
                         ferdig(Eksport(rom: utvalg).json())
                     }
                     .disabled(valgte.isEmpty)
@@ -144,7 +185,7 @@ struct ContentView: View {
                 if !lager.prosjekter.isEmpty {
                     Section("Prosjekter") {
                         ForEach(lager.prosjekter.sorted { $0.dato > $1.dato }) { p in
-                            NavigationLink(value: Rute.prosjekt(p.id)) { ProsjektRad(navn: p.navn, rom: lager.rom(i: p.id)) }
+                            NavigationLink(value: Rute.prosjekt(p.id)) { ProsjektRad(navn: p.navn, rom: lager.rom(i: p.id), jobb: p.jobb != nil) }
                                 .contextMenu {
                                     Button { endreNavn = p.navn; endrer = p } label: { Label("Endre navn", systemImage: "pencil") }
                                     Button(role: .destructive) { sletter = p } label: { Label("Slett prosjektet", systemImage: "trash") }
@@ -270,11 +311,16 @@ struct ContentView: View {
 struct ProsjektRad: View {
     let navn: String
     let rom: [SkannetRom]
+    /// Prosjektet hører til en jobb i Malerguiden.
+    var jobb = false
 
     var body: some View {
         let gulv = rom.reduce(0.0) { $0 + $1.gulv }
         VStack(alignment: .leading, spacing: 4) {
             Text(navn).font(.headline)
+            if jobb {
+                Label("Jobb i Malerguiden", systemImage: "link").font(.caption.weight(.medium)).foregroundStyle(.orange)
+            }
             Text(rom.isEmpty ? "Ingen rom ennå" : "\(rom.count) rom · \(gulv.formatted(.number.precision(.fractionLength(1)))) m² gulv")
                 .font(.subheadline).foregroundStyle(.secondary)
         }
@@ -286,6 +332,10 @@ struct ProsjektRad: View {
 struct ProsjektView: View {
     @ObservedObject var lager: RomLager
     let prosjektId: UUID?
+    /// Åpnet fra en jobb: rommene som er skannet (eller valgt) går rett tilbake til jobben.
+    var tilJobb: (([SkannetRom]) -> Void)? = nil
+    /// Spør om skannemåte med en gang.
+    var startSkann = false
 
     @State private var skanner = false
     @State private var skannerEtasje = false
@@ -300,6 +350,7 @@ struct ProsjektView: View {
     @State private var modus: Skannemodus = .noyaktig
     /// Rommet som får en runde til med ekte 3D (modus «ekte 3D»)
     @State private var ekte3D: SkannetRom?
+    @State private var startet = false
 
     private let stottet = RoomCaptureSession.isSupported
     private var rommene: [SkannetRom] { lager.rom(i: prosjektId) }
@@ -316,6 +367,11 @@ struct ProsjektView: View {
 
     var body: some View {
         skannevalg(liste)
+            .onAppear {
+                guard startSkann, !startet, stottet else { return }
+                startet = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { velgModus = true }
+            }
     }
 
     private var liste: some View {
@@ -385,10 +441,14 @@ struct ProsjektView: View {
             VStack(spacing: 10) {
                 if !rommene.isEmpty {
                     Button {
+                        if let tilJobb { tilJobb(utvalg); return }
                         UIPasteboard.general.string = Eksport(rom: utvalg, prosjekt: prosjektNavn).json()
                         kopiert = utvalg.count
                     } label: {
-                        Label(utvalg.count == rommene.count ? "Kopier alle \(rommene.count) til Malerguiden" : "Kopier \(utvalg.count) valgte til Malerguiden", systemImage: "doc.on.doc")
+                        Label(tilJobb != nil
+                              ? (utvalg.count == rommene.count ? "Legg alle \(rommene.count) inn i jobben" : "Legg \(utvalg.count) valgte inn i jobben")
+                              : (utvalg.count == rommene.count ? "Kopier alle \(rommene.count) til Malerguiden" : "Kopier \(utvalg.count) valgte til Malerguiden"),
+                              systemImage: tilJobb != nil ? "arrow.down.doc" : "doc.on.doc")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -448,7 +508,12 @@ struct ProsjektView: View {
                     lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                 }
             }) { _, _ in
-                DispatchQueue.main.async { skannerEtasje = false }
+                DispatchQueue.main.async {
+                    skannerEtasje = false
+                    // Fra en jobb: rommene i etasjen går rett inn i jobben
+                    let nye = rommene.filter { $0.okt == etasjeOkt }
+                    if let tilJobb, !nye.isEmpty { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { tilJobb(nye) } }
+                }
             }
             .ignoresSafeArea()
         }
@@ -458,6 +523,10 @@ struct ProsjektView: View {
                 let nyttNavn = navn.trimmingCharacters(in: .whitespaces)
                 if let v = ventende, !nyttNavn.isEmpty, let i = lager.rom.firstIndex(where: { $0.id == v.id }) {
                     lager.rom[i].navn = nyttNavn
+                }
+                // Fra en jobb: rommet går rett inn i jobben
+                if let v = ventende, let tilJobb, let r = lager.rom.first(where: { $0.id == v.id }) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { tilJobb([r]) }
                 }
                 ventende = nil
             }

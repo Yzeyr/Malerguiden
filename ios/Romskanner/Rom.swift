@@ -89,6 +89,8 @@ struct Prosjekt: Codable, Identifiable, Hashable {
     var id = UUID()
     var navn: String
     var dato = Date()
+    /// Jobben i Malerguiden prosjektet hører til (jobbens id). nil: ikke koblet.
+    var jobb: String?
 }
 
 /// Plantegning i meter, sett ovenfra (x mot høyre, y nedover på skjermen).
@@ -481,6 +483,8 @@ struct Eksport: Codable {
     var rom: [Ut]
 
     struct Ut: Codable {
+        /// Rommets id i skanneren, så jobben kan åpne det igjen (3D, farger, mål på nytt).
+        var id: String?
         var navn: String
         var gulv: Double
         var omkrets: Double
@@ -495,7 +499,7 @@ struct Eksport: Codable {
     init(rom: [SkannetRom], prosjekt: String? = nil) {
         self.prosjekt = prosjekt
         self.rom = rom.map {
-            Ut(navn: $0.navn, gulv: $0.gulv, omkrets: $0.omkrets, takhoyde: $0.takhoyde,
+            Ut(id: $0.id.uuidString, navn: $0.navn, gulv: $0.gulv, omkrets: $0.omkrets, takhoyde: $0.takhoyde,
                vegg: $0.veggNetto, vinduer: $0.vinduer, dorer: $0.dorer, apninger: $0.apninger,
                plan: $0.plan.map(Eksport.avrundPlan))
         }
@@ -597,6 +601,38 @@ final class RomLager: ObservableObject {
 
     func flytt(_ ider: Set<UUID>, til prosjekt: UUID?) {
         for i in rom.indices where ider.contains(rom[i].id) { rom[i].prosjekt = prosjekt }
+    }
+
+    /// Prosjektet som hører til en jobb i Malerguiden. Lages første gang, med jobbens navn.
+    func prosjekt(forJobb jobb: String, navn: String) -> UUID {
+        let navn = navn.trimmingCharacters(in: .whitespaces)
+        if let i = prosjekter.firstIndex(where: { $0.jobb == jobb }) {
+            if !navn.isEmpty && prosjekter[i].navn != navn { prosjekter[i].navn = navn }
+            return prosjekter[i].id
+        }
+        let p = Prosjekt(navn: navn.isEmpty ? "Jobb \(prosjekter.count + 1)" : navn, jobb: jobb)
+        prosjekter.append(p)
+        return p.id
+    }
+
+    /// Rom som er hentet inn i en jobb: rom uten prosjekt flyttes til jobbens prosjekt,
+    /// og kommer alle fra ett prosjekt uten jobb, kobles det prosjektet til jobben.
+    func koble(_ ider: Set<UUID>, tilJobb jobb: String, navn: String) {
+        let valgte = rom.filter { ider.contains($0.id) }
+        let kjente = Set(prosjekter.map(\.id))
+        let fra = Set(valgte.compactMap { $0.prosjekt }.filter { kjente.contains($0) })
+        if fra.count == 1, let p = fra.first, !prosjekter.contains(where: { $0.jobb == jobb }),
+           let i = prosjekter.firstIndex(where: { $0.id == p }), prosjekter[i].jobb == nil {
+            prosjekter[i].jobb = jobb
+        }
+        let uten = Set(valgte.filter { r in r.prosjekt.map { !kjente.contains($0) } ?? true }.map(\.id))
+        if !uten.isEmpty { flytt(uten, til: prosjekt(forJobb: jobb, navn: navn)) }
+    }
+
+    /// Er målene i to versjoner av et rom like (etter «Mål på nytt» i skanneren)?
+    static func sammeMal(_ a: SkannetRom, _ b: SkannetRom) -> Bool {
+        a.gulv == b.gulv && a.omkrets == b.omkrets && a.takhoyde == b.takhoyde && a.veggNetto == b.veggNetto
+            && a.vinduer == b.vinduer && a.dorer == b.dorer && a.apninger == b.apninger && a.plan == b.plan && a.navn == b.navn
     }
 
     private func lagreProsjekter() {

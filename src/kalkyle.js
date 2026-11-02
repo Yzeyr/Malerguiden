@@ -121,6 +121,8 @@ export function rensKalkyle(k, klasse = '') {
       polygon: Array.isArray(r.polygon) ? r.polygon.filter((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) : null,
       tegning: r.tegning ? String(r.tegning) : null,
       skannplan: rensPlan(r.skannplan),
+      // Rommets id i skanneren på iPhone: 3D, farger og mål på nytt hentes derfra
+      skann: skannId(r.skann),
       justering: rensJustering(r.justering),
       // Steg som er gjort i rommet: { strimling: true, 'grunning-tak': true, … }
       gjort: rensGjort(r.gjort),
@@ -724,6 +726,31 @@ export function dagerMedTork(resultat, timerPerDag = 7.5) {
   return { dager: Math.max(dager, uten), arbeidsdager: uten, runder };
 }
 
+const skannId = (v) => (typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null);
+
+/** Det skanneren har målt. Resten av rommet (valgene i jobben) er jobbens eget. */
+const SKANNET_FELT = ['hoyde', 'gulv', 'omkrets', 'vegg', 'vinduer', 'dorer', 'skannplan', 'kilde', 'skann', 'lengde', 'bredde'];
+
+/**
+ * Legger skannede rom inn i kalkylen. Et rom som alt er i jobben (samme skanning), får de nye
+ * målene og beholder navnet og valgene sine. Andre rom legges til. Returnerer { nye, oppdatert }.
+ */
+export function leggInnSkannet(k, rom, nyId) {
+  let nye = 0, oppdatert = 0;
+  for (const r of rom) {
+    const i = r.skann ? k.rom.findIndex((x) => x.skann === r.skann) : -1;
+    if (i >= 0) {
+      const gammel = k.rom[i];
+      k.rom[i] = { ...gammel, ...Object.fromEntries(SKANNET_FELT.map((f) => [f, r[f] ?? null])) };
+      oppdatert++;
+    } else {
+      k.rom.push({ ...r, id: nyId(), trapp: false, med: { ...MED_ALT }, polygon: null, tegning: null });
+      nye++;
+    }
+  }
+  return { nye, oppdatert };
+}
+
 /** Leser eksporten fra Romskanner-appen. Returnerer rom uten id, eller kaster med norsk melding. */
 export function fraSkanning(tekst) {
   let d;
@@ -742,6 +769,7 @@ export function fraSkanning(tekst) {
     dorer: heltall(r.dorer),
     kilde: 'skann',
     skannplan: rensPlan(r.plan),
+    skann: skannId(r.id),
   })).filter((r) => r.gulv && r.omkrets);
 }
 

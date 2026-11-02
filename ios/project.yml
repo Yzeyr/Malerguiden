@@ -21,8 +21,8 @@ targets:
       path: Romskanner/Info.plist
       properties:
         CFBundleDisplayName: Malerguiden
-        CFBundleShortVersionString: "3.5"
-        CFBundleVersion: "22"
+        CFBundleShortVersionString: "3.6"
+        CFBundleVersion: "23"
         NSCameraUsageDescription: Kameraet og LiDAR-sensoren brukes til å måle opp rom, skanne ting til 3D-modeller, lese etiketter og prøvemale vegger.
         NSPhotoLibraryUsageDescription: Bilder fra biblioteket kan legges på jobbene.
         NSPhotoLibraryAddUsageDescription: Bilder av prøvemalingen kan lagres i Bilder.
@@ -31,6 +31,9 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         LSRequiresIPhoneOS: true
+        # Appens mappe vises i Filer (På min iPhone → Malerguiden), der kopiene ligger uten valgt mappe
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: no.yzeyr.romskanner

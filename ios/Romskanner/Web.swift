@@ -3,6 +3,7 @@ import WebKit
 import Vision
 import UIKit
 import UserNotifications
+import RoomPlan
 
 /// Malerguiden (nettappen) inne i iPhone-appen.
 ///
@@ -19,8 +20,21 @@ final class WebKobling: NSObject, ObservableObject {
     @Published var visRomVelger = false
     @Published var visSkanner = false
     @Published var proveFarger: ProveFarger?
+    /// Jobben romvelgeren ble åpnet fra (rommene kobles til den).
+    @Published var romJobb: JobbRef?
+    /// Skann nye rom rett inn i en jobb.
+    @Published var skannForJobb: JobbRef?
+    /// Et rom fra en jobb, åpnet i skanneren (plantegning, mål på nytt).
+    @Published var apentRom: RomRef?
+    /// Et rom fra en jobb, åpnet i 3D.
+    @Published var modell3D: VistModell?
+    var modell3DRom: UUID?
+    /// Rommene og prosjektene i skanneren.
+    weak var lager: RomLager?
 
     private var romSvar: ((String?) -> Void)?
+    private var skannSvar: ((String?) -> Void)?
+    private var apneSvar: (() -> Void)?
     private(set) lazy var webView: WKWebView = lagWebView()
 
     // MARK: Oppsett
@@ -54,8 +68,34 @@ final class WebKobling: NSObject, ObservableObject {
 
     func romValgt(_ json: String?) {
         visRomVelger = false
+        romJobb = nil
         romSvar?(json)
         romSvar = nil
+    }
+
+    /// Skanningen fra en jobb er ferdig (nil: avbrutt). Bare første svar teller.
+    func skannFerdig(_ json: String?) {
+        skannForJobb = nil
+        skannSvar?(json)
+        skannSvar = nil
+    }
+
+    func romLukket() {
+        apentRom = nil
+        apneSvar?()
+        apneSvar = nil
+    }
+
+    func jobbRef(_ m: Melding) -> JobbRef? {
+        guard let id = m.valgfriTekst("jobb"), !id.isEmpty else { return nil }
+        return JobbRef(id: id, navn: m.tekst("navn"), prosjekt: nil)
+    }
+
+    private func skannetRom(_ m: Melding) throws -> SkannetRom {
+        guard let id = UUID(uuidString: m.tekst("id")), let r = lager?.rom.first(where: { $0.id == id }) else {
+            throw Feil("Finner ikke skanningen av rommet. Den kan være slettet i skanneren.")
+        }
+        return r
     }
 }
 
@@ -94,12 +134,53 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             let tekst = try await Skriver.skriv(instrukser: m.tekst("instrukser"), sporsmal: m.tekst("sporsmal"))
             return ["tekst": tekst]
         case "hentRom":
+            romJobb = jobbRef(m)
             let json: String? = await withCheckedContinuation { fortsett in
                 self.romSvar = { fortsett.resume(returning: $0) }
                 self.visRomVelger = true
             }
             guard let json else { return ["tekst": NSNull()] }
             return ["tekst": json]
+        case "skannRom":
+            // Skann nye rom rett inn i jobben. Rommene havner i jobbens prosjekt i skanneren.
+            guard RoomCaptureSession.isSupported else { throw Feil("Skanning krever en iPhone med LiDAR (12 Pro eller nyere).") }
+            guard var j = jobbRef(m), let lager else { throw Feil("Mangler jobben.") }
+            j.prosjekt = lager.prosjekt(forJobb: j.id, navn: j.navn)
+            let json: String? = await withCheckedContinuation { fortsett in
+                self.skannSvar = { fortsett.resume(returning: $0) }
+                self.skannForJobb = j
+            }
+            return ["tekst": json ?? NSNull()]
+        case "apneRom":
+            // Åpner rommet i skanneren. Er målene endret når det lukkes, får jobben de nye.
+            let for_ = try skannetRom(m)
+            await withCheckedContinuation { (fortsett: CheckedContinuation<Void, Never>) in
+                self.apneSvar = { fortsett.resume() }
+                self.apentRom = RomRef(id: for_.id)
+            }
+            guard let etter = lager?.rom.first(where: { $0.id == for_.id }) else { return ["endret": false, "tekst": NSNull()] }
+            return ["endret": !RomLager.sammeMal(for_, etter), "tekst": Eksport(rom: [etter]).json()]
+        case "kopiMappe":
+            return ["mappe": Autokopi.mappeNavn() ?? NSNull()]
+        case "velgKopiMappe":
+            return ["mappe": await Autokopi.velgMappe() ?? NSNull()]
+        case "glemKopiMappe":
+            Autokopi.glem()
+            return nil
+        case "autoKopi":
+            guard let data = Data(base64Encoded: m.tekst("data")) else { throw Feil("Kopien kom ikke fram til appen.") }
+            return try Autokopi.bit(del: Int(m.tall("del") ?? 0), av: Int(m.tall("av") ?? 1), data: data, navn: m.tekst("navn"))
+        case "vis3D":
+            let r = try skannetRom(m)
+            guard Modell.finnes(r.id) || Fotomodell.finnes(r.id) || Fargemodell.finnes(r.id) else { throw Feil("Rommet har ingen 3D-modell.") }
+            let farger = m.liste("farger").compactMap { f -> ProveFarger.Farge? in
+                guard let hex = f["hex"] as? String, let farge = UIColor(hex: hex) else { return nil }
+                return .init(navn: f["navn"] as? String ?? hex, hex: hex, farge: farge)
+            }
+            if !farger.isEmpty { ProveFarger.husk(farger) }
+            modell3DRom = r.id
+            modell3D = TredjeVisning.beste(for: r, farger: farger, farge: m.tekst("modus") == "farge")
+            return nil
         case "kopier":
             UIPasteboard.general.string = m.tekst("tekst")
             return ["kopiert": true]
@@ -170,6 +251,16 @@ struct Melding: @unchecked Sendable {
     func liste(_ k: String) -> [[String: Any]] { d[k] as? [[String: Any]] ?? [] }
 }
 
+struct JobbRef: Identifiable {
+    let id: String
+    let navn: String
+    var prosjekt: UUID?
+}
+
+struct RomRef: Identifiable {
+    let id: UUID
+}
+
 struct Feil: LocalizedError {
     let melding: String
     init(_ m: String) { melding = m }
@@ -186,6 +277,10 @@ enum AppInfo {
             "kiGrunn": ki.grunn ?? NSNull(),
             "ar": ProveMalView.stottet,
             "tekst": true,
+            // Jobben kan skanne rom, åpne dem i skanneren og vise dem i 3D
+            "kobling": true,
+            // Daglig sikkerhetskopi til en mappe du velger
+            "autokopi": true,
         ]
     }
 }
