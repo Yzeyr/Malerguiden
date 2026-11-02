@@ -313,6 +313,8 @@ enum Fotomodell {
             let p = b.kamera.projectPoint(midt, orientation: .landscapeRight, viewportSize: b.opplosning)
             let z = -simd_mul(fraKamera, SIMD4<Float>(midt.x, midt.y, midt.z, 1)).z
             if let d = b.dybdeVed(x: p.x, y: p.y), d < z - 0.15 { continue }
+            // Så bildet ingen flate her (lenger unna)? Da sto telefonens posisjon for bildet feil.
+            if let d = b.dybdeVed(x: p.x, y: p.y), d > z + 0.25 { continue }
             let forfra = abs(simd_dot(mot, normal))
             let avstand = simd_distance(kamPos, midt)
             let poeng = Float(inne) * 10 + forfra * 4 - avstand * 0.5 + (naboer.contains(i) ? 1.5 : 0)

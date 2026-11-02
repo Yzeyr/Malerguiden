@@ -2,6 +2,7 @@ import SwiftUI
 import ARKit
 import RealityKit
 import SceneKit
+import ImageIO
 import UIKit
 
 /// Hvordan et rom skannes. Valgt før skanningen starter.
@@ -232,81 +233,141 @@ enum Fargemodell {
     }
 
     /// Lager modellen og lagrer den som USDZ. Tar noen sekunder; kjør den i bakgrunnen.
+    ///
+    /// 1. Små løse biter (rusk fra LiDAR) tas bort.
+    /// 2. Hver trekant får bildet som ser den best. Nabotrekanter foretrekker samme bilde, så det blir færre skjøter.
+    /// 3. Trekanter ingen bilder ser godt, prøves igjen med mildere krav (litt på skrå, delvis utenfor bildet).
+    /// 4. Det som fortsatt ikke har bilde, får fargen fra flatene rundt, i stedet for hvitt.
     static func lag(bitene: [Nettbit], bilder: [Fotobilde], til url: URL) {
         // Alle trekantene i én liste
         var p: [SIMD3<Float>] = []
-        var tri: [SIMD3<Int32>] = []
+        var alle: [SIMD3<Int32>] = []
         for bit in bitene {
             let start = Int32(p.count)
             p.append(contentsOf: bit.punkter)
             var i = 0
             while i + 2 < bit.trekanter.count {
-                tri.append(SIMD3(start + Int32(bit.trekanter[i]), start + Int32(bit.trekanter[i + 1]), start + Int32(bit.trekanter[i + 2])))
+                alle.append(SIMD3(start + Int32(bit.trekanter[i]), start + Int32(bit.trekanter[i + 1]), start + Int32(bit.trekanter[i + 2])))
                 i += 3
             }
         }
+        guard !alle.isEmpty else { return }
+
+        // Punkter på samme sted (innen 1 cm) er det samme punktet, også på tvers av bitene fra ARKit
+        var nokler: [SIMD3<Int32>: Int32] = [:]
+        var sveiset = [Int32](repeating: 0, count: p.count)
+        for (i, q) in p.enumerated() {
+            let k = SIMD3<Int32>(Int32((q.x * 100).rounded()), Int32((q.y * 100).rounded()), Int32((q.z * 100).rounded()))
+            if let n = nokler[k] { sveiset[i] = n } else { let n = Int32(nokler.count); nokler[k] = n; sveiset[i] = n }
+        }
+        let antallPunkter = nokler.count
+
+        // 1. Sammenhengende biter. Små biter som henger løst, er rusk og tas bort.
+        var forelder = Array(0..<Int32(antallPunkter))
+        func rot(_ x: Int32) -> Int32 {
+            var x = x
+            while forelder[Int(x)] != x { forelder[Int(x)] = forelder[Int(forelder[Int(x)])]; x = forelder[Int(x)] }
+            return x
+        }
+        func slaSammen(_ a: Int32, _ b: Int32) { let ra = rot(a), rb = rot(b); if ra != rb { forelder[Int(ra)] = rb } }
+        for t in alle {
+            slaSammen(sveiset[Int(t.x)], sveiset[Int(t.y)])
+            slaSammen(sveiset[Int(t.x)], sveiset[Int(t.z)])
+        }
+        var storrelse: [Int32: Int] = [:]
+        for t in alle { storrelse[rot(sveiset[Int(t.x)]), default: 0] += 1 }
+        let minste = min(200, max(20, alle.count / 400))
+        let tri = alle.filter { (storrelse[rot(sveiset[Int($0.x)])] ?? 0) >= minste }
         guard !tri.isEmpty else { return }
         let kameraer = bilder.map { Kamera($0.kamera) }
 
-        // 1. Hvilke bilder ser hver trekant godt, og hvor godt
+        // 2. Hvilke bilder ser hver trekant godt, og hvor godt
         var kandidater = [[(Int, Float)]](repeating: [], count: tri.count)
         var antallBest = [Int](repeating: 0, count: bilder.count)
-        for (t, idx) in tri.enumerated() {
+        var normaler = [SIMD3<Float>](repeating: SIMD3(0, 1, 0), count: tri.count)
+        func vurder(_ t: Int, streng: Bool) -> [(Int, Float)] {
+            let idx = tri[t]
             let a = p[Int(idx.x)], b = p[Int(idx.y)], c = p[Int(idx.z)]
             let midt = (a + b + c) / 3
-            let kryss = simd_cross(b - a, c - a)
-            let lengde = simd_length(kryss)
-            guard lengde > 1e-9 else { continue }
-            let normal = kryss / lengde
+            let normal = normaler[t]
             var liste: [(Int, Float)] = []
             for (i, k) in kameraer.enumerated() {
                 let mot = k.pos - midt
                 let avstand = simd_length(mot)
-                guard avstand > 0.15, avstand < 6 else { continue }
+                guard avstand > 0.15, avstand < (streng ? 6 : 8) else { continue }
                 let forfra = abs(simd_dot(mot / avstand, normal))
-                guard forfra > 0.25 else { continue }
-                guard let pm = k.projiser(midt), k.inne(pm.0),
-                      let pa = k.projiser(a), k.inne(pa.0),
-                      let pb = k.projiser(b), k.inne(pb.0),
-                      let pc = k.projiser(c), k.inne(pc.0) else { continue }
-                // Står noe foran trekanten i dette bildet?
-                if let d = bilder[i].dybdeVed(x: CGFloat(pm.0.x), y: CGFloat(pm.0.y)), d < pm.1 - 0.06 { continue }
-                liste.append((i, forfra * 2 - avstand * 0.5))
+                guard forfra > (streng ? 0.25 : 0.05) else { continue }
+                guard let pm = k.projiser(midt), k.inne(pm.0) else { continue }
+                if streng {
+                    guard let pa = k.projiser(a), k.inne(pa.0), let pb = k.projiser(b), k.inne(pb.0),
+                          let pc = k.projiser(c), k.inne(pc.0) else { continue }
+                }
+                // Bildets egen dybdemåling: står noe foran trekanten, eller ligger trekanten ikke der
+                // bildet så en flate? Da var telefonens posisjon for bildet litt feil (den retter seg opp
+                // underveis), og bildet ville havnet ved siden av. Slike bilder brukes ikke her.
+                var avvik: Float = 0
+                if let d = bilder[i].dybdeVed(x: CGFloat(pm.0.x), y: CGFloat(pm.0.y)) {
+                    let romslig = (streng ? 0.06 : 0.1) + pm.1 * 0.02
+                    if d < pm.1 - romslig || d > pm.1 + romslig { continue }
+                    avvik = abs(d - pm.1)
+                }
+                liste.append((i, forfra * 2 - avstand * 0.5 - avvik * 8))
             }
-            guard !liste.isEmpty else { continue }
             liste.sort { $0.1 > $1.1 }
             if liste.count > 5 { liste.removeLast(liste.count - 5) }
+            return liste
+        }
+        for (t, idx) in tri.enumerated() {
+            let a = p[Int(idx.x)], b = p[Int(idx.y)], c = p[Int(idx.z)]
+            let kryss = simd_cross(b - a, c - a)
+            let lengde = simd_length(kryss)
+            guard lengde > 1e-9 else { continue }
+            normaler[t] = kryss / lengde
+            var liste = vurder(t, streng: true)
+            // 3. Ingen så den godt nok: mildere krav
+            if liste.isEmpty { liste = vurder(t, streng: false) }
+            guard !liste.isEmpty else { continue }
             kandidater[t] = liste
             antallBest[liste[0].0] += 1
         }
 
-        // 2. Blant bildene som er nesten like gode, velg det som brukes mest. Færre skjøter.
+        // Blant bildene som er nesten like gode, velg det som brukes mest. Færre skjøter.
         var valg = [Int](repeating: -1, count: tri.count)
         for t in tri.indices {
             let liste = kandidater[t]
             guard let forste = liste.first else { continue }
-            let gode = liste.filter { $0.1 >= forste.1 - 0.25 }
+            let gode = liste.filter { $0.1 >= forste.1 - 0.4 }
             valg[t] = gode.max { antallBest[$0.0] < antallBest[$1.0] }?.0 ?? forste.0
         }
 
-        // 3. Geometri: hver trekant får egne hjørner med teksturkoordinater i sitt bilde
+        // 4. Farge til trekantene uten bilde, fra flatene rundt
+        let farger = fyllFarger(tri: tri, p: p, sveiset: sveiset, antallPunkter: antallPunkter, valg: valg, kameraer: kameraer, bilder: bilder)
+        let palett = Palett(farger.compactMap { $0 })
+
+        // Geometri: hver trekant får egne hjørner med teksturkoordinater i sitt bilde (eller i fargepaletten)
         var posisjoner: [SCNVector3] = []
-        var normaler: [SCNVector3] = []
+        var norm: [SCNVector3] = []
         var uv: [CGPoint] = []
         posisjoner.reserveCapacity(tri.count * 3)
-        normaler.reserveCapacity(tri.count * 3)
+        norm.reserveCapacity(tri.count * 3)
         uv.reserveCapacity(tri.count * 3)
+        let palettNr = -2
         var perBilde: [Int: [Int32]] = [:]
         for (t, idx) in tri.enumerated() {
             let hjorner = [p[Int(idx.x)], p[Int(idx.y)], p[Int(idx.z)]]
-            let n = simd_normalize(simd_cross(hjorner[1] - hjorner[0], hjorner[2] - hjorner[0]))
-            let i = valg[t]
+            let n = normaler[t]
+            var i = valg[t]
             let start = Int32(posisjoner.count)
+            let farge = i < 0 ? farger[t] : nil
+            if i < 0, farge != nil { i = palettNr }
             for q in hjorner {
                 posisjoner.append(SCNVector3(q.x, q.y, q.z))
-                normaler.append(n.x.isFinite ? SCNVector3(n.x, n.y, n.z) : SCNVector3(0, 1, 0))
+                norm.append(SCNVector3(n.x, n.y, n.z))
                 if i >= 0, let pk = kameraer[i].projiser(q) {
-                    uv.append(CGPoint(x: CGFloat(pk.0.x / kameraer[i].b), y: CGFloat(pk.0.y / kameraer[i].h)))
+                    // Utenfor bildet: hold deg ved kanten
+                    uv.append(CGPoint(x: CGFloat(min(1, max(0, pk.0.x / kameraer[i].b))), y: CGFloat(min(1, max(0, pk.0.y / kameraer[i].h)))))
+                } else if i == palettNr, let farge {
+                    uv.append(palett.punkt(farge))
                 } else {
                     uv.append(.zero)
                 }
@@ -319,18 +380,143 @@ enum Fargemodell {
         for (i, indekser) in perBilde.sorted(by: { $0.key < $1.key }) {
             elementer.append(SCNGeometryElement(indices: indekser, primitiveType: .triangles))
             let m = SCNMaterial()
-            m.diffuse.contents = i >= 0 ? (UIImage(data: bilder[i].jpeg) ?? UIColor(white: 0.8, alpha: 1)) : UIColor(white: 0.8, alpha: 1)
+            if i >= 0 { m.diffuse.contents = UIImage(data: bilder[i].jpeg) ?? UIColor(white: 0.8, alpha: 1) }
+            else if i == palettNr { m.diffuse.contents = palett.bilde(); m.diffuse.magnificationFilter = .nearest; m.diffuse.minificationFilter = .nearest }
+            else { m.diffuse.contents = UIColor(white: 0.75, alpha: 1) }
             m.isDoubleSided = true
             m.lightingModel = .constant
             materialer.append(m)
         }
         let geometri = SCNGeometry(
-            sources: [SCNGeometrySource(vertices: posisjoner), SCNGeometrySource(normals: normaler), SCNGeometrySource(textureCoordinates: uv)],
+            sources: [SCNGeometrySource(vertices: posisjoner), SCNGeometrySource(normals: norm), SCNGeometrySource(textureCoordinates: uv)],
             elements: elementer)
         geometri.materials = materialer
         let scene = SCNScene()
         scene.rootNode.addChildNode(SCNNode(geometry: geometri))
         try? FileManager.default.removeItem(at: url)
         _ = scene.write(to: url, options: nil, delegate: nil, progressHandler: nil)
+    }
+
+    /// Fargen til trekantene uten bilde. Trekantene med bilde rundt dem får fargen sin lest fra bildet
+    /// (midt i trekanten), og fargen sprer seg innover fra kanten, punkt for punkt.
+    /// nil for trekanter som har bilde, og for flekker uten noen farget nabo.
+    private static func fyllFarger(tri: [SIMD3<Int32>], p: [SIMD3<Float>], sveiset: [Int32], antallPunkter: Int,
+                                   valg: [Int], kameraer: [Kamera], bilder: [Fotobilde]) -> [SIMD3<Float>?] {
+        var ut = [SIMD3<Float>?](repeating: nil, count: tri.count)
+        guard valg.contains(-1) else { return ut }
+        let punkter = { (t: Int) -> [Int] in [Int(sveiset[Int(tri[t].x)]), Int(sveiset[Int(tri[t].y)]), Int(sveiset[Int(tri[t].z)])] }
+
+        // Punktene som ligger i kanten av en flekk uten bilde
+        var iFlekk = [Bool](repeating: false, count: antallPunkter)
+        for t in tri.indices where valg[t] < 0 { for v in punkter(t) { iFlekk[v] = true } }
+
+        // Les fargen i bildet for trekantene med bilde som rører en flekk, ett bilde om gangen
+        var leses: [Int: [Int]] = [:]
+        for t in tri.indices where valg[t] >= 0 && punkter(t).contains(where: { iFlekk[$0] }) { leses[valg[t], default: []].append(t) }
+        var sum = [SIMD3<Float>](repeating: .zero, count: antallPunkter)
+        var antall = [Float](repeating: 0, count: antallPunkter)
+        for (i, liste) in leses {
+            guard let les = Pikselleser(bilder[i]) else { continue }
+            for t in liste {
+                let idx = tri[t]
+                let midt = (p[Int(idx.x)] + p[Int(idx.y)] + p[Int(idx.z)]) / 3
+                guard let pm = kameraer[i].projiser(midt), let f = les.farge(x: pm.0.x, y: pm.0.y) else { continue }
+                for v in punkter(t) where iFlekk[v] { sum[v] += f; antall[v] += 1 }
+            }
+        }
+
+        // Spre fargen innover i flekkene: hver runde får punktene som har en farget nabo, snittet av naboene
+        var naboer = [[Int]](repeating: [], count: antallPunkter)
+        for t in tri.indices where valg[t] < 0 {
+            let v = punkter(t)
+            for a in v { for b in v where a != b { naboer[a].append(b) } }
+        }
+        var farge = [SIMD3<Float>?](repeating: nil, count: antallPunkter)
+        var kant: [Int] = []
+        for v in 0..<antallPunkter where antall[v] > 0 { farge[v] = sum[v] / antall[v]; kant.append(v) }
+        var runder = 0
+        while !kant.isEmpty && runder < 400 {
+            runder += 1
+            var neste: [Int: (SIMD3<Float>, Float)] = [:]
+            for v in kant { for n in naboer[v] where farge[n] == nil {
+                let f = farge[v]!
+                let gml = neste[n] ?? (.zero, 0)
+                neste[n] = (gml.0 + f, gml.1 + 1)
+            } }
+            kant = []
+            for (n, (s, a)) in neste { farge[n] = s / a; kant.append(n) }
+        }
+        for t in tri.indices where valg[t] < 0 {
+            let fs = punkter(t).compactMap { farge[$0] }
+            if !fs.isEmpty { ut[t] = fs.reduce(.zero, +) / Float(fs.count) }
+        }
+        return ut
+    }
+
+    /// Leser fargen i ett av bildene fra skanningen (pakker ut JPEG-en én gang).
+    private struct Pikselleser {
+        let data: [UInt8]
+        let bredde: Int, hoyde: Int
+        let skala: Float
+
+        init?(_ b: Fotobilde) {
+            guard let kilde = CGImageSourceCreateWithData(b.jpeg as CFData, nil),
+                  let bilde = CGImageSourceCreateImageAtIndex(kilde, 0, nil) else { return nil }
+            let w = bilde.width, h = bilde.height
+            var buffer = [UInt8](repeating: 0, count: w * h * 4)
+            let ok = buffer.withUnsafeMutableBytes { ptr -> Bool in
+                guard let ctx = CGContext(data: ptr.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                          space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+                ctx.draw(bilde, in: CGRect(x: 0, y: 0, width: w, height: h))
+                return true
+            }
+            guard ok else { return nil }
+            bredde = w; hoyde = h
+            skala = Float(b.skala)
+            data = buffer
+        }
+
+        /// Snittfargen rundt et punkt (fulle kamerapiksler, origo oppe til venstre), 0–1.
+        func farge(x: Float, y: Float) -> SIMD3<Float>? {
+            let px = Int(x * skala), py = Int(y * skala)
+            var s = SIMD3<Float>(0, 0, 0), n: Float = 0
+            for dy in -2...2 { for dx in -2...2 {
+                let xx = px + dx * 2, yy = py + dy * 2
+                guard xx >= 0, yy >= 0, xx < bredde, yy < hoyde else { continue }
+                let o = (yy * bredde + xx) * 4
+                s += SIMD3(Float(data[o]), Float(data[o + 1]), Float(data[o + 2])) / 255
+                n += 1
+            } }
+            return n > 0 ? s / n : nil
+        }
+    }
+
+    /// Et lite bilde med alle fargene for trekantene uten bilde (16 nivåer per farge, 64 × 64 ruter).
+    private struct Palett {
+        static let side = 64
+        func punkt(_ f: SIMD3<Float>) -> CGPoint {
+            let n = Self.nr(f)
+            return CGPoint(x: (CGFloat(n % Self.side) + 0.5) / CGFloat(Self.side), y: (CGFloat(n / Self.side) + 0.5) / CGFloat(Self.side))
+        }
+        init(_ farger: [SIMD3<Float>]) {}
+
+        static func nr(_ f: SIMD3<Float>) -> Int {
+            let r = Int(min(15, max(0, (f.x * 15).rounded()))), g = Int(min(15, max(0, (f.y * 15).rounded()))), b = Int(min(15, max(0, (f.z * 15).rounded())))
+            return r * 256 + g * 16 + b
+        }
+
+        func bilde() -> UIImage {
+            let s = Self.side
+            var px = [UInt8](repeating: 255, count: s * s * 4)
+            for n in 0..<(s * s) {
+                let r = n / 256, g = (n / 16) % 16, b = n % 16
+                px[n * 4] = UInt8(r * 17); px[n * 4 + 1] = UInt8(g * 17); px[n * 4 + 2] = UInt8(b * 17)
+            }
+            let ctx = px.withUnsafeMutableBytes { ptr in
+                CGContext(data: ptr.baseAddress, width: s, height: s, bitsPerComponent: 8, bytesPerRow: s * 4,
+                          space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage()
+            }
+            return ctx.map { UIImage(cgImage: $0) } ?? UIImage()
+        }
     }
 }
