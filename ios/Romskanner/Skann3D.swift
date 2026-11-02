@@ -305,11 +305,15 @@ enum Fargemodell {
                 // Bildets egen dybdemåling: står noe foran trekanten, eller ligger trekanten ikke der
                 // bildet så en flate? Da var telefonens posisjon for bildet litt feil (den retter seg opp
                 // underveis), og bildet ville havnet ved siden av. Slike bilder brukes ikke her.
+                // Uten sikker måling (blank porselen, speil) vet vi ikke om noe står foran, f.eks. doen
+                // foran gulvet. Da brukes ikke bildet her; flaten får heller fargen fra flatene rundt.
                 var avvik: Float = 0
                 if let d = bilder[i].dybdeVed(x: CGFloat(pm.0.x), y: CGFloat(pm.0.y)) {
                     let romslig = (streng ? 0.06 : 0.1) + pm.1 * 0.02
                     if d < pm.1 - romslig || d > pm.1 + romslig { continue }
                     avvik = abs(d - pm.1)
+                } else if bilder[i].dybde != nil {
+                    continue
                 }
                 liste.append((i, forfra * 2 - avstand * 0.5 - avvik * 8))
             }

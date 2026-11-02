@@ -18,12 +18,16 @@ struct Fotobilde {
     var dybde: [Float]? = nil
     var dybdeBredde = 0
     var dybdeHoyde = 0
+    /// Hvor sikker LiDAR var for hvert punkt: 0 lav, 1 middels, 2 høy.
+    var sikkerhet: [UInt8]? = nil
 
     /// Avstanden LiDAR målte i et punkt i kamerabildet (fulle piksler), eller nil.
     func dybdeVed(x: CGFloat, y: CGFloat) -> Float? {
         guard let dybde, dybdeBredde > 0, dybdeHoyde > 0 else { return nil }
         let i = Int(x / opplosning.width * CGFloat(dybdeBredde)), j = Int(y / opplosning.height * CGFloat(dybdeHoyde))
         guard i >= 0, j >= 0, i < dybdeBredde, j < dybdeHoyde else { return nil }
+        // Lav sikkerhet (blanke og hvite flater som porselen, speil, vinduer): ingen måling
+        if let sikkerhet, sikkerhet.count == dybde.count, sikkerhet[j * dybdeBredde + i] == 0 { return nil }
         let d = dybde[j * dybdeBredde + i]
         return d.isFinite && d > 0 ? d : nil
     }
@@ -81,6 +85,7 @@ final class Bildesamler {
         opptatt = true
         let buffer = frame.capturedImage
         let dybdekart = medDybde ? frame.sceneDepth?.depthMap : nil
+        let sikkerhetskart = medDybde ? frame.sceneDepth?.confidenceMap : nil
         let kamera = frame.camera
         let opplosning = kamera.imageResolution
         let skala = self.skala
@@ -94,6 +99,7 @@ final class Bildesamler {
             var foto = data.map { Fotobilde(jpeg: $0, kamera: kamera, opplosning: opplosning, skala: skala) }
             if let dybdekart, foto != nil, let kopi = Bildesamler.kopier(dybdekart) {
                 foto?.dybde = kopi.0; foto?.dybdeBredde = kopi.1; foto?.dybdeHoyde = kopi.2
+                if let sikkerhetskart, let s = Bildesamler.kopierSikkerhet(sikkerhetskart), s.count == kopi.0.count { foto?.sikkerhet = s }
             }
             DispatchQueue.main.async {
                 if let foto { self.bilder.append(foto); if opp { self.oppover += 1 } }
@@ -110,6 +116,21 @@ final class Bildesamler {
     private func vinkel(_ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Float { acos(min(1, max(-1, simd_dot(a, b)))) }
 
     /// Kopierer LiDAR-dybden (Float32) ut av bufferen, rad for rad.
+    /// Kopierer sikkerheten for LiDAR-dybden (ett tall per punkt) ut av bufferen.
+    private static func kopierSikkerhet(_ buffer: CVPixelBuffer) -> [UInt8]? {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+        let b = CVPixelBufferGetWidth(buffer), h = CVPixelBufferGetHeight(buffer)
+        let rad = CVPixelBufferGetBytesPerRow(buffer)
+        var ut = [UInt8](repeating: 0, count: b * h)
+        for j in 0..<h {
+            let p = base.advanced(by: j * rad).assumingMemoryBound(to: UInt8.self)
+            for i in 0..<b { ut[j * b + i] = p[i] }
+        }
+        return ut
+    }
+
     private static func kopier(_ buffer: CVPixelBuffer) -> ([Float], Int, Int)? {
         guard CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_DepthFloat32 else { return nil }
         CVPixelBufferLockBaseAddress(buffer, .readOnly)
