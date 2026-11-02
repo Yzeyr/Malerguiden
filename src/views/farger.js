@@ -6,11 +6,37 @@
 
 import { h, tom, ikon, toast, ark } from '../dom.js';
 import { fmt } from '../util.js';
-import { rettMedHvitt, medianFarge, naermeste, avstandTekst, rgbTilHex, tekstFarge, hexTilRgb } from '../farge.js';
+import { rettMedHvitt, medianFarge, rangerFarger, avstandTekst, rgbTilHex, tekstFarge, hexTilRgb } from '../farge.js';
 export { tekstFarge };
-import { FARGER, finnFarge, sokFarger, fargeNavn } from '../data/farger.js';
+import { FARGER, finnFarge, sokFarger, fargeNavn, erKjent } from '../data/farger.js';
+import { alleJobber } from '../jobs.js';
 import { iApp, kall, taBilde, lesTekstIBilde } from '../native.js';
 import { tolkEtikett, etikettTekst } from '../etikett.js';
+
+/** Hvor mange jobber hver farge er brukt på (nøkkel: merke + kode). */
+function brukteFarger() {
+  const antall = new Map();
+  for (const j of alleJobber() || []) {
+    const sett = new Set();
+    for (const f of j.farger || []) { const k = finnFarge(f.kode); if (k) sett.add(k.merke + ' ' + k.kode); }
+    for (const k of sett) antall.set(k, (antall.get(k) || 0) + 1);
+  }
+  return antall;
+}
+
+/** Forrang i ΔE: kjente hvitfarger 2,5, egne farger 2 og litt mer jo oftere de er brukt. */
+function forrangFor(brukt) {
+  return (f) => {
+    const n = brukt.get(f.merke + ' ' + f.kode) || 0;
+    return (erKjent(f) ? 2.5 : 0) + (n ? Math.min(3, 2 + 0.5 * (n - 1)) : 0);
+  };
+}
+
+function forrangTekst(f, brukt) {
+  const n = brukt.get(f.merke + ' ' + f.kode) || 0;
+  if (n) return 'Brukt på ' + (n === 1 ? 'én jobb' : n + ' jobber');
+  return erKjent(f) ? 'Mye brukt' : '';
+}
 
 const prove = (hex, str = 44) => h('span', { style: { width: str + 'px', height: str + 'px', borderRadius: '10px', background: hex, flex: 'none', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.12)' } });
 
@@ -30,6 +56,7 @@ export async function fargeprove() {
   const bilde = cx.getImageData(0, 0, lerret.width, lerret.height);
   const radius = Math.max(4, Math.round(Math.min(lerret.width, lerret.height) * 0.012));
 
+  const brukt = brukteFarger();
   return new Promise((resolve) => {
     let svar = null;
     ark((lukk) => {
@@ -53,15 +80,18 @@ export async function fargeprove() {
         }
         const rettet = hvitt === 'ingen' ? vegg : rettMedHvitt(vegg, hvitt);
         const hex = rgbTilHex(rettet);
-        const treff = naermeste(rettet, FARGER, 4);
+        // Tre forslag der vanlige farger har forrang, og alltid den som faktisk ligger nærmest
+        const treff = rangerFarger(rettet, FARGER, { n: 3, forrang: forrangFor(brukt) });
+        const naermest = rangerFarger(rettet, FARGER, { n: 1 })[0];
+        if (naermest && !treff.some((f) => f.merke === naermest.merke && f.kode === naermest.kode)) treff.push({ ...naermest, naermestMalt: true });
         resultat.append(
           h('div', { style: { display: 'flex', gap: '12px', alignItems: 'center', margin: '12px 2px' } },
             prove(hex, 54),
             h('span', h('b', { style: { display: 'block' } }, 'Målt farge ' + hex), h('small.dempet', hvitt === 'ingen' ? 'Uten hvitt ark: lyset i rommet farger målingen.' : 'Rettet med det hvite arket.'))),
           FARGER.length ? h('div.valgliste', treff.map((f) => h('button', {
             type: 'button', onclick: () => { svar = { merke: f.merke, kode: f.kode, navn: f.navn, hex: f.hex, malt: hex }; lukk(); },
-          }, prove(f.hex, 34), h('span', fargeNavn(f), h('small', avstandTekst(f.avstand) + ' · ΔE ' + fmt(f.avstand, 1)))))) : h('p.dempet', 'Fargelista er tom.'),
-          h('p.dempet.liten', { style: { margin: '10px 2px 0' } }, 'Kameraet er ikke et fargeinstrument. Bruk svaret til å finne riktig kort i fargevifta, og sjekk i dagslys.'));
+          }, prove(f.hex, 34), h('span', fargeNavn(f), h('small', [avstandTekst(f.avstand) + ' · ΔE ' + fmt(f.avstand, 1), f.naermestMalt ? 'Nærmest målt' : forrangTekst(f, brukt)].filter(Boolean).join(' · ')))))) : h('p.dempet', 'Fargelista er tom.'),
+          h('p.dempet.liten', { style: { margin: '10px 2px 0' } }, 'Vanlige hvitfarger og farger du har brukt på jobbene kommer først når de er nær. Kameraet er ikke et fargeinstrument: bruk svaret til å finne riktig kort i fargevifta, og sjekk i dagslys.'));
       };
       lerret.addEventListener('click', (e) => {
         const r = lerret.getBoundingClientRect();

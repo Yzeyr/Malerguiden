@@ -53,3 +53,18 @@ test('tekstfarge', () => {
   assert.equal(tekstFarge('#202020'), '#FFFFFF');
   assert.equal(tekstFarge('#F0EBE1'), '#1F1A17');
 });
+
+test('kjente farger får forrang når de er nær, men ikke når de er langt unna', async () => {
+  const { rangerFarger } = await import('../src/farge.js');
+  const liste = [{ kode: 'UKJENT', hex: '#F1EFE6' }, { kode: 'KJENT', hex: '#F0EFE2' }, { kode: 'MORK', hex: '#336699' }];
+  const malt = [241, 239, 230];
+  // Uten forrang vinner den som ligger nærmest
+  assert.equal(rangerFarger(malt, liste, { n: 2 })[0].kode, 'UKJENT');
+  // Med forrang vinner den kjente, som bare er litt lenger unna
+  const med = rangerFarger(malt, liste, { n: 2, forrang: (f) => (f.kode === 'KJENT' || f.kode === 'MORK' ? 2.5 : 0) });
+  assert.equal(med[0].kode, 'KJENT');
+  assert.equal(med[0].forrang, 2.5);
+  // En tydelig annen farge får ingen hjelp
+  assert.ok(!med.some((f) => f.kode === 'MORK'));
+  assert.equal(rangerFarger([51, 102, 153], liste, { n: 3, forrang: () => 0 })[0].kode, 'MORK');
+});

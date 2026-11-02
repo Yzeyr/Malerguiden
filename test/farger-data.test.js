@@ -23,3 +23,9 @@ test('finner farge fra kode inni tekst', () => {
   assert.ok(FARGER.filter((f) => f.merke === 'Jotun').length > 200);
   assert.ok(FARGER.filter((f) => f.merke === 'NCS').length > 200);
 });
+
+test('de vanlige hvitfargene er merket som kjente', async () => {
+  const { erKjent, finnFarge } = await import('../src/data/farger.js');
+  for (const k of ['1453', '9918', '1001', 'S 0502-Y', 'S 0500-N']) assert.ok(erKjent(finnFarge(k)), k);
+  assert.ok(!erKjent(finnFarge('0201')));
+});

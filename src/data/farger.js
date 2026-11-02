@@ -500,6 +500,12 @@ export function sokFarger(tekst, maks = 40) {
   return FARGER.filter((f) => (f.kode + ' ' + (f.navn || '') + ' ' + f.merke + ' ' + (f.ncs || '')).toLowerCase().includes(t)).slice(0, maks);
 }
 
+/* De hvitfargene som brukes mest i Norge på vegger, tak, lister og dører (IFI, Jotun,
+   fargehandlere). Det finnes ingen offisiell salgsliste, så den holdes kort. Resten
+   lærer appen av fargene på jobbene. */
+const KJENTE = new Set(['1453', '9918', '1001', 'S 0502-Y', 'S 0500-N']);
+export const erKjent = (f) => !!f && KJENTE.has(normKode(f.kode));
+
 export function fargeNavn(f) {
   return f ? [f.merke, f.kode, f.navn].filter(Boolean).join(' ') + (f.ncs ? ' (' + f.ncs + ')' : '') : '';
 }

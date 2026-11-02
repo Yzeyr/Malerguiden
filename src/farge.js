@@ -94,6 +94,31 @@ export function naermeste(rgb, farger, n = 3) {
     .slice(0, n);
 }
 
+/* Et mobilkamera bommer gjerne med ΔE 3–5 selv med hvitt ark. Da er en kjent farge
+   litt lenger unna ofte et bedre svar enn en ukjent som tilfeldigvis ligger nærmest.
+   Forrangen gjelder bare når fargen er rimelig nær, så en tydelig annen farge vinner aldri. */
+const MAKS_FORRANG = 4;
+const FORRANG_INNEN = 7;
+
+/**
+ * Som naermeste(), men farger som er mye brukt får forrang når de er nær nok.
+ * forrang(farge) gir et tall i ΔE (0 = ingen). Hver får { ...farge, avstand, forrang }.
+ */
+export function rangerFarger(rgb, farger, { n = 4, forrang = () => 0 } = {}) {
+  const lab = rgbTilLab(rgb);
+  return farger
+    .map((f) => {
+      const r = hexTilRgb(f.hex);
+      if (!r) return null;
+      const avstand = deltaE(lab, rgbTilLab(r));
+      const fr = avstand <= FORRANG_INNEN ? Math.min(MAKS_FORRANG, Math.max(0, forrang(f) || 0)) : 0;
+      return { ...f, avstand, forrang: fr, poeng: avstand - fr };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.poeng - b.poeng || a.avstand - b.avstand)
+    .slice(0, n);
+}
+
 /** Hvor godt en farge passer, i ord. */
 export function avstandTekst(d) {
   if (d < 1.5) return 'Treffer nesten helt';
