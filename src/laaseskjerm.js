@@ -31,14 +31,29 @@ export function tavleData(jobber, idag) {
   }));
 }
 
+/** Klokka som går og tørketid som ikke er ferdig, til Dynamic Island. Høyst to om gangen, klokka først. */
+export function liveData(jobber, naa = Date.now()) {
+  return jobber
+    .filter((j) => j.klokke || (j.tork && j.tork.klar > naa))
+    .sort((a, b) => (b.klokke ? 1 : 0) - (a.klokke ? 1 : 0) || (a.tork?.klar || 0) - (b.tork?.klar || 0))
+    .slice(0, 2)
+    .map((j) => ({ jobb: j.id, navn: jobbNavn(j), klokke: j.klokke?.start || null, tork: j.tork?.klar > naa ? j.tork.klar : null, torkTekst: j.tork?.tekst || '' }));
+}
+
 /** Sender jobbene til låseskjermen nå, og hver gang en jobb endres (samlet, høyst hvert sekund). */
 export function startLaaseskjerm() {
   if (!iApp) return;
-  let tid = null, sist = '';
+  let tid = null, sist = '', sistLive = '';
   const send = () => {
     clearTimeout(tid);
     tid = setTimeout(async () => {
-      if (!(await appInfo())?.laaseskjerm) return;
+      const info = await appInfo();
+      if (info?.live) {
+        const liste = liveData(alleJobber());
+        const t = JSON.stringify(liste);
+        if (t !== sistLive) { sistLive = t; kall('liveAktiviteter', { liste }).catch(() => { sistLive = ''; }); }
+      }
+      if (!info?.laaseskjerm) return;
       const jobber = tavleData(alleJobber(), iDagIso());
       const tekst = JSON.stringify(jobber);
       if (tekst === sist) return;

@@ -32,3 +32,18 @@ test('husk er det som ikke er huket av i «Ta med neste gang», i rekkefølgen d
   assert.equal(t.adresse, 'Gata a');
   assert.equal(t.klokke, null);
 });
+
+test('Dynamic Island: klokka som går først, så tørketid som ikke er ferdig; høyst to', async () => {
+  const { liveData } = await import('../src/laaseskjerm.js');
+  const naa = 1_000_000;
+  const liste = [
+    jobb('a', { tork: { klar: naa + 5000, tekst: 'Sparkel', start: naa } }),
+    jobb('b', { klokke: { start: naa - 60000 } }),
+    jobb('c', { tork: { klar: naa - 1, tekst: 'Ferdig', start: 1 } }),
+    jobb('d', { tork: { klar: naa + 9000, tekst: 'Maling', start: naa } }),
+  ];
+  const d = liveData(liste, naa);
+  assert.deepEqual(d.map((x) => x.jobb), ['b', 'a']);
+  assert.equal(d[0].tork, null);
+  assert.equal(d[1].torkTekst, 'Sparkel');
+});

@@ -5,7 +5,10 @@ import SwiftUI
 /// med klokka som går, neste steg og det du må huske å ta med. Trykk åpner jobben.
 @main
 struct LaaseskjermPakke: WidgetBundle {
-    var body: some Widget { Jobbwidget() }
+    var body: some Widget {
+        Jobbwidget()
+        Jobbaktivitet()
+    }
 }
 
 struct Jobbwidget: Widget {

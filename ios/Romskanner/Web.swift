@@ -191,6 +191,9 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             }
             let ok = Delt.skriv(Jobbtavle(oppdatert: Date().timeIntervalSince1970 * 1000, jobber: jobber))
             return ["ok": ok]
+        case "liveAktiviteter":
+            // Klokka og tørketiden på Dynamic Island
+            return ["ok": await Liveaktivitet.oppdater(m.liste("liste"))]
         case "kopiMappe":
             return ["mappe": Autokopi.mappeNavn().map { $0 as Any } ?? NSNull()]
         case "velgKopiMappe":
@@ -315,6 +318,8 @@ enum AppInfo {
             "autokopi": true,
             // Jobbene på låseskjermen
             "laaseskjerm": true,
+            // Klokka og tørketiden på Dynamic Island
+            "live": true,
         ]
     }
 }

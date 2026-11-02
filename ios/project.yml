@@ -25,8 +25,8 @@ targets:
       path: Romskanner/Info.plist
       properties:
         CFBundleDisplayName: Malerguiden
-        CFBundleShortVersionString: "3.7.2"
-        CFBundleVersion: "26"
+        CFBundleShortVersionString: "3.8"
+        CFBundleVersion: "27"
         NSCameraUsageDescription: Kameraet og LiDAR-sensoren brukes til å måle opp rom, skanne ting til 3D-modeller, lese etiketter og prøvemale vegger.
         NSPhotoLibraryUsageDescription: Bilder fra biblioteket kan legges på jobbene.
         NSPhotoLibraryAddUsageDescription: Bilder av prøvemalingen kan lagres i Bilder.
@@ -37,6 +37,8 @@ targets:
         LSRequiresIPhoneOS: true
         # Appens mappe vises i Filer (På min iPhone → Malerguiden), der kopiene ligger uten valgt mappe
         UIFileSharingEnabled: true
+        # Klokka og tørketiden på Dynamic Island
+        NSSupportsLiveActivities: true
         LSSupportsOpeningDocumentsInPlace: true
         # malerguiden://jobb/<id> fra låseskjermen åpner jobben
         CFBundleURLTypes:
@@ -65,8 +67,8 @@ targets:
       path: Laaseskjerm/Info.plist
       properties:
         CFBundleDisplayName: Malerguiden
-        CFBundleShortVersionString: "3.7.2"
-        CFBundleVersion: "26"
+        CFBundleShortVersionString: "3.8"
+        CFBundleVersion: "27"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
