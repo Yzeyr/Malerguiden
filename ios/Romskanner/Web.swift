@@ -150,7 +150,7 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
                 self.skannSvar = { fortsett.resume(returning: $0) }
                 self.skannForJobb = j
             }
-            return ["tekst": json ?? NSNull()]
+            return ["tekst": json.map { $0 as Any } ?? NSNull()]
         case "apneRom":
             // Åpner rommet i skanneren. Er målene endret når det lukkes, får jobben de nye.
             let for_ = try skannetRom(m)
@@ -161,9 +161,9 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             guard let etter = lager?.rom.first(where: { $0.id == for_.id }) else { return ["endret": false, "tekst": NSNull()] }
             return ["endret": !RomLager.sammeMal(for_, etter), "tekst": Eksport(rom: [etter]).json()]
         case "kopiMappe":
-            return ["mappe": Autokopi.mappeNavn() ?? NSNull()]
+            return ["mappe": Autokopi.mappeNavn().map { $0 as Any } ?? NSNull()]
         case "velgKopiMappe":
-            return ["mappe": await Autokopi.velgMappe() ?? NSNull()]
+            return ["mappe": (await Autokopi.velgMappe()).map { $0 as Any } ?? NSNull()]
         case "glemKopiMappe":
             Autokopi.glem()
             return nil
