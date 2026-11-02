@@ -47,3 +47,24 @@ test('Dynamic Island: klokka som går først, så tørketid som ikke er ferdig; 
   assert.equal(d[0].tork, null);
   assert.equal(d[1].torkTekst, 'Sparkel');
 });
+
+test('kortet med dagens jobber sendes bare i arbeidstiden, og morgenvarselet gjelder neste morgen', async () => {
+  const { liveMelding } = await import('../src/laaseskjerm.js');
+  const liste = [
+    jobb('a', { status: 'pagar', klokke: { start: 5 }, utstyr: [{ id: '1', tekst: 'Tape', checked: false, created: 1 }] }),
+    jobb('b', { status: 'planlagt', dato: '2026-11-04' }),
+  ];
+  const dag = liveMelding(liste, new Date(2026, 10, 3, 9, 0));
+  assert.deepEqual(dag.dagens.map((j) => j.id), ['a']);
+  assert.deepEqual(dag.liste, []);
+  assert.equal(new Date(dag.slutt).getHours(), 15);
+  // Morgenvarselet kl. 06:45 i morgen: a pågår fortsatt, b er planlagt da
+  assert.equal(dag.morgen, 'Kunde a, Kunde b. Husk: Tape');
+  const kveld = liveMelding(liste, new Date(2026, 10, 3, 21, 0));
+  assert.deepEqual(kveld.dagens, []);
+  assert.deepEqual(kveld.liste.map((x) => x.jobb), ['a']);
+  // Tidlig om morgenen: varselet gjelder i dag
+  const tidlig = liveMelding(liste, new Date(2026, 10, 4, 5, 0));
+  assert.equal(tidlig.morgen, 'Kunde a, Kunde b. Husk: Tape');
+  assert.equal(liveMelding(liste, new Date(2026, 10, 3, 5, 0)).morgen, 'Kunde a. Husk: Tape');
+});

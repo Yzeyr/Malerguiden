@@ -14,3 +14,24 @@ struct JobbAktivitet: ActivityAttributes {
     var jobbId: String
     var navn: String
 }
+
+/// Dagens jobber i arbeidstiden: et stort kort på låseskjermen og Dynamic Island.
+/// Appen sender alt innholdet, så kortet trenger ingen delt mappe.
+struct DagensJobber: ActivityAttributes {
+    struct Jobb: Codable, Hashable {
+        var id: String
+        var navn: String
+        var neste: String
+        var husk: [String]
+        var klokke: Date?
+        var tork: Date?
+        var torkTekst: String
+    }
+    struct ContentState: Codable, Hashable {
+        var jobber: [Jobb]
+        /// Arbeidsdagen, for linja med tid gått og tid igjen.
+        var start: Date
+        var slutt: Date
+    }
+    var dato: String
+}

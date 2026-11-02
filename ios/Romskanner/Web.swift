@@ -193,7 +193,11 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             return ["ok": ok]
         case "liveAktiviteter":
             // Klokka og tørketiden på Dynamic Island
-            return ["ok": await Liveaktivitet.oppdater(m.liste("liste"))]
+            let ms = { (k: String) in m.tall(k).map { Date(timeIntervalSince1970: $0 / 1000) } }
+            let dagens = m.liste("dagens")
+            let ok = await Liveaktivitet.oppdater(m.liste("liste"), dagens: dagens.isEmpty ? nil : dagens, start: ms("start"), slutt: ms("slutt"))
+            if let morgen = m.valgfriTekst("morgen") { await Liveaktivitet.morgenvarsel(tekst: morgen) }
+            return ["ok": ok]
         case "kopiMappe":
             return ["mappe": Autokopi.mappeNavn().map { $0 as Any } ?? NSNull()]
         case "velgKopiMappe":

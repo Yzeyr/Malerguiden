@@ -6,7 +6,9 @@ import SwiftUI
 @main
 struct LaaseskjermPakke: WidgetBundle {
     var body: some Widget {
-        Jobbwidget()
+        // Den lille boksen (Jobbwidget) trenger en delt mappe, som Sideloadly med gratis konto
+        // ikke setter opp. Kortet med dagens jobber får innholdet direkte fra appen i stedet.
+        Dagskort()
         Jobbaktivitet()
     }
 }
