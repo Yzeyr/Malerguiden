@@ -118,7 +118,7 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             return nil
         case "varsle":
             // Påminnelse om tørketid: et lokalt varsel på telefonen når neste strøk kan tas
-            guard let id = m.valgfriTekst("id"), let tid = d(m, "tid") else { throw Feil("Mangler tid for påminnelsen.") }
+            guard let id = m.valgfriTekst("id"), let tid = m.tall("tid") else { throw Feil("Mangler tid for påminnelsen.") }
             let senter = UNUserNotificationCenter.current()
             let lov = try await senter.requestAuthorization(options: [.alert, .sound])
             guard lov else { return ["lov": false] }
@@ -166,6 +166,7 @@ struct Melding: @unchecked Sendable {
     init(_ d: [String: Any]) { self.d = d }
     func tekst(_ k: String) -> String { d[k] as? String ?? "" }
     func valgfriTekst(_ k: String) -> String? { d[k] as? String }
+    func tall(_ k: String) -> Double? { (d[k] as? NSNumber)?.doubleValue }
     func liste(_ k: String) -> [[String: Any]] { d[k] as? [[String: Any]] ?? [] }
 }
 
