@@ -53,6 +53,8 @@ export function standardArbeid(klasse = '') {
     dorer: { strok: 0 },
     // Overganger som sparkles i stedet for å dekkes med list.
     listefritt: { tak: false, hjorner: false, vinduer: false, dorer: false },
+    // Ytterhjørner: hjørnelist og sparkel når veggene sparkles. Kan slås av (f.eks. ingen ytterhjørner).
+    ytterhjorner: true,
   };
 }
 
@@ -100,6 +102,7 @@ export function rensKalkyle(k, klasse = '') {
       vinduer: { ...strokBare(a.vinduer, std.vinduer), etterStorrelse: a.vinduer?.etterStorrelse === true },
       dorer: strokBare(a.dorer, std.dorer),
       listefritt: Object.fromEntries(['tak', 'hjorner', 'vinduer', 'dorer'].map((x) => [x, !!(a.listefritt && a.listefritt[x] === true)])),
+      ytterhjorner: a.ytterhjorner !== false,
     },
     rom: Array.isArray(k.rom) ? k.rom.filter((r) => r && typeof r === 'object' && r.id).map((r) => ({
       id: String(r.id),
@@ -529,7 +532,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     }
   }
   // Ytterhjørner sparkles når veggene sparkles
-  if (a.vegg?.sparkling !== 'ingen') leggTil('ytterhjorne', mengder.ytter, { faktorTimer: vektet(flater.ytter) });
+  if (a.vegg?.sparkling !== 'ingen' && a.ytterhjorner !== false) leggTil('ytterhjorne', mengder.ytter, { faktorTimer: vektet(flater.ytter) });
   const lf = a.listefritt || {};
   if (lf.tak) leggTil('listefritt-tak', mengder.taklinje, { faktorTimer: vektet(flater.taklinje) });
   if (lf.hjorner) leggTil('listefritt-hjorne', mengder.hjorner, { faktorTimer: vektet(flater.hjorner) });
@@ -759,10 +762,34 @@ const GRUPPE_FOR_ARBEID = {
 export function prisgruppe(l) {
   return l.tillegg ? 'annet' : (GRUPPE_FOR_ARBEID[arbeidFor(l.id)] || 'annet');
 }
-/** Linjene samlet i grupper med sum, i fast rekkefølge. Tomme grupper er utelatt. */
-export function grupperLinjer(linjer) {
-  return PRISGRUPPER.map((g) => {
-    const ls = linjer.filter((l) => prisgruppe(l) === g.id);
+/* Prisen delt på flatene i stedet for arbeidet: alt på veggene, alt i taket, overgangen mellom dem. */
+export const FLATEGRUPPER = [
+  { id: 'rigging', navn: 'Rigging og tildekking' },
+  { id: 'vegg', navn: 'Vegger' },
+  { id: 'tak', navn: 'Tak' },
+  { id: 'overgang', navn: 'Overgang tak/vegg' },
+  { id: 'snekker', navn: 'Lister, vinduer og dører' },
+  { id: 'gulv', navn: 'Gulvbelegg' },
+  { id: 'annet', navn: 'Tillegg og annet' },
+];
+/** Hvilken flate en linje hører til. */
+export function flategruppe(l) {
+  if (l.tillegg) return 'annet';
+  const id = l.id;
+  if (id.startsWith('vegg-') || id === 'ytterhjorne' || id === 'listefritt-hjorne') return 'vegg';
+  if (id.startsWith('tak-')) return 'tak';
+  if (id === 'listefritt-tak' || id === 'listefritt-taklinje') return 'overgang';
+  if (['lister-strok', 'vindu-strok', 'dor-strok', 'listefritt-vindu', 'listefritt-dor', 'listefritt-smyg'].includes(id)) return 'snekker';
+  const g = prisgruppe(l);
+  return g === 'rigging' || g === 'gulv' ? g : 'annet';
+}
+
+/** Linjene samlet i grupper med sum, i fast rekkefølge. Tomme grupper er utelatt.
+ *  etter: 'arbeid' (sparkling, maling …) eller 'flate' (vegger, tak …). */
+export function grupperLinjer(linjer, etter = 'arbeid') {
+  const flate = etter === 'flate';
+  return (flate ? FLATEGRUPPER : PRISGRUPPER).map((g) => {
+    const ls = linjer.filter((l) => (flate ? flategruppe(l) : prisgruppe(l)) === g.id);
     return { ...g, linjer: ls,
       timer: ls.reduce((s, l) => s + (l.timer || 0), 0),
       arbeid: ls.reduce((s, l) => s + (l.arbeid || 0), 0),

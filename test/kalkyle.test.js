@@ -607,3 +607,24 @@ test('listefrie hjørner: bare innerhjørner, fra formen på rommet', async () =
   const m = romMengder({ gulv: 16, omkrets: 18, vegg: 30, hoyde: '2,4', skannplan: { gulv, vegger: [], dorer: [], vinduer: [], apninger: [], inne: [{ a: { x: 0, y: 1 }, b: { x: 1, y: 1 }, sider: 2 }, { a: { x: 0, y: 3 }, b: { x: 1, y: 3 }, sider: 0 }] } });
   assert.equal(m.innerhjorner, 5 + 2);
 });
+
+test('prisen delt på vegg og tak: samme sum, og ytterhjørner kan slås av', async () => {
+  const { beregn, tomKalkyle, grupperLinjer, flategruppe, rensKalkyle } = await import('../src/kalkyle.js');
+  const k = tomKalkyle('K2');
+  k.rom = [{ id: 'a', navn: 'Stue', lengde: '5', bredde: '4', hoyde: '2,4', vinduer: '1', dorer: '1', ytterhjorner: '1', med: { vegg: true, tak: true, lister: true, vinduer: true, dorer: true, sparkling: true, dekking: true, gulvbelegg: false } }];
+  k.arbeid.tak.sparkling = 'K2';
+  k.arbeid.listefritt = { tak: true, hjorner: true, vinduer: false, dorer: false };
+  const r = beregn(k, {});
+  const sum = (g) => g.reduce((s, x) => s + x.arbeid, 0);
+  const flate = grupperLinjer(r.linjer, 'flate');
+  assert.ok(Math.abs(sum(flate) - sum(grupperLinjer(r.linjer))) < 1e-6);
+  assert.deepEqual(flate.map((g) => g.id).filter((id) => ['vegg', 'tak', 'overgang'].includes(id)), ['vegg', 'tak', 'overgang']);
+  assert.equal(flategruppe({ id: 'ytterhjorne' }), 'vegg');
+  assert.equal(flategruppe({ id: 'tak-sparkling-strimling' }), 'tak');
+  assert.equal(flategruppe({ id: 'listefritt-tak' }), 'overgang');
+  assert.ok(r.linjer.some((l) => l.id === 'ytterhjorne'));
+  k.arbeid.ytterhjorner = false;
+  assert.ok(!beregn(k, {}).linjer.some((l) => l.id === 'ytterhjorne'));
+  assert.equal(rensKalkyle(k).arbeid.ytterhjorner, false);
+  assert.equal(rensKalkyle({}).arbeid.ytterhjorner, true);
+});

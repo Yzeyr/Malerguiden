@@ -8,6 +8,7 @@ import { tilbudsData, tilbudTekst, tilbudPrompt, tallStemmer } from '../tilbud.j
 import { iApp, appInfo, kall } from '../native.js';
 import { veggRegnestykke, etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
+import { uiLes, uiSkriv } from '../store.js';
 import { klokkeTimer, klokkeTekst, timerTilForing, LANG_KLOKKE, startTikker } from '../klokke.js';
 import { gaTil } from '../nav.js';
 import { apnePlantegning, velgTegningFil } from './plantegning.js';
@@ -335,7 +336,10 @@ export function prisPanel(j) {
   const fordelt = perRom(k, egnePriser());
   ut.append(h('section.blokk',
     h('header', h('h3', 'Prisen består av'), h('span', kr(r.sum.eksMva))),
-    gruppertListe(grupperLinjer(r.linjer), 'jobb:', linjeRad),
+    // Del opp etter arbeid (sparkling, maling …) eller etter flate (vegger, tak, overgangen)
+    h('div.velger', { style: { margin: '8px 14px 4px' } }, [['arbeid', 'Etter arbeid'], ['flate', 'Vegg og tak']].map(([v, t]) =>
+      h('button.k-terrakotta', { type: 'button', 'aria-pressed': String(prisDeling() === v), style: { flex: '1' }, onclick: () => { uiSkriv('prisdeling', v); endreKalkyle(j.id, () => {}); } }, t))),
+    gruppertListe(grupperLinjer(r.linjer, prisDeling()), 'jobb:' + prisDeling() + ':', linjeRad),
     // Linjer som er tatt ut av prisen for denne jobben
     r.utelatt.map((u) => prisRad({ tittel: u.navn, ut: true, under: 'Tatt ut av prisen',
       ekstra: h('button.lenkeknapp', { type: 'button', onclick: () => endreKalkyle(j.id, (x) => { delete x.justering[u.nokkel]; }) }, 'Ta med') })),
@@ -744,7 +748,14 @@ function arbeidArk(jobId, del = 'flater') {
       };
       deler = [h('div.kort', { style: { marginBottom: '8px', paddingTop: '6px', paddingBottom: '6px' } }, LISTEFRITT.map(([id, navn]) =>
         h('label.tallfelt', h('span', navn, h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } }, mengde[id])),
-          h('input.bryter', { type: 'checkbox', checked: !!lf[id], onchange: (e) => endre((x) => { x.arbeid.listefritt = { ...(x.arbeid.listefritt || {}), [id]: e.target.checked }; }) }))))];
+          h('input.bryter', { type: 'checkbox', checked: !!lf[id], onchange: (e) => endre((x) => { x.arbeid.listefritt = { ...(x.arbeid.listefritt || {}), [id]: e.target.checked }; }) })))),
+        // Ytterhjørnene for seg: de får hjørnelist og sparkles med veggen, med eller uten listefritt
+        h('div.overtittel', { style: { margin: '10px 2px 4px' } }, 'Ytterhjørner'),
+        h('div.kort', { style: { marginBottom: '8px', paddingTop: '6px', paddingBottom: '6px' } },
+          h('label.tallfelt', h('span', 'Hjørnelist og sparkel',
+            h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } },
+              a.vegg.sparkling === 'ingen' ? 'Bare når veggene sparkles' : fmt(r.mengder.ytter, 1) + ' m ytterhjørner. Talt fra formen på rommene, eller skrevet inn per rom')),
+            h('input.bryter', { type: 'checkbox', checked: a.ytterhjorner !== false, disabled: a.vegg.sparkling === 'ingen', onchange: (e) => endre((x) => { x.arbeid.ytterhjorner = e.target.checked; }) })))];
     }
     tom(innhold, deler,
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 2px 0' } },
@@ -775,6 +786,9 @@ function delerTekst(g) {
 }
 
 /** Linjene i sammenleggbare grupper: gruppenavn med timer og sum, trykk for å se linjene. */
+/** Hvordan «Prisen består av» deles opp: 'arbeid' eller 'flate'. Huskes på telefonen. */
+const prisDeling = () => (uiLes('prisdeling', 'arbeid') === 'flate' ? 'flate' : 'arbeid');
+
 function gruppertListe(grupper, prefiks, radFor) {
   return grupper.map((g) => sammenlegg(prefiks + g.id,
     { tittel: g.navn, under: fmt(g.timer, 1) + ' t · ' + delerTekst(g), belop: fmt(g.arbeid, 0) },
@@ -795,7 +809,7 @@ function romPrisArk(jobId, romId) {
     h('p.dempet', { style: { marginTop: '-6px' } }, 'Kroner eks. mva. Trykk på en linje for å endre den for dette rommet.'),
     b.linjer.length
       ? h('div.rad-liste',
-        gruppertListe(grupperLinjer(b.linjer), 'rom:', (l) => prisRad({
+        gruppertListe(grupperLinjer(b.linjer, prisDeling()), 'rom:' + prisDeling() + ':', (l) => prisRad({
           tittel: l.navn,
           under: [fmt(l.mengde, 1) + ' ' + l.enhet + ' · ' + fmt(l.timer, 1) + ' t' + (l.justertRom ? ' · endret for rommet' : ''), l.med],
           belop: fmt(l.arbeid, 0), inn: true,

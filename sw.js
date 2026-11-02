@@ -13,7 +13,7 @@
  *
  * VERSJON oppdateres av tools/versjon.mjs (kjøres før hver publisering).
  */
-const VERSJON = 'malerguiden-a9147e78';
+const VERSJON = 'malerguiden-bfdd6110';
 const FILER = [
   './',
   './index.html',
