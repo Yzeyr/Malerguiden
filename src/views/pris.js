@@ -752,10 +752,10 @@ function arbeidArk(jobId, del = 'flater') {
         // Ytterhjørnene for seg: de får hjørnelist og sparkles med veggen, med eller uten listefritt
         h('div.overtittel', { style: { margin: '10px 2px 4px' } }, 'Ytterhjørner'),
         h('div.kort', { style: { marginBottom: '8px', paddingTop: '6px', paddingBottom: '6px' } },
-          h('label.tallfelt', h('span', 'Hjørnelist og sparkel',
+          h('label.tallfelt', h('span', 'Pris ytterhjørner for seg',
             h('small.dempet', { style: { display: 'block', fontWeight: '500', fontSize: '13.5px' } },
-              a.vegg.sparkling === 'ingen' ? 'Bare når veggene sparkles' : fmt(r.mengder.ytter, 1) + ' m ytterhjørner. Talt fra formen på rommene, eller skrevet inn per rom')),
-            h('input.bryter', { type: 'checkbox', checked: a.ytterhjorner !== false, disabled: a.vegg.sparkling === 'ingen', onchange: (e) => endre((x) => { x.arbeid.ytterhjorner = e.target.checked; }) })))];
+              a.vegg.sparkling === 'ingen' ? 'Bare når veggene sparkles' : fmt(r.mengder.ytter, 1) + ' m ytterhjørner som egen linje. Av: hjørnene er med i m²-prisen for veggen')),
+            h('input.bryter', { type: 'checkbox', checked: a.ytterhjorner === true, disabled: a.vegg.sparkling === 'ingen', onchange: (e) => endre((x) => { x.arbeid.ytterhjorner = e.target.checked; }) })))];
     }
     tom(innhold, deler,
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 2px 0' } },

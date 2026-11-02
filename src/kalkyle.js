@@ -53,8 +53,9 @@ export function standardArbeid(klasse = '') {
     dorer: { strok: 0 },
     // Overganger som sparkles i stedet for å dekkes med list.
     listefritt: { tak: false, hjorner: false, vinduer: false, dorer: false },
-    // Ytterhjørner: hjørnelist og sparkel når veggene sparkles. Kan slås av (f.eks. ingen ytterhjørner).
-    ytterhjorner: true,
+    // Ytterhjørner som egen linje (hjørnelist og sparkel per meter). Av til vanlig: hjørnene er
+    // med i m²-prisen for veggen. Slå på når de skal prises for seg.
+    ytterhjorner: false,
   };
 }
 
@@ -102,7 +103,7 @@ export function rensKalkyle(k, klasse = '') {
       vinduer: { ...strokBare(a.vinduer, std.vinduer), etterStorrelse: a.vinduer?.etterStorrelse === true },
       dorer: strokBare(a.dorer, std.dorer),
       listefritt: Object.fromEntries(['tak', 'hjorner', 'vinduer', 'dorer'].map((x) => [x, !!(a.listefritt && a.listefritt[x] === true)])),
-      ytterhjorner: a.ytterhjorner !== false,
+      ytterhjorner: a.ytterhjorner === true,
     },
     rom: Array.isArray(k.rom) ? k.rom.filter((r) => r && typeof r === 'object' && r.id).map((r) => ({
       id: String(r.id),
@@ -532,7 +533,7 @@ export function beregn(kalkyle, lagredePriser, { medFelles = true, medJustering 
     }
   }
   // Ytterhjørner sparkles når veggene sparkles
-  if (a.vegg?.sparkling !== 'ingen' && a.ytterhjorner !== false) leggTil('ytterhjorne', mengder.ytter, { faktorTimer: vektet(flater.ytter) });
+  if (a.vegg?.sparkling !== 'ingen' && a.ytterhjorner === true) leggTil('ytterhjorne', mengder.ytter, { faktorTimer: vektet(flater.ytter) });
   const lf = a.listefritt || {};
   if (lf.tak) leggTil('listefritt-tak', mengder.taklinje, { faktorTimer: vektet(flater.taklinje) });
   if (lf.hjorner) leggTil('listefritt-hjorne', mengder.hjorner, { faktorTimer: vektet(flater.hjorner) });

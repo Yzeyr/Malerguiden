@@ -339,7 +339,11 @@ test('ytterhjørner: talt fra formen, eller skrevet inn, og regnet når veggene 
   assert.equal(ytterhjornerAuto([[0, 0], [4, 0], [4, 1.5], [3.9, 1.5], [3.9, 2.3], [4, 2.3], [4, 3], [0, 3]]), 0);
   const r = rom({ id: 'a', ytterhjorner: '2', hoyde: '2,5' });
   assert.equal(romMengder(r).ytterLm, 5);
-  const b = beregn({ ...tomKalkyle('K2'), rom: [r] }, {});
+  // Av til vanlig: hjørnene er med i m²-prisen. Slått på: egen linje.
+  assert.ok(!beregn({ ...tomKalkyle('K2'), rom: [r] }, {}).linjer.some((l) => l.id === 'ytterhjorne'));
+  const kp = tomKalkyle('K2');
+  kp.arbeid.ytterhjorner = true;
+  const b = beregn({ ...kp, rom: [r] }, {});
   const linje = b.linjer.find((l) => l.id === 'ytterhjorne');
   assert.equal(linje.mengde, 5);
   assert.ok(materialer(b).some((m) => m.navn === 'Hjørnelist'));
@@ -622,9 +626,9 @@ test('prisen delt på vegg og tak: samme sum, og ytterhjørner kan slås av', as
   assert.equal(flategruppe({ id: 'ytterhjorne' }), 'vegg');
   assert.equal(flategruppe({ id: 'tak-sparkling-strimling' }), 'tak');
   assert.equal(flategruppe({ id: 'listefritt-tak' }), 'overgang');
-  assert.ok(r.linjer.some((l) => l.id === 'ytterhjorne'));
-  k.arbeid.ytterhjorner = false;
-  assert.ok(!beregn(k, {}).linjer.some((l) => l.id === 'ytterhjorne'));
-  assert.equal(rensKalkyle(k).arbeid.ytterhjorner, false);
-  assert.equal(rensKalkyle({}).arbeid.ytterhjorner, true);
+  assert.ok(!r.linjer.some((l) => l.id === 'ytterhjorne'), 'av til vanlig');
+  k.arbeid.ytterhjorner = true;
+  assert.ok(beregn(k, {}).linjer.some((l) => l.id === 'ytterhjorne'));
+  assert.equal(rensKalkyle(k).arbeid.ytterhjorner, true);
+  assert.equal(rensKalkyle({}).arbeid.ytterhjorner, false);
 });
