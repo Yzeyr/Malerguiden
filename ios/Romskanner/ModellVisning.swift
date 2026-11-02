@@ -46,6 +46,7 @@ struct Avstand: Codable, Hashable, Identifiable {
         switch k {
         case "3d": return "ekte 3D"
         case "foto": return "3D med bilder"
+        case "apple": return "Apples 3D"
         default: return "3D"
         }
     }

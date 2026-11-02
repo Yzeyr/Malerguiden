@@ -655,6 +655,28 @@ final class RomLager: ObservableObject {
     }
 
     /// Lager ekte 3D med farger i bakgrunnen (kan ta et halvt minutt).
+    /// Apples 3D av rommet som lages nå: hvor langt den har kommet (0–1). Feilmelding hvis den feilet.
+    @Published var omradeFremdrift: [UUID: Double] = [:]
+    @Published var omradeFeil: [UUID: String] = [:]
+
+    /// Lager Apples 3D av bildene fra skanningen. Tar flere minutter; appen må være åpen.
+    func lagOmrademodell(_ id: UUID) {
+        guard omradeFremdrift[id] == nil else { return }
+        omradeFremdrift[id] = 0
+        omradeFeil[id] = nil
+        Task { [weak self] in
+            let feil = await Omrademodell.bygg(id) { andel in
+                Task { @MainActor in self?.omradeFremdrift[id] = andel }
+            }
+            await MainActor.run {
+                guard let self else { return }
+                self.omradeFremdrift[id] = nil
+                if let feil { self.omradeFeil[id] = feil } else { Omrademodell.rydd(id) }
+                if !self.rom.contains(where: { $0.id == id }) { Omrademodell.slett(id) }
+            }
+        }
+    }
+
     func lagFargemodell(_ bitene: [Nettbit], bilder: [Fotobilde], id: UUID) {
         guard !bitene.isEmpty else { return }
         fargeUnderArbeid.insert(id)

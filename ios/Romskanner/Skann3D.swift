@@ -3,6 +3,7 @@ import ARKit
 import RealityKit
 import SceneKit
 import ImageIO
+import CoreImage
 import UIKit
 
 /// Hvordan et rom skannes. Valgt før skanningen starter.
@@ -214,9 +215,10 @@ enum Fargemodell {
         let fx: Float, fy: Float, cx: Float, cy: Float
         let b: Float, h: Float
 
-        init(_ k: ARCamera) {
-            fraVerden = simd_inverse(k.transform)
-            pos = SIMD3(k.transform.columns.3.x, k.transform.columns.3.y, k.transform.columns.3.z)
+        init(_ k: ARCamera, transform t: simd_float4x4? = nil) {
+            let t = t ?? k.transform
+            fraVerden = simd_inverse(t)
+            pos = SIMD3(t.columns.3.x, t.columns.3.y, t.columns.3.z)
             fx = k.intrinsics[0][0]; fy = k.intrinsics[1][1]; cx = k.intrinsics[2][0]; cy = k.intrinsics[2][1]
             b = Float(k.imageResolution.width); h = Float(k.imageResolution.height)
         }
@@ -279,7 +281,9 @@ enum Fargemodell {
         let minste = min(200, max(20, alle.count / 400))
         let tri = alle.filter { (storrelse[rot(sveiset[Int($0.x)])] ?? 0) >= minste }
         guard !tri.isEmpty else { return }
-        let kameraer = bilder.map { Kamera($0.kamera) }
+        // Rett opp posisjonen til hvert bilde: bildets egen dybdemåling legges oppå nettet
+        let rutenett = Rutenett(tri: tri, p: p)
+        let kameraer = bilder.map { Kamera($0.kamera, transform: rettOpp($0, rutenett: rutenett)) }
 
         // 2. Hvilke bilder ser hver trekant godt, og hvor godt
         var kandidater = [[(Int, Float)]](repeating: [], count: tri.count)
@@ -379,12 +383,16 @@ enum Fargemodell {
             perBilde[i, default: []].append(contentsOf: [start, start + 1, start + 2])
         }
 
+        // Jevn ut lyset: et bilde mot vinduet blir lysere enn et mot en mørk vegg
+        let lys = lysstyrke(tri: tri, p: p, kandidater: kandidater, kameraer: kameraer, bilder: bilder)
+        let ci = CIContext()
+
         var elementer: [SCNGeometryElement] = []
         var materialer: [SCNMaterial] = []
         for (i, indekser) in perBilde.sorted(by: { $0.key < $1.key }) {
             elementer.append(SCNGeometryElement(indices: indekser, primitiveType: .triangles))
             let m = SCNMaterial()
-            if i >= 0 { m.diffuse.contents = UIImage(data: bilder[i].jpeg) ?? UIColor(white: 0.8, alpha: 1) }
+            if i >= 0 { m.diffuse.contents = justert(bilder[i].jpeg, lys[i], ci) ?? UIImage(data: bilder[i].jpeg) ?? UIColor(white: 0.8, alpha: 1) }
             else if i == palettNr { m.diffuse.contents = palett.bilde(); m.diffuse.magnificationFilter = .nearest; m.diffuse.minificationFilter = .nearest }
             else { m.diffuse.contents = UIColor(white: 0.75, alpha: 1) }
             m.isDoubleSided = true
@@ -399,6 +407,188 @@ enum Fargemodell {
         scene.rootNode.addChildNode(SCNNode(geometry: geometri))
         try? FileManager.default.removeItem(at: url)
         _ = scene.write(to: url, options: nil, delegate: nil, progressHandler: nil)
+    }
+
+    // MARK: Rett opp bildene
+
+    /// Trekantene i små ruter, så det er raskt å finne flaten nærmest et punkt.
+    private struct Rutenett {
+        static let rute: Float = 0.08
+        var ruter: [SIMD3<Int32>: [Int]] = [:]
+        var midt: [SIMD3<Float>] = []
+        var normal: [SIMD3<Float>] = []
+
+        init(tri: [SIMD3<Int32>], p: [SIMD3<Float>]) {
+            midt.reserveCapacity(tri.count); normal.reserveCapacity(tri.count)
+            for t in tri {
+                let a = p[Int(t.x)], b = p[Int(t.y)], c = p[Int(t.z)]
+                let k = simd_cross(b - a, c - a), l = simd_length(k)
+                let m = (a + b + c) / 3
+                midt.append(m); normal.append(l > 1e-9 ? k / l : SIMD3(0, 1, 0))
+                if l > 1e-9 { ruter[Self.nokkel(m), default: []].append(midt.count - 1) }
+            }
+        }
+
+        static func nokkel(_ q: SIMD3<Float>) -> SIMD3<Int32> {
+            SIMD3(Int32((q.x / rute).rounded(.down)), Int32((q.y / rute).rounded(.down)), Int32((q.z / rute).rounded(.down)))
+        }
+
+        /// Flaten nærmest punktet (midtpunkt og normal), innen `maks` meter.
+        func naermeste(_ q: SIMD3<Float>, maks: Float) -> (SIMD3<Float>, SIMD3<Float>)? {
+            let k = Self.nokkel(q)
+            var best: Int? = nil, bestAvstand = maks * maks
+            for dx in -1...1 { for dy in -1...1 { for dz in -1...1 {
+                guard let liste = ruter[k &+ SIMD3(Int32(dx), Int32(dy), Int32(dz))] else { continue }
+                for i in liste {
+                    let d = simd_distance_squared(midt[i], q)
+                    if d < bestAvstand { bestAvstand = d; best = i }
+                }
+            } } }
+            return best.map { (midt[$0], normal[$0]) }
+        }
+    }
+
+    /// Hvor kameraet sto da bildet ble tatt, rettet opp. Punktene i bildets dybdemåling skal ligge
+    /// på nettet; de flyttes dit, punkt mot flate, noen runder. Telefonen retter sin egen posisjon
+    /// underveis i skanningen, så bilder tatt tidlig står ofte noen cm feil.
+    /// Store rettinger godtas ikke (da passer bildet ikke inn i det hele tatt).
+    private static func rettOpp(_ b: Fotobilde, rutenett: Rutenett) -> simd_float4x4 {
+        let start = b.kamera.transform
+        guard let dybde = b.dybde, b.dybdeBredde > 0, b.dybdeHoyde > 0 else { return start }
+        let k = b.kamera
+        let fx = k.intrinsics[0][0], fy = k.intrinsics[1][1], cx = k.intrinsics[2][0], cy = k.intrinsics[2][1]
+        let bredde = Float(k.imageResolution.width), hoyde = Float(k.imageResolution.height)
+        let dw = b.dybdeBredde, dh = b.dybdeHoyde
+        // Punktene i kameraets koordinater (x høyre, y opp, kameraet ser langs −z)
+        var lokale: [SIMD3<Float>] = []
+        for j in stride(from: 5, to: dh, by: 10) { for i in stride(from: 5, to: dw, by: 10) {
+            let n = j * dw + i
+            if let s = b.sikkerhet, s.count == dybde.count, s[n] < 2 { continue }
+            let d = dybde[n]
+            guard d.isFinite, d > 0.25, d < 5 else { continue }
+            let u = (Float(i) + 0.5) / Float(dw) * bredde, v = (Float(j) + 0.5) / Float(dh) * hoyde
+            lokale.append(SIMD3((u - cx) * d / fx, -(v - cy) * d / fy, -d))
+        } }
+        guard lokale.count >= 60 else { return start }
+
+        func flytt(_ v: SIMD3<Float>) -> simd_float4x4 { var m = matrix_identity_float4x4; m.columns.3 = SIMD4(v.x, v.y, v.z, 1); return m }
+        var t = start
+        for _ in 0..<6 {
+            var a = [Double](repeating: 0, count: 36), bv = [Double](repeating: 0, count: 6), antall = 0
+            let senter = SIMD3(t.columns.3.x, t.columns.3.y, t.columns.3.z)
+            for l in lokale {
+                let w = simd_mul(t, SIMD4(l.x, l.y, l.z, 1))
+                let q = SIMD3(w.x, w.y, w.z)
+                guard let (m, n) = rutenett.naermeste(q, maks: 0.1) else { continue }
+                let r = simd_dot(n, q - m)
+                let ax = simd_cross(q - senter, n)
+                let jac = [Double(ax.x), Double(ax.y), Double(ax.z), Double(n.x), Double(n.y), Double(n.z)]
+                for x in 0..<6 {
+                    bv[x] -= jac[x] * Double(r)
+                    for y in 0..<6 { a[x * 6 + y] += jac[x] * jac[y] }
+                }
+                antall += 1
+            }
+            guard antall >= 50, let s = los(a, bv) else { break }
+            let rot = SIMD3(Float(s[0]), Float(s[1]), Float(s[2])), fl = SIMD3(Float(s[3]), Float(s[4]), Float(s[5]))
+            let vinkel = simd_length(rot)
+            let r = vinkel > 1e-7 ? simd_float4x4(simd_quatf(angle: vinkel, axis: rot / vinkel)) : matrix_identity_float4x4
+            t = flytt(senter + fl) * r * flytt(-senter) * t
+            if simd_length(fl) < 0.0005 && vinkel < 0.0003 { break }
+        }
+        let flyttet = simd_distance(SIMD3(t.columns.3.x, t.columns.3.y, t.columns.3.z), SIMD3(start.columns.3.x, start.columns.3.y, start.columns.3.z))
+        let fram0 = SIMD3(start.columns.2.x, start.columns.2.y, start.columns.2.z), fram1 = SIMD3(t.columns.2.x, t.columns.2.y, t.columns.2.z)
+        let snudd = acos(min(1, max(-1, simd_dot(simd_normalize(fram0), simd_normalize(fram1)))))
+        return flyttet < 0.15 && snudd < 0.09 ? t : start
+    }
+
+    /// Løser A·x = b (6 × 6) med Gauss-eliminasjon. nil hvis likningene ikke har én løsning.
+    private static func los(_ a0: [Double], _ b0: [Double]) -> [Double]? {
+        var a = a0, b = b0
+        let n = 6
+        for i in 0..<n { a[i * n + i] += 1e-6 }
+        for k in 0..<n {
+            var p = k
+            for r in (k + 1)..<n where abs(a[r * n + k]) > abs(a[p * n + k]) { p = r }
+            guard abs(a[p * n + k]) > 1e-12 else { return nil }
+            if p != k { for c in 0..<n { a.swapAt(k * n + c, p * n + c) }; b.swapAt(k, p) }
+            for r in (k + 1)..<n {
+                let f = a[r * n + k] / a[k * n + k]
+                for c in k..<n { a[r * n + c] -= f * a[k * n + c] }
+                b[r] -= f * b[k]
+            }
+        }
+        var x = [Double](repeating: 0, count: n)
+        for k in stride(from: n - 1, through: 0, by: -1) {
+            var s = b[k]
+            for c in (k + 1)..<n { s -= a[k * n + c] * x[c] }
+            x[k] = s / a[k * n + k]
+        }
+        return x
+    }
+
+    // MARK: Jevn ut lyset
+
+    /// Hvor mye hvert bilde bør gjøres lysere eller mørkere, så samme flate får samme lysstyrke
+    /// uansett hvilket bilde den er tatt fra. Sammenligner bildene på flater flere bilder ser.
+    private static func lysstyrke(tri: [SIMD3<Int32>], p: [SIMD3<Float>], kandidater: [[(Int, Float)]],
+                                  kameraer: [Kamera], bilder: [Fotobilde]) -> [Float] {
+        var gevinst = [Float](repeating: 1, count: bilder.count)
+        guard bilder.count >= 2 else { return gevinst }
+        // Et utvalg trekanter som minst to bilder ser
+        var utvalg: [Int] = []
+        for t in tri.indices where kandidater[t].count >= 2 { utvalg.append(t) }
+        if utvalg.count > 3000 { let steg = utvalg.count / 3000 + 1; utvalg = stride(from: 0, to: utvalg.count, by: steg).map { utvalg[$0] } }
+        guard !utvalg.isEmpty else { return gevinst }
+        var leses: [Int: [(Int, SIMD2<Float>)]] = [:]
+        for t in utvalg {
+            let idx = tri[t]
+            let midt = (p[Int(idx.x)] + p[Int(idx.y)] + p[Int(idx.z)]) / 3
+            for (i, _) in kandidater[t].prefix(3) {
+                if let pm = kameraer[i].projiser(midt) { leses[i, default: []].append((t, pm.0)) }
+            }
+        }
+        // Lysstyrken per trekant og bilde
+        var maling: [Int: [(Int, Float)]] = [:]
+        for (i, liste) in leses {
+            guard let les = Pikselleser(bilder[i]) else { continue }
+            for (t, q) in liste {
+                guard let f = les.farge(x: q.x, y: q.y) else { continue }
+                let l = 0.2126 * f.x + 0.7152 * f.y + 0.0722 * f.z
+                guard l > 0.04, l < 0.93 else { continue } // ikke helt mørkt eller utbrent
+                maling[t, default: []].append((i, log(l)))
+            }
+        }
+        // Log-gevinst per bilde: snittet av forskjellen mot de andre bildene på de samme flatene,
+        // dratt litt mot 0 så ingen bilder blir dratt langt av sted. Noen runder til det roer seg.
+        var g = [Float](repeating: 0, count: bilder.count)
+        let par = maling.values.filter { $0.count >= 2 }
+        guard !par.isEmpty else { return gevinst }
+        for _ in 0..<25 {
+            var sum = [Float](repeating: 0, count: bilder.count), n = [Float](repeating: 0, count: bilder.count)
+            for liste in par {
+                let snitt = liste.reduce(Float(0)) { $0 + $1.1 + g[$1.0] } / Float(liste.count)
+                for (i, l) in liste { sum[i] += snitt - l; n[i] += 1 }
+            }
+            for i in g.indices { g[i] = sum[i] / (n[i] + 4) }
+            let middel = g.reduce(0, +) / Float(g.count)
+            for i in g.indices { g[i] -= middel }
+        }
+        for i in g.indices { gevinst[i] = min(1.6, max(0.6, exp(g[i]))) }
+        return gevinst
+    }
+
+    /// Bildet med lysstyrken justert, eller nil når det ikke trengs.
+    private static func justert(_ jpeg: Data, _ g: Float, _ ci: CIContext) -> UIImage? {
+        guard abs(g - 1) > 0.03, let inn = CIImage(data: jpeg) else { return nil }
+        let f = CGFloat(g)
+        let ut = inn.applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: f, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: f, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: f, w: 0),
+        ])
+        guard let cg = ci.createCGImage(ut, from: inn.extent) else { return nil }
+        return UIImage(cgImage: cg)
     }
 
     /// Fargen til trekantene uten bilde. Trekantene med bilde rundt dem får fargen sin lest fra bildet

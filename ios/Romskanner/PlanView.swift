@@ -255,6 +255,7 @@ struct RomDetalj: View {
     @State private var visning: VistModell?
     @State private var sletter = false
     @State private var skann3D = false
+    @State private var skannApple = false
     @State private var retter: Planbit?
     @Environment(\.dismiss) private var lukk
 
@@ -379,6 +380,32 @@ struct RomDetalj: View {
                                 Label("Lag ekte 3D med farger", systemImage: "camera.metering.matrix")
                             }
                         }
+                        if Fargemodell.finnes(rom.id) && Skann3DView.stottet && !lager.fargeUnderArbeid.contains(rom.id) {
+                            Button { skann3D = true } label: {
+                                Label("Skann ekte 3D på nytt", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        // Apples metode, til å sammenligne med vår ekte 3D
+                        if let andel = lager.omradeFremdrift[rom.id] {
+                            HStack(spacing: 10) {
+                                ProgressView(value: andel).frame(width: 60)
+                                Text("Lager Apples 3D … \(Int(andel * 100)) %. Hold appen åpen.").foregroundStyle(.secondary)
+                            }
+                        } else {
+                            if Omrademodell.finnes(rom.id) {
+                                Button { vis(Omrademodell.url(rom.id), "apple") } label: {
+                                    Label("Vis Apples 3D", systemImage: "apple.logo")
+                                }
+                            }
+                            if let feil = lager.omradeFeil[rom.id] {
+                                Text("Apples 3D: " + feil).font(.footnote).foregroundStyle(.red)
+                            }
+                            if Omrademodell.stottet {
+                                Button { skannApple = true } label: {
+                                    Label(Omrademodell.finnes(rom.id) ? "Skann med Apples metode på nytt" : "Skann med Apples metode (prøve)", systemImage: "camera.aperture")
+                                }
+                            }
+                        }
                         Button { vis(Modell.url(rom.id), "plan") } label: {
                             Label("Vis rommet i 3D", systemImage: "cube.transparent")
                         }
@@ -446,6 +473,16 @@ struct RomDetalj: View {
             .sheet(item: $retter) { RettMal(lager: lager, id: id, bit: $0) }
             .fullScreenCover(item: $visning) { v in
                 ModellVisning(modell: v) { nye in lagreAvstander(nye, kilde: v.kilde) }
+            }
+            .fullScreenCover(isPresented: $skannApple) {
+                if #available(iOS 18.0, *) {
+                    OmradeSkannView(id: id) { ok in
+                        DispatchQueue.main.async {
+                            skannApple = false
+                            if ok { lager.lagOmrademodell(id) }
+                        }
+                    }
+                }
             }
             .fullScreenCover(isPresented: $skann3D) {
                 Skann3DView { bitene, bilder in
