@@ -5,6 +5,8 @@ import QuickLook
 struct PlanView: View {
     let plan: Plan
     var visMal = true
+    /// Vegg, vindu eller dør som vises uthevet («Mål på nytt»).
+    var markert: Planbit? = nil
 
     private let terrakotta = Color(red: 0.73, green: 0.28, blue: 0.16)
     private let vindusblaa = Color(red: 0.35, green: 0.62, blue: 0.85)
@@ -57,6 +59,11 @@ struct PlanView: View {
                 ctx.stroke(slag.bue, with: .color(terrakotta.opacity(0.6)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             }
 
+            if let m = markert, let l = p.linje(m) {
+                var sti = Path(); sti.move(to: l.0); sti.addLine(to: l.1)
+                ctx.stroke(sti, with: .color(.orange), style: StrokeStyle(lineWidth: 9, lineCap: .round))
+            }
+
             // Mål på hver vegg utenfor rommet, og på vinduer og dører innenfor
             if visMal {
                 for (v, meter) in zip(p.vegger + p.inne, p.veggLengder + p.inneLengder) where meter >= 0.3 {
@@ -105,6 +112,16 @@ struct Tilpasning {
     private var ca: Double = 1, sa: Double = 0
     private var skala: CGFloat = 1, fx: CGFloat = 0, fy: CGFloat = 0
 
+    /// Vegg, vindu eller dør på skjermen.
+    func linje(_ b: Planbit) -> (CGPoint, CGPoint)? {
+        func hent(_ l: [(CGPoint, CGPoint)], _ i: Int) -> (CGPoint, CGPoint)? { l.indices.contains(i) ? l[i] : nil }
+        switch b {
+        case .vegg(let i): return hent(vegger, i)
+        case .vindu(let i): return hent(vinduer, i)
+        case .dor(let i): return hent(dorer, i)
+        }
+    }
+
     /// Et punkt i planen (meter) på skjermen.
     func punkt(_ q: Plan.Punkt) -> CGPoint {
         let x = q.x * ca - q.y * sa, y = q.x * sa + q.y * ca
@@ -136,7 +153,7 @@ struct Tilpasning {
         apninger = plan.apninger.map(linje)
         utenfor = (plan.utenfor ?? []).map(linje)
         inne = (plan.inne ?? []).map(linje)
-        veggLengder = plan.vegger.map(lengde)
+        veggLengder = plan.vegger.map { $0.malt == true ? ($0.bredde ?? lengde($0)) : lengde($0) }
         inneLengder = (plan.inne ?? []).map(lengde)
         let kilde = gulv.count >= 3 ? gulv : vegger.flatMap { [$0.0, $0.1] }
         if !kilde.isEmpty {
@@ -238,10 +255,26 @@ struct RomDetalj: View {
     @State private var visning: VistModell?
     @State private var sletter = false
     @State private var skann3D = false
+    @State private var retter: Planbit?
     @Environment(\.dismiss) private var lukk
 
     private var rom: SkannetRom? { lager.rom.first { $0.id == id } }
     private func m(_ v: Double, _ d: Int = 1) -> String { v.formatted(.number.precision(.fractionLength(d))) }
+
+    /// Én rad i «Vegger, vinduer og dører». Trykk: mål på nytt.
+    private func malrad(_ bit: Planbit, _ l: Plan.Linje) -> some View {
+        Button { retter = bit } label: {
+            HStack {
+                Text(bit.navn).foregroundStyle(.primary)
+                if l.malt == true {
+                    Text("målt på nytt").font(.caption.weight(.medium)).foregroundStyle(.orange)
+                }
+                Spacer()
+                Text(Tilpasning.storrelse(l).map { $0 + " m" } ?? "–").foregroundStyle(.secondary)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+    }
 
     /// Åpner en modell med målene som er tatt i akkurat den modellen.
     private func vis(_ url: URL, _ kilde: String) {
@@ -286,14 +319,15 @@ struct RomDetalj: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
-                if let plan = rom.plan, !(plan.vinduer.isEmpty && plan.dorer.isEmpty) {
-                    Section("Vinduer og dører") {
-                        ForEach(Array(plan.vinduer.enumerated()), id: \.offset) { i, v in
-                            LabeledContent("Vindu \(i + 1)", value: Tilpasning.storrelse(v).map { $0 + " m" } ?? "–")
-                        }
-                        ForEach(Array(plan.dorer.enumerated()), id: \.offset) { i, d in
-                            LabeledContent("Dør \(i + 1)", value: Tilpasning.storrelse(d).map { $0 + " m" } ?? "–")
-                        }
+                if let plan = rom.plan, !plan.vegger.isEmpty {
+                    Section {
+                        ForEach(Array(plan.vegger.enumerated()), id: \.offset) { i, v in malrad(.vegg(i), v) }
+                        ForEach(Array(plan.vinduer.enumerated()), id: \.offset) { i, v in malrad(.vindu(i), v) }
+                        ForEach(Array(plan.dorer.enumerated()), id: \.offset) { i, d in malrad(.dor(i), d) }
+                    } header: {
+                        Text("Vegger, vinduer og dører")
+                    } footer: {
+                        Text("Trykk på et mål for å måle på nytt, for eksempel et vindu skanneren bommet på.")
                     }
                 }
                 if let mal = rom.avstander, !mal.isEmpty {
@@ -406,6 +440,7 @@ struct RomDetalj: View {
                 Text("Plantegningen, målene og 3D-modellen blir borte.")
             }
             .quickLookPreview($visModell)
+            .sheet(item: $retter) { RettMal(lager: lager, id: id, bit: $0) }
             .fullScreenCover(item: $visning) { v in
                 ModellVisning(modell: v) { nye in lagreAvstander(nye, kilde: v.kilde) }
             }

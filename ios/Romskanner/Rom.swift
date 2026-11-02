@@ -100,6 +100,9 @@ struct Plan: Codable, Hashable {
         /// Bredde og høyde i meter (vinduer, dører og åpninger). Mangler på eldre skanninger.
         var bredde: Double?
         var hoyde: Double?
+        /// Målt på nytt for hånd («Mål på nytt»), og målet skanneren ga (bredde, høyde).
+        var malt: Bool? = nil
+        var skannet: [Double]? = nil
     }
     var gulv: [Punkt]
     var vegger: [Linje]

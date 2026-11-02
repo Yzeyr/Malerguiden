@@ -15,6 +15,7 @@ struct RotView: View {
     @StateObject private var lager = RomLager()
     @StateObject private var tingLager = TingLager()
     @StateObject private var web = WebKobling()
+    @State private var fargeModell: VistModell?
 
     var body: some View {
         MalerguidenWebView(kobling: web)
@@ -27,8 +28,13 @@ struct RotView: View {
                 ContentView(lager: lager, tingLager: tingLager) { web.visSkanner = false }
             }
             .fullScreenCover(item: $web.proveFarger) { p in
-                ProveMalView(farger: p.farger) { web.proveFarger = nil }
+                ProveMalView(farger: p.farger, rom: lager.rom.filter { Modell.finnes($0.id) }, vis3D: { r in
+                    // Lukk kameraet først, så åpnes rommet i 3D med de samme fargene
+                    web.proveFarger = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { fargeModell = TredjeVisning.modell(for: r, farger: p.farger) }
+                }) { web.proveFarger = nil }
             }
+            .fullScreenCover(item: $fargeModell) { ModellVisning(modell: $0) }
     }
 }
 

@@ -112,6 +112,7 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
             }
             guard !farger.isEmpty else { throw Feil("Ingen farger å prøve.") }
             guard ProveMalView.stottet else { throw Feil("Prøvemaling krever en iPhone med LiDAR.") }
+            ProveFarger.husk(farger)
             proveFarger = ProveFarger(farger: farger)
             return nil
         case "del":

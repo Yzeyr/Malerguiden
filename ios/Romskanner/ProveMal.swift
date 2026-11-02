@@ -18,6 +18,9 @@ struct ProveFarger: Identifiable {
 /// Møbler og folk foran veggen skjuler malingen (okklusjon), så det ser ut som det er malt.
 struct ProveMalView: View {
     let farger: [ProveFarger.Farge]
+    /// Skannede rom med 3D-modell: fargene kan prøves på veggene der i stedet.
+    var rom: [SkannetRom] = []
+    var vis3D: ((SkannetRom) -> Void)? = nil
     let lukk: () -> Void
 
     static var stottet: Bool { ARWorldTrackingConfiguration.supportsSceneReconstruction(.meshWithClassification) }
@@ -34,6 +37,12 @@ struct ProveMalView: View {
                     }
                     .accessibilityLabel("Lukk")
                     Spacer()
+                    if let vis3D, !rom.isEmpty {
+                        Menu {
+                            ForEach(rom) { r in Button(r.navn) { vis3D(r) } }
+                        } label: { Label("I 3D", systemImage: "cube") }
+                        .buttonStyle(.bordered).tint(.white)
+                    }
                     if maler.antallVegger > 0 {
                         Button { maler.angre() } label: { Label("Angre", systemImage: "arrow.uturn.backward") }
                             .buttonStyle(.bordered).tint(.white)

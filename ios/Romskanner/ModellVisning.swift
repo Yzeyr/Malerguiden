@@ -12,6 +12,10 @@ struct VistModell: Identifiable {
     var kilde: String? = nil
     /// Mål som allerede er tatt i denne modellen.
     var mal: [Avstand] = []
+    /// Farger å male veggene med. Tom: fargene sist sendt fra Malerguiden.
+    var farger: [ProveFarger.Farge] = []
+    /// Åpne rett i fargevalg (fra «Prøv farge»).
+    var startMedFarge = false
 }
 
 /// En avstand målt i en 3D-modell: to punkter i modellens koordinater, i meter.
@@ -47,69 +51,93 @@ struct Avstand: Codable, Hashable, Identifiable {
     }
 }
 
+/// En vegg malt i 3D-modellen: et plan (punkt og retning, i meter) og fargen.
+struct MaltFlate: Equatable {
+    var punkt: SIMD3<Float>
+    var normal: SIMD3<Float>
+    var hex: String
+}
+
+extension ProveFarger {
+    private static let nokkel = "provefarger-sist"
+    /// Fargene sist sendt fra Malerguiden til «Prøv farge», så de kan brukes i 3D-modellene.
+    static func husk(_ farger: [Farge]) {
+        UserDefaults.standard.set(farger.map { [$0.navn, $0.hex] }, forKey: nokkel)
+    }
+    static func sist() -> [Farge] {
+        let liste = UserDefaults.standard.array(forKey: nokkel) as? [[String]] ?? []
+        return liste.compactMap { p in
+            guard p.count == 2, let f = UIColor(hex: p[1]) else { return nil }
+            return Farge(navn: p[0], hex: p[1], farge: f)
+        }
+    }
+}
+
+/// Holder på SceneKit-visningen, så knapper i SwiftUI kan ta bilde av den.
+final class Visningsref: ObservableObject {
+    weak var visning: SCNView?
+}
+
 /// 3D-visning av rommet på svart bakgrunn. Én finger snur, to fingre zoomer og flytter.
-/// Med «Mål» trykker man på to punkter i modellen og får avstanden mellom dem.
+/// «Mål»: trykk på to punkter og få avstanden. «Farge»: trykk på en vegg for å male den.
 struct ModellVisning: View {
+    enum Modus { case se, mal, farge }
+
     let modell: VistModell
     /// Kalles med alle målene hver gang de endres. nil: målene lagres ikke.
     var lagre: (([Avstand]) -> Void)? = nil
     @Environment(\.dismiss) private var lukk
+    @StateObject private var ref = Visningsref()
     @State private var avstander: [Avstand]
     @State private var ventende: SIMD3<Float>?
-    @State private var maler = false
+    @State private var modus: Modus
     @State private var omdop: Avstand?
     @State private var navn = ""
+    @State private var farger: [ProveFarger.Farge]
+    @State private var valgt = 0
+    @State private var egen = Color(red: 0.85, green: 0.80, blue: 0.72)
+    @State private var malte: [MaltFlate] = []
+    @State private var ekteLys = true
 
     init(modell: VistModell, lagre: (([Avstand]) -> Void)? = nil) {
         self.modell = modell
         self.lagre = modell.kilde == nil ? nil : lagre
         _avstander = State(initialValue: modell.mal)
+        _modus = State(initialValue: modell.startMedFarge ? .farge : .se)
+        _farger = State(initialValue: modell.farger.isEmpty ? ProveFarger.sist() : modell.farger)
     }
 
     private var hint: String {
-        if !maler { return "Dra for å snu · knip for å zoome · to fingre for å flytte" }
-        if ventende == nil { return "Trykk på første punkt. Zoom inn mot hjørnet for å treffe nøyaktig." }
-        return "Trykk på andre punkt."
+        switch modus {
+        case .se: return "Dra for å snu · knip for å zoome · to fingre for å flytte"
+        case .mal: return ventende == nil ? "Trykk på første punkt. Zoom inn mot hjørnet for å treffe nøyaktig." : "Trykk på andre punkt."
+        case .farge: return malte.isEmpty ? "Velg en farge og trykk på en vegg." : "Trykk på flere vegger, eller på en malt vegg for å bytte farge."
+        }
+    }
+
+    /// Fargen som er valgt: en fra lista, eller den egne (siste plass).
+    private var valgtHex: String {
+        if valgt < farger.count { return farger[valgt].hex }
+        return UIColor(egen).hex
     }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            Scenevisning(url: modell.url, maler: maler, avstander: avstander, ventende: ventende, trykk: punkt)
+            Scenevisning(url: modell.url, ref: ref, modus: modus, avstander: avstander, ventende: ventende,
+                         malte: malte, ekteLys: ekteLys, trykk: punkt, trykkVegg: malVegg)
                 .ignoresSafeArea()
             VStack {
-                HStack(spacing: 12) {
-                    Text(modell.tittel).font(.headline).foregroundStyle(.white)
-                    Spacer()
-                    Button {
-                        maler.toggle()
-                        ventende = nil
-                    } label: {
-                        Label("Mål", systemImage: "ruler")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(maler ? Color.orange : Color.white.opacity(0.2), in: Capsule())
-                            .foregroundStyle(.white)
-                    }
-                    .accessibilityLabel(maler ? "Slutt å måle" : "Mål")
-                    Button { lukk() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 30))
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, .white.opacity(0.25))
-                    }
-                    .accessibilityLabel("Lukk")
-                }
-                .padding()
+                topplinje.padding()
                 Spacer()
-                if maler {
-                    malepanel
-                } else {
+                switch modus {
+                case .se:
                     Text(hint)
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.6))
                         .padding(.bottom, 8)
+                case .mal: malepanel
+                case .farge: fargepanel
                 }
             }
         }
@@ -127,6 +155,38 @@ struct ModellVisning: View {
             Button("Avbryt", role: .cancel) { omdop = nil }
         }
     }
+
+    private var topplinje: some View {
+        HStack(spacing: 10) {
+            Text(modell.tittel).font(.headline).foregroundStyle(.white).lineLimit(1)
+            Spacer()
+            modusknapp("Farge", ikon: "paintpalette", .farge)
+            modusknapp("Mål", ikon: "ruler", .mal)
+            Button { lukk() } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 30))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .white.opacity(0.25))
+            }
+            .accessibilityLabel("Lukk")
+        }
+    }
+
+    private func modusknapp(_ tittel: String, ikon: String, _ m: Modus) -> some View {
+        Button {
+            modus = modus == m ? .se : m
+            ventende = nil
+        } label: {
+            Label(tittel, systemImage: ikon)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .background(modus == m ? Color.orange : Color.white.opacity(0.2), in: Capsule())
+                .foregroundStyle(.white)
+        }
+    }
+
+    // MARK: Mål
 
     private var malepanel: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -192,16 +252,90 @@ struct ModellVisning: View {
         avstander.append(Avstand(navn: "Mål \(avstander.count + 1)", a: [a.x, a.y, a.z], b: [p.x, p.y, p.z], kilde: modell.kilde ?? ""))
         lagre?(avstander)
     }
+
+    // MARK: Farge
+
+    private var fargepanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(hint).font(.footnote).foregroundStyle(.white.opacity(0.85))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(farger.enumerated()), id: \.element.id) { i, f in
+                        Button { valgt = i } label: {
+                            fargeprikk(Color(uiColor: f.farge), navn: f.navn, valgt: valgt == i)
+                        }
+                    }
+                    VStack(spacing: 4) {
+                        ColorPicker("Egen farge", selection: $egen, supportsOpacity: false)
+                            .labelsHidden()
+                            .frame(width: 42, height: 42)
+                            .overlay(Circle().stroke(.white, lineWidth: valgt >= farger.count ? 3 : 0).padding(-2))
+                            .onChange(of: egen) { _ in valgt = farger.count }
+                        Text("Egen").font(.caption2.weight(.semibold)).foregroundStyle(.white)
+                    }
+                    .onTapGesture { valgt = farger.count }
+                }
+                .padding(.horizontal, 2)
+            }
+            if farger.isEmpty {
+                Text("Fargene fra jobben kommer hit når du trykker «Prøv farge» i Malerguiden.")
+                    .font(.caption).foregroundStyle(.white.opacity(0.6))
+            }
+            HStack(spacing: 14) {
+                Button { if !malte.isEmpty { malte.removeLast() } } label: { Label("Angre", systemImage: "arrow.uturn.backward") }
+                    .disabled(malte.isEmpty)
+                Toggle("Romlys", isOn: $ekteLys).toggleStyle(.button)
+                Spacer()
+                Button { taBilde() } label: { Label("Bilde", systemImage: "camera") }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.73, green: 0.28, blue: 0.16))
+            }
+            .font(.subheadline)
+        }
+        .padding(14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    private func fargeprikk(_ c: Color, navn: String, valgt: Bool) -> some View {
+        VStack(spacing: 4) {
+            Circle().fill(c).frame(width: 42, height: 42)
+                .overlay(Circle().stroke(.white, lineWidth: valgt ? 3 : 1))
+            Text(navn).font(.caption2.weight(.semibold)).foregroundStyle(.white).lineLimit(2).frame(width: 76)
+        }
+    }
+
+    /// Trykk på en vegg i fargemodus: mal den, bytt farge, eller ta bort malingen
+    /// hvis den alt har fargen som er valgt.
+    private func malVegg(_ p: SIMD3<Float>, _ n: SIMD3<Float>) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        let hex = valgtHex
+        if let i = malte.lastIndex(where: { abs(simd_dot($0.normal, n)) > 0.94 && abs(simd_dot(p - $0.punkt, $0.normal)) < 0.06 }) {
+            if malte[i].hex == hex { malte.remove(at: i) } else { malte[i].hex = hex }
+        } else {
+            malte.append(MaltFlate(punkt: p, normal: n, hex: hex))
+        }
+    }
+
+    private func taBilde() {
+        guard let bilde = ref.visning?.snapshot() else { return }
+        Task { _ = await Deling.del([bilde]) }
+    }
 }
 
 /// SceneKit-visning av en USDZ-fil, med kameraet rettet mot midten av rommet.
 /// Målene tegnes oppå bildet (alltid synlige, samme størrelse uansett zoom).
 struct Scenevisning: UIViewRepresentable {
     let url: URL
-    var maler = false
+    var ref: Visningsref? = nil
+    var modus: ModellVisning.Modus = .se
     var avstander: [Avstand] = []
     var ventende: SIMD3<Float>? = nil
+    var malte: [MaltFlate] = []
+    var ekteLys = true
     var trykk: (SIMD3<Float>) -> Void = { _ in }
+    var trykkVegg: (SIMD3<Float>, SIMD3<Float>) -> Void = { _, _ in }
 
     func makeCoordinator() -> Malerlag { Malerlag() }
 
@@ -211,6 +345,7 @@ struct Scenevisning: UIViewRepresentable {
         visning.antialiasingMode = .multisampling4X
         visning.allowsCameraControl = true
         visning.autoenablesDefaultLighting = true
+        ref?.visning = visning
 
         let lag = context.coordinator
         lag.visning = visning
@@ -239,6 +374,7 @@ struct Scenevisning: UIViewRepresentable {
         kamera.look(at: senter)
         scene.rootNode.addChildNode(kamera)
         visning.pointOfView = kamera
+        scene.rootNode.addChildNode(lag.maling)
 
         let styring = visning.defaultCameraController
         styring.interactionMode = .orbitTurntable
@@ -251,29 +387,41 @@ struct Scenevisning: UIViewRepresentable {
 
     func updateUIView(_ visning: SCNView, context: Context) {
         let lag = context.coordinator
-        lag.aktiv = maler
+        lag.modus = modus
         lag.avstander = avstander
         lag.ventende = ventende
         lag.trykk = trykk
+        lag.trykkVegg = trykkVegg
+        lag.mal(malte, ekteLys: ekteLys)
         lag.tegn()
     }
 }
 
-/// Tar imot trykk i modellen og tegner målene som streker, prikker og tall oppå 3D-bildet.
+/// Tar imot trykk i modellen, tegner målene som streker, prikker og tall oppå 3D-bildet,
+/// og legger fargen på veggene som er malt.
 final class Malerlag: NSObject, SCNSceneRendererDelegate {
     weak var visning: SCNView?
     let lag = UIView()
+    /// Malingen ligger her. Egen kategori, så trykk går gjennom den og treffer modellen.
+    let maling = SCNNode()
     /// Meter per enhet i scenen.
     var skala: Float = 1
-    var aktiv = false
+    var modus: ModellVisning.Modus = .se
     var avstander: [Avstand] = []
     var ventende: SIMD3<Float>?
     var trykk: (SIMD3<Float>) -> Void = { _ in }
+    var trykkVegg: (SIMD3<Float>, SIMD3<Float>) -> Void = { _, _ in }
     private let streker = CAShapeLayer()
     private var prikker: [UIView] = []
     private var etiketter: [UILabel] = []
     private var tegnes = false
     private let laas = NSLock()
+
+    /// Alle trekantene i modellen, i scenens koordinater. Leses første gang noe males.
+    private struct Trekant { var a, b, c, n, s: SIMD3<Float> }
+    private var trekanter: [Trekant]?
+    private var sistMalt: [MaltFlate] = []
+    private var sistLys = true
 
     override init() {
         super.init()
@@ -283,18 +431,124 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
         streker.lineWidth = 2.5
         streker.lineCap = .round
         lag.layer.addSublayer(streker)
+        maling.categoryBitMask = 2
     }
 
     @objc func trykket(_ g: UITapGestureRecognizer) {
-        guard aktiv, let v = visning else { return }
+        guard modus != .se, let v = visning else { return }
         let treff = v.hitTest(g.location(in: v), options: [
             .searchMode: SCNHitTestSearchMode.closest.rawValue,
             .ignoreHiddenNodes: true,
+            .categoryBitMask: 1,
         ])
         guard let t = treff.first else { return }
         let p = t.worldCoordinates
-        trykk(SIMD3(p.x, p.y, p.z) * skala)
+        let punkt = SIMD3(p.x, p.y, p.z) * skala
+        if modus == .farge {
+            let n = t.worldNormal
+            let normal = simd_normalize(SIMD3(n.x, n.y, n.z))
+            trykkVegg(punkt, normal)
+        } else {
+            trykk(punkt)
+        }
     }
+
+    // MARK: Maling
+
+    /// Leser trekantene i modellen (alle noder med geometri) over i verdenskoordinater.
+    private func lesTrekanter() -> [Trekant] {
+        var ut: [Trekant] = []
+        guard let rot = visning?.scene?.rootNode else { return ut }
+        rot.enumerateHierarchy { node, _ in
+            guard node !== self.maling, node.parent !== self.maling, let g = node.geometry,
+                  let kilde = g.sources(for: .vertex).first,
+                  kilde.usesFloatComponents, kilde.bytesPerComponent == 4, kilde.componentsPerVector >= 3 else { return }
+            let m = node.simdWorldTransform
+            let antall = kilde.vectorCount, steg = kilde.dataStride, start = kilde.dataOffset
+            var punkter = [SIMD3<Float>](repeating: .zero, count: antall)
+            kilde.data.withUnsafeBytes { raw in
+                for i in 0..<antall {
+                    let o = start + i * steg
+                    guard o + 12 <= raw.count else { break }
+                    let x = raw.loadUnaligned(fromByteOffset: o, as: Float.self)
+                    let y = raw.loadUnaligned(fromByteOffset: o + 4, as: Float.self)
+                    let z = raw.loadUnaligned(fromByteOffset: o + 8, as: Float.self)
+                    let w = m * SIMD4<Float>(x, y, z, 1)
+                    punkter[i] = SIMD3(w.x, w.y, w.z)
+                }
+            }
+            for e in g.elements where e.primitiveType == .triangles {
+                let bpi = e.bytesPerIndex
+                e.data.withUnsafeBytes { raw in
+                    func indeks(_ k: Int) -> Int {
+                        let o = k * bpi
+                        switch bpi {
+                        case 1: return Int(raw.load(fromByteOffset: o, as: UInt8.self))
+                        case 2: return Int(raw.loadUnaligned(fromByteOffset: o, as: UInt16.self))
+                        default: return Int(raw.loadUnaligned(fromByteOffset: o, as: UInt32.self))
+                        }
+                    }
+                    let n = min(e.primitiveCount, raw.count / (bpi * 3))
+                    for t in 0..<n {
+                        let i0 = indeks(t * 3), i1 = indeks(t * 3 + 1), i2 = indeks(t * 3 + 2)
+                        guard i0 < antall, i1 < antall, i2 < antall else { continue }
+                        let a = punkter[i0], b = punkter[i1], c = punkter[i2]
+                        let kryss = simd_cross(b - a, c - a)
+                        let l = simd_length(kryss)
+                        guard l > 1e-10 else { continue }
+                        ut.append(Trekant(a: a, b: b, c: c, n: kryss / l, s: (a + b + c) / 3))
+                    }
+                }
+            }
+        }
+        return ut
+    }
+
+    /// Legger fargen på trekantene som ligger i planet til hver malt vegg (siste maling vinner).
+    func mal(_ malte: [MaltFlate], ekteLys: Bool) {
+        guard malte != sistMalt || ekteLys != sistLys else { return }
+        sistMalt = malte
+        sistLys = ekteLys
+        maling.childNodes.forEach { $0.removeFromParentNode() }
+        guard !malte.isEmpty else { return }
+        if trekanter == nil { trekanter = lesTrekanter() }
+        guard let alle = trekanter, !alle.isEmpty else { return }
+
+        // Planene i scenens enheter
+        let plan = malte.map { (p: $0.punkt / skala, n: simd_normalize($0.normal), hex: $0.hex) }
+        let grense = 0.06 / skala
+        let loft = 0.004 / skala
+        var perFarge: [String: [SIMD3<Float>]] = [:]
+        for t in alle {
+            guard let f = plan.lastIndex(where: { abs(simd_dot($0.n, t.n)) > 0.94 && abs(simd_dot(t.s - $0.p, $0.n)) < grense }) else { continue }
+            // Løft malingen litt ut fra veggen, mot den siden veggen ble trykket på
+            let l = plan[f].n * loft
+            perFarge[plan[f].hex, default: []].append(contentsOf: [t.a + l, t.b + l, t.c + l])
+        }
+        for (hex, p) in perFarge {
+            let kilde = SCNGeometrySource(vertices: p.map { SCNVector3($0.x, $0.y, $0.z) })
+            let idx = (0..<UInt32(p.count)).map { $0 }
+            let element = SCNGeometryElement(indices: idx, primitiveType: .triangles)
+            let geo = SCNGeometry(sources: [kilde], elements: [element])
+            let mat = SCNMaterial()
+            mat.diffuse.contents = UIColor(hex: hex) ?? .white
+            mat.isDoubleSided = true
+            if ekteLys {
+                // Multipliser med bildet under: lys, skygge og struktur fra rommet blir med
+                mat.lightingModel = .constant
+                mat.blendMode = .multiply
+                mat.writesToDepthBuffer = false
+            } else {
+                mat.lightingModel = .constant
+            }
+            geo.materials = [mat]
+            let node = SCNNode(geometry: geo)
+            node.categoryBitMask = 2
+            maling.addChildNode(node)
+        }
+    }
+
+    // MARK: Mål
 
     /// Kameraet har flyttet seg: flytt målene etter, høyst én gang per bilde.
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
@@ -322,7 +576,9 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
         let sti = UIBezierPath()
         var punkter: [(CGPoint, Bool)] = []
         var tekster: [(CGPoint, String)] = []
-        for (i, a) in avstander.enumerated() {
+        // Målene vises i målemodus og når man bare ser, ikke mens man maler
+        let visMal = modus != .farge
+        for (i, a) in avstander.enumerated() where visMal {
             guard let pa = skjerm(a.pa, v), let pb = skjerm(a.pb, v) else { continue }
             sti.move(to: pa)
             sti.addLine(to: pb)
@@ -330,7 +586,7 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
             punkter.append((pb, false))
             tekster.append((CGPoint(x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 - 14), "\(i + 1) · \(a.tekst)"))
         }
-        if aktiv, let vt = ventende, let p = skjerm(vt, v) { punkter.append((p, true)) }
+        if modus == .mal, let vt = ventende, let p = skjerm(vt, v) { punkter.append((p, true)) }
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -371,5 +627,23 @@ final class Malerlag: NSObject, SCNSceneRendererDelegate {
             l.bounds = CGRect(x: 0, y: 0, width: s.width + 14, height: 20)
             l.center = tekster[i].0
         }
+    }
+}
+
+extension UIColor {
+    /// «#RRGGBB».
+    var hex: String {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        func k(_ v: CGFloat) -> Int { Int((min(max(v, 0), 1) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", k(r), k(g), k(b))
+    }
+}
+
+enum TredjeVisning {
+    /// Den beste 3D-modellen av rommet, åpnet for å prøve farger: ekte 3D, så med bilder, så vanlig.
+    static func modell(for r: SkannetRom, farger: [ProveFarger.Farge]) -> VistModell {
+        let url = Fargemodell.finnes(r.id) ? Fargemodell.url(r.id) : Fotomodell.finnes(r.id) ? Fotomodell.url(r.id) : Modell.url(r.id)
+        return VistModell(url: url, tittel: r.navn, farger: farger, startMedFarge: true)
     }
 }
