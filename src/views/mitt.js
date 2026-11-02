@@ -14,7 +14,7 @@ import { byggKopi, delKopi, lastNed, markerKopiTatt, dagerSidenKopi, kanDele, le
 import { plassBrukt, beOmVarigLagring } from '../store.js';
 import { topp } from './felles.js';
 import { faktumKort } from './oppslag.js';
-import { iApp, kall } from '../native.js';
+import { iApp, kall, appInfo } from '../native.js';
 import { kanAutokopi, sisteAutokopi, taAutokopi } from '../autokopi.js';
 
 export function visMitt(rot, del) {
@@ -48,9 +48,26 @@ export function visMitt(rot, del) {
   side.append(plassEl);
   tegnPlass(plassEl);
 
+  // Versjonen nederst, så det er lett å se om den nyeste er installert
+  const versjonEl = h('p.dempet.liten', { style: { textAlign: 'center', margin: '18px 0 6px' } });
+  side.append(versjonEl);
+  visVersjon(versjonEl);
+
   if (del === 'kopi') setTimeout(() => kopiEl.scrollIntoView({ block: 'start' }), 30);
   if (del === 'priser') setTimeout(() => prisEl.scrollIntoView({ block: 'start' }), 30);
   return null;
+}
+
+/** Appversjonen i iPhone-appen, eller nettversjonen (fra hurtiglageret). */
+async function visVersjon(el) {
+  if (iApp) {
+    const info = await appInfo();
+    el.textContent = info?.versjon ? 'Malerguiden-appen, versjon ' + info.versjon + (info.bygg ? ' (bygg ' + info.bygg + ')' : '') : 'Malerguiden-appen';
+    return;
+  }
+  let navn = '';
+  try { navn = (await caches.keys()).find((k) => k.startsWith('malerguiden-')) || ''; } catch { /* uten hurtiglager */ }
+  el.textContent = 'Malerguiden på nett' + (navn ? ', versjon ' + navn.slice('malerguiden-'.length) : '');
 }
 
 /* ---------- Priser og normtall ---------- */

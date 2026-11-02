@@ -304,6 +304,7 @@ enum AppInfo {
         let ki = Skriver.status()
         return [
             "versjon": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
+            "bygg": Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "",
             "ki": ki.klar,
             "kiGrunn": ki.grunn ?? NSNull(),
             "ar": ProveMalView.stottet,
