@@ -386,7 +386,10 @@ struct ProsjektView: View {
                     } header: {
                         Text(etasjer.count > 1 ? "Etasje \(etasjer.count - i)" : "Etasjen")
                     } footer: {
-                        Text("\(etasje.count) rom · \(etasje.reduce(0.0) { $0 + $1.gulv }.formatted(.number.precision(.fractionLength(1)))) m² gulv")
+                        let arbeider = etasje.first?.okt.map { lager.etasjeUnderArbeid.contains($0) } ?? false
+                        let sammen = etasje.allSatisfy { $0.etasjePlan != nil }
+                        Text("\(etasje.count) rom · \(etasje.reduce(0.0) { $0 + $1.gulv }.formatted(.number.precision(.fractionLength(1)))) m² gulv"
+                             + (arbeider ? " · setter sammen rommene …" : sammen ? " · satt sammen" : ""))
                     }
                 }
             }
@@ -484,6 +487,7 @@ struct ProsjektView: View {
                     var nytt = Maling.rom(fra: rom, navn: "Rom \(rommene.count + 1)")
                     nytt.prosjekt = prosjektId
                     Modell.lagre(rom, id: nytt.id)
+                    Modell.lagreRaa(rom, id: nytt.id)
                     lager.rom.append(nytt)
                     lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                     ventende = nytt
@@ -505,12 +509,14 @@ struct ProsjektView: View {
                     nytt.prosjekt = prosjektId
                     nytt.okt = etasjeOkt
                     Modell.lagre(rom, id: nytt.id)
+                    Modell.lagreRaa(rom, id: nytt.id)
                     lager.rom.append(nytt)
                     lager.lagFotomodell(rom, bilder: bilder, id: nytt.id)
                 }
             }) { _, _ in
                 DispatchQueue.main.async {
                     skannerEtasje = false
+                    lager.settSammenEtasje(etasjeOkt)
                     // Fra en jobb: rommene i etasjen går rett inn i jobben
                     let nye = rommene.filter { $0.okt == etasjeOkt }
                     if let tilJobb, !nye.isEmpty { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { tilJobb(nye) } }

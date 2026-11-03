@@ -20,8 +20,21 @@ enum Modell {
         try? rom.export(to: url(id))
     }
 
+    /// Skanningen slik RoomPlan leverte den, så etasjen kan settes sammen av Apple etterpå.
+    static func raaUrl(_ id: UUID) -> URL { mappe.appendingPathComponent(id.uuidString + "-rom.json") }
+
+    static func lagreRaa(_ rom: CapturedRoom, id: UUID) {
+        if let data = try? JSONEncoder().encode(rom) { try? data.write(to: raaUrl(id), options: .atomic) }
+    }
+
+    static func raa(_ id: UUID) -> CapturedRoom? {
+        guard let data = try? Data(contentsOf: raaUrl(id)) else { return nil }
+        return try? JSONDecoder().decode(CapturedRoom.self, from: data)
+    }
+
     static func slett(_ id: UUID) {
         try? FileManager.default.removeItem(at: url(id))
+        try? FileManager.default.removeItem(at: raaUrl(id))
         Fotomodell.slett(id)
         Fargemodell.slett(id)
         Omrademodell.slett(id)

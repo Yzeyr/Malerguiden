@@ -202,7 +202,11 @@ struct EtasjePlanView: View {
 
     var body: some View {
         Canvas { ctx, size in
-            let planer = rom.compactMap { $0.plan }
+            // Satt sammen av Apple: bruk den plassen, men bare når alle rommene har den,
+            // ellers blandes rom som er rettet opp med rom som ikke er det.
+            let sammen = rom.allSatisfy { $0.etasjePlan != nil }
+            func plan(_ r: SkannetRom) -> Plan? { sammen ? r.etasjePlan : r.plan }
+            let planer = rom.compactMap(plan)
             // Én samlet plan bare for å finne rotasjon og skala som passer alle rommene
             let samlet = Plan(gulv: planer.flatMap { $0.gulv }, vegger: planer.flatMap { $0.vegger },
                               dorer: planer.flatMap { $0.dorer }, vinduer: planer.flatMap { $0.vinduer },
@@ -212,7 +216,7 @@ struct EtasjePlanView: View {
             func linje(_ l: Plan.Linje) -> Path { var p = Path(); p.move(to: t.punkt(l.a)); p.addLine(to: t.punkt(l.b)); return p }
 
             for r in rom {
-                guard let plan = r.plan, plan.gulv.count >= 3 else { continue }
+                guard let plan = plan(r), plan.gulv.count >= 3 else { continue }
                 var gulv = Path()
                 gulv.addLines(plan.gulv.map(t.punkt))
                 gulv.closeSubpath()
@@ -233,7 +237,7 @@ struct EtasjePlanView: View {
             }
             // Navn og gulvareal midt i hvert rom
             for r in rom {
-                guard let plan = r.plan, !plan.gulv.isEmpty else { continue }
+                guard let plan = plan(r), !plan.gulv.isEmpty else { continue }
                 let pkt = plan.gulv.map(t.punkt)
                 let midt = CGPoint(x: pkt.map(\.x).reduce(0, +) / CGFloat(pkt.count), y: pkt.map(\.y).reduce(0, +) / CGFloat(pkt.count))
                 let tekst = ctx.resolve(Text(r.navn + "\n" + r.gulv.formatted(.number.precision(.fractionLength(1))) + " m²")

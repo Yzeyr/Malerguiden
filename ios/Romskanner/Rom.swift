@@ -34,6 +34,9 @@ struct SkannetRom: Codable, Identifiable, Hashable {
     /// Etasjeskanningen rommet ble skannet i. Rom fra samme skanning har samme koordinater
     /// og kan tegnes sammen som én etasje.
     var okt: UUID?
+    /// Plantegningen slik rommet ligger i etasjen etter at Apple har satt rommene sammen
+    /// (StructureBuilder). Bare til å tegne etasjen; målene over kommer fra rommets egen skanning.
+    var etasjePlan: Plan?
     /// Det som står i rommet (møbler, skap, vask …). Mangler på rom skannet før appen lagret det.
     var gjenstander: [Gjenstand]?
     /// Avstander målt i 3D-modellene av rommet.
@@ -637,6 +640,42 @@ final class RomLager: ObservableObject {
 
     private func lagreProsjekter() {
         if let data = try? JSONEncoder().encode(prosjekter) { UserDefaults.standard.set(data, forKey: prosjektNokkel) }
+    }
+
+    /// Etasjer som Apple setter sammen nå.
+    @Published var etasjeUnderArbeid = Set<UUID>()
+
+    /// Setter rommene fra én etasjeskanning sammen med Apples StructureBuilder. Den retter opp at
+    /// rommene har forskjøvet seg litt mens man gikk fra rom til rom, så de ikke ligger oppå
+    /// hverandre. Målene til hvert rom endres ikke; bare plassen i etasjetegningen.
+    func settSammenEtasje(_ okt: UUID) {
+        guard !etasjeUnderArbeid.contains(okt) else { return }
+        let egne = rom.filter { $0.okt == okt }.sorted { $0.dato < $1.dato }
+        let par = egne.compactMap { r in Modell.raa(r.id).map { (r.id, $0) } }
+        guard par.count >= 2, par.count == egne.count else { return }
+        etasjeUnderArbeid.insert(okt)
+        Task { @MainActor [weak self] in
+            defer { self?.etasjeUnderArbeid.remove(okt) }
+            guard let struktur = try? await StructureBuilder(options: [.beautifyObjects]).capturedStructure(from: par.map(\.1)) else { return }
+            let sammen = struktur.rooms
+            // Samme rom før og etter: samme kjennetegn, ellers samme rekkefølge
+            var funnet: [UUID: CapturedRoom] = [:]
+            for (id, raa) in par {
+                if let r = sammen.first(where: { $0.identifier == raa.identifier }) { funnet[id] = r }
+            }
+            if funnet.count != par.count, sammen.count == par.count {
+                funnet = Dictionary(uniqueKeysWithValues: zip(par.map(\.0), sammen))
+            }
+            guard let self, funnet.count == par.count else { return }
+            for (id, r) in funnet {
+                guard let i = self.rom.firstIndex(where: { $0.id == id }) else { continue }
+                let ny = Maling.rom(fra: r, navn: "")
+                // Et rom som har blitt mye større eller mindre, er nok koblet til feil rom
+                let gammel = self.rom[i].gulv
+                guard let plan = ny.plan, plan.gulv.count >= 3, gammel <= 0 || abs(ny.gulv - gammel) / gammel < 0.35 else { continue }
+                self.rom[i].etasjePlan = plan
+            }
+        }
     }
 
     /// Lager 3D-modellen med bilder i bakgrunnen (tar noen sekunder).
