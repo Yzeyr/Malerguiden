@@ -5,7 +5,7 @@ import { h, tom, ikon, toast, ark, bekreft, velg, kopierTekst } from '../dom.js'
 import { nyId, datoEtikett, iDagIso, visDato, visTidspunkt, fmt, flertall, erIsoDag, avkort } from '../util.js';
 import {
   hentJobb, endreJobb, leggTilJobb, slettJobb, vedEndring, framdrift, delFramdrift, nesteSteg, bildeIBruk,
-  hovedfag, maalGrupperFor, eksportTekst, dupliserJobb, fargeDetaljer, STATUS, STATUS_LABEL, jobbNavn,
+  hovedfag, maalGrupperFor, eksportTekst, romStatus, dupliserJobb, fargeDetaljer, STATUS, STATUS_LABEL, jobbNavn,
 } from '../jobs.js';
 import { FAG_BY_ID, JOBBTYPER, sjekklisteFor, delTittel, PRAKSIS_MERKE } from '../data/checklists.js';
 import { FORBEHOLD_VALG, BILDE_KATEGORIER, KLASSER, KLASSE_MERKNAD, FARGE_FELT, MAAL_FRITEKST } from '../data/misc.js';
@@ -21,18 +21,21 @@ import { beregn, romFremgang, fremgangPerEtasje, STEG } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
 import { fargeprove, lesSpannet, proveMal, jobbFarger, finnFarge, tekstFarge } from './farger.js';
 import { iApp } from '../native.js';
+import { handelPanel } from './handel.js';
 
 const FANER = [
   { id: 'arbeid', navn: 'Arbeid' },
   { id: 'maal', navn: 'Mål' },
   { id: 'pris', navn: 'Pris' },
   { id: 'bilder', navn: 'Bilder' },
-  { id: 'farger', navn: 'Farger' },
+  { id: 'handle', navn: 'Handle' },
   { id: 'mer', navn: 'Mer' },
 ];
 const STATUSFARGE = { planlagt: 'k-plomme', pagar: 'k-salvie', pauset: 'k-oker', ferdig: 'k-petrol' };
 
 export function visJobb(rot, id, fane = 'arbeid') {
+  // Fargene ligger nå i Handle-fanen, så gamle lenker til «farger» går dit
+  if (fane === 'farger') fane = 'handle';
   if (!FANER.some((f) => f.id === fane)) fane = 'arbeid';
   const finnes = hentJobb(id);
   if (!finnes) {
@@ -65,7 +68,7 @@ export function visJobb(rot, id, fane = 'arbeid') {
     const maalTall = maalGrupperFor(j).flatMap((g) => g.felt).filter((x) => (j.maal[x.id] || '').trim()).length;
     const romTall = j.kalkyle?.rom.length || 0;
     const sum = romTall ? beregn(j.kalkyle, egnePriser()).sum.eksMva : 0;
-    const tall = { arbeid: '', maal: (romTall || maalTall) || '', pris: sum ? Math.round(sum / 1000) + 'k' : '', bilder: j.bilder.length || '', farger: j.farger.length || '', mer: '' };
+    const tall = { arbeid: '', maal: (romTall || maalTall) || '', pris: sum ? Math.round(sum / 1000) + 'k' : '', bilder: j.bilder.length || '', handle: j.handel.filter((v) => !v.kjopt).length || '', mer: '' };
     tom(fanerEl, FANER.map((x) => h('button', {
       type: 'button', role: 'tab', 'aria-selected': String(x.id === fane),
       onclick: () => { if (x.id !== fane) gaTil('jobb-' + id + '/' + x.id, { erstatt: true }); },
@@ -88,7 +91,11 @@ export function visJobb(rot, id, fane = 'arbeid') {
     else if (fane === 'maal') panel.append(romPanel(j), maalPanel(j));
     else if (fane === 'pris') panel.append(prisPanel(j));
     else if (fane === 'bilder') panel.append(bildePanel(j));
-    else if (fane === 'farger') panel.append(fargePanel(j));
+    else if (fane === 'handle') {
+      panel.append(handelPanel(j, { fraRommene: () => handlelisteArk(j.id) }));
+      // Fargene på jobben: det er dem man velger mellom når malingen kjøpes
+      panel.append(blokk('Farger på jobben', j.farger.length ? String(j.farger.length) : '', blokkInnhold(fargePanel(j))));
+    }
     else panel.append(merPanel(j));
   };
   const tegnAlt = () => {
@@ -165,25 +172,39 @@ async function endreStatus(j) {
 
 /* ---------- Arbeid ---------- */
 
-function arbeidPanel(j, faseValg, tegnPanel) {
-  const neste = nesteSteg(j);
-  const f = framdrift(j);
+function arbeidPanel(j) {
   const ut = h('div');
+  // Neste steg kommer fra rommene (sparklet, grunnet, malt). Sjekklista er ikke i bruk lenger.
+  const rs = romStatus(j);
+  const ferdig = j.status === 'ferdig';
 
-  if (neste) {
-    const kontekst = neste.flereDeler ? delTittel(neste.del) + ' · ' + neste.fase : neste.fase;
+  if (ferdig) {
+    ut.append(h('section.neste-kort.ferdig',
+      h('div.overtittel', 'Ferdig'),
+      h('h2', 'Jobben er ferdig.'),
+      h('div.dempet.liten', 'Sluttrapporten samler bildene, rommene og fargene til kunden.'),
+      h('button.knapp.hel', { type: 'button', style: { background: 'var(--gronn)', color: '#fff', marginTop: '12px' }, onclick: () => rapportArk(j.id) }, ikon('notat'), 'Lag sluttrapport')));
+  } else if (rs?.neste) {
     ut.append(h('section.neste-kort',
-      h('div.overtittel', 'Neste steg · ' + f.gjort + ' av ' + f.av),
-      h('h2', neste.item.label),
-      h('div.dempet.liten', kontekst),
-      h('button.knapp.farge.hel', { type: 'button', onclick: () => huk(j, neste.del.id, neste.item.id, true) }, ikon('hake'), 'Ferdig med dette')));
+      h('div.overtittel', 'Neste steg · ' + prosent(rs.andel) + ' ferdig'),
+      h('h2', rs.neste.steg),
+      h('div.dempet.liten', rs.neste.rom),
+      h('button.knapp.farge.hel', { type: 'button', onclick: () => settGjort(j.id, [rs.neste.romId], rs.neste.stegId, true) }, ikon('hake'), 'Ferdig med dette')));
     // Tørketid rett under neste steg: det er da man venter på at noe skal tørke
     ut.append(torkBlokk(j));
-  } else {
+  } else if (rs) {
     ut.append(h('section.neste-kort.ferdig',
-      h('div.overtittel', 'Alt er huket av'),
-      h('h2', j.status === 'ferdig' ? 'Jobben er ferdig.' : 'Alle punktene er gjort.'),
-      j.status !== 'ferdig' && h('button.knapp.hel', { type: 'button', style: { background: 'var(--gronn)', color: '#fff' }, onclick: () => endreJobb(j.id, (x) => { x.status = 'ferdig'; }) }, ikon('hake'), 'Sett jobben som ferdig')));
+      h('div.overtittel', 'Alle rommene er ferdige'),
+      h('h2', 'Klar til å avslutte.'),
+      h('button.knapp.hel', { type: 'button', style: { background: 'var(--gronn)', color: '#fff', marginTop: '12px' }, onclick: () => avsluttJobb(j) }, ikon('hake'), 'Sett jobben som ferdig')));
+    ut.append(torkBlokk(j));
+  } else {
+    ut.append(h('section.neste-kort',
+      h('div.overtittel', 'Ingen rom ennå'),
+      h('h2', 'Legg inn rommene'),
+      h('div.dempet.liten', 'Da kan du huke av sparkling, grunning og maling rom for rom.'),
+      h('button.knapp.farge.hel', { type: 'button', onclick: () => gaTil('jobb-' + j.id + '/maal', { erstatt: true }) }, ikon('pluss'), 'Til rommene')));
+    ut.append(torkBlokk(j));
   }
 
   // Før timer rett under neste steg: det gjøres hver dag på jobben
@@ -196,35 +217,26 @@ function arbeidPanel(j, faseValg, tegnPanel) {
   const fremgang = fremgangBlokk(j);
   if (fremgang) ut.append(fremgang);
 
-  for (const del of j.deler) {
-    const df = delFramdrift(del);
-    const typeDef = JOBBTYPER[del.fag]?.find((t) => t.id === del.jobbtype);
-    const grupper = sjekklisteFor(del);
-    const forsteUferdige = grupper.findIndex((g) => g.items.some((i) => !del.sjekkliste[i.id]));
-    ut.append(h('section.arbeid',
-      h('div.arbeid-hode',
-        h('h3', delTittel(del)),
-        h('span.dempet.liten', df.gjort + '/' + df.av),
-        h('button.ikonknapp', { type: 'button', 'aria-label': 'Endre arbeidet', onclick: () => arbeidMeny(j, del) }, ikon('mer'))),
-      typeDef?.praksis && h('div', { style: { margin: '0 2px 6px' } }, h('span.praksis', PRAKSIS_MERKE)),
-      grupper.map((g, gi) => {
-        const nokkel = del.id + '|' + gi;
-        const gjort = g.items.filter((i) => del.sjekkliste[i.id]).length;
-        const apen = faseValg.has(nokkel) ? faseValg.get(nokkel) : gi === forsteUferdige;
-        return h('div.fase' + (gjort === g.items.length ? '.fullfort' : ''), { 'data-apen': apen ? '1' : '0' },
-          h('button', { type: 'button', 'aria-expanded': String(apen), onclick: () => { faseValg.set(nokkel, !apen); tegnPanel(); } },
-            h('span.pil', ikon('pil')), h('span', g.fase), h('span.tall', gjort === g.items.length ? '✓ ' + gjort : gjort + '/' + g.items.length)),
-          apen && g.items.map((item) => {
-            const ja = !!del.sjekkliste[item.id];
-            return h('button.punkt' + (ja ? '.gjort' : ''), {
-              type: 'button', role: 'checkbox', 'aria-checked': String(ja),
-              onclick: () => huk(j, del.id, item.id, !ja),
-            }, h('span.boks' + (ja ? '.ja' : ''), ikon('hake')), h('span.lbl', item.label));
-          }));
-      })));
+  // Avslutt når som helst, og lag sluttrapporten med en gang
+  if (!ferdig && (!rs || rs.neste)) {
+    ut.append(h('button.knapp.sekundar.hel', { type: 'button', style: { marginTop: '14px' }, onclick: () => avsluttJobb(j) }, ikon('hake'), 'Jobben er ferdig'));
   }
-  ut.append(h('button.leggtil', { type: 'button', onclick: () => arbeidArk(j) }, ikon('pluss'), 'Legg til arbeid'));
   return ut;
+}
+
+/** Setter jobben som ferdig og tilbyr sluttrapporten. */
+async function avsluttJobb(j) {
+  const igjen = j.utstyr.filter((u) => !u.checked).length;
+  let tomListe = false;
+  if (igjen) {
+    tomListe = await bekreft({
+      tittel: 'Tømme «Ta med»?',
+      tekst: 'Det står ' + flertall(igjen, 'ting', 'ting') + ' igjen å ta med til denne jobben.',
+      ja: 'Tøm lista', nei: 'Behold',
+    });
+  }
+  endreJobb(j.id, (x) => { x.status = 'ferdig'; if (tomListe) x.utstyr = []; });
+  if (await bekreft({ tittel: 'Jobben er ferdig', tekst: 'Vil du lage sluttrapporten til kunden nå?', ja: 'Lag sluttrapport', nei: 'Senere' })) rapportArk(j.id);
 }
 
 function huk(j, delId, punktId, verdi) {
@@ -239,10 +251,10 @@ function huk(j, delId, punktId, verdi) {
 
 async function arbeidMeny(j, del) {
   const valg = [{ verdi: 'endre', tekst: 'Endre arbeidet', under: 'Bytt fag eller jobbtype. Avhukinger beholdes der de passer.' }];
-  if (j.deler.length > 1) valg.push({ verdi: 'fjern', tekst: 'Fjern arbeidet', under: 'Sjekklista for dette arbeidet slettes.' });
+  if (j.deler.length > 1) valg.push({ verdi: 'fjern', tekst: 'Fjern arbeidet', under: 'Arbeidet tas bort fra jobben.' });
   const v = await velg({ tittel: delTittel(del), valg });
   if (v === 'endre') arbeidArk(j, del);
-  if (v === 'fjern' && await bekreft({ tittel: 'Fjerne arbeidet?', tekst: delTittel(del) + ' og avhukingene på det slettes.', ja: 'Fjern', fare: true })) {
+  if (v === 'fjern' && await bekreft({ tittel: 'Fjerne arbeidet?', tekst: delTittel(del) + ' tas bort fra jobben.', ja: 'Fjern', fare: true })) {
     endreJobb(j.id, (x) => { x.deler = x.deler.filter((d) => d.id !== del.id); });
   }
 }
@@ -647,6 +659,11 @@ function merPanel(j) {
       klikk: () => kundeArk(j.id),
     })));
 
+  // Hva slags arbeid jobben er (gir fargen i toppen). Sjekklista vises ikke lenger.
+  ut.append(blokk('Arbeid', '',
+    h('div.rad-liste', j.deler.map((del) => prisRad({ tittel: delTittel(del), klikk: () => arbeidMeny(j, del) }))),
+    blokkInnhold(h('button.lenkeknapp', { type: 'button', onclick: () => arbeidArk(j) }, ikon('pluss'), 'Legg til arbeid'))));
+
   // Ta med neste gang. Hele raden huker av, ikke bare boksen.
   const igjen = j.utstyr.filter((u) => !u.checked).length;
   const ny = h('input', { type: 'text', maxlength: 120, placeholder: 'F.eks. ekstra sekk sparkel', enterkeyhint: 'done', autocomplete: 'off' });
@@ -708,7 +725,7 @@ function merPanel(j) {
   // Handlinger
   ut.append(blokk('Jobben', '', blokkInnhold(
     h('div', { style: { display: 'grid', gap: '8px' } },
-      h('button.knapp.sekundar.hel', { type: 'button', onclick: () => rapportArk(j.id) }, ikon('notat'), 'Rapport til kunden (PDF)'),
+      h('button.knapp.sekundar.hel', { type: 'button', onclick: () => rapportArk(j.id) }, ikon('notat'), 'Sluttrapport til kunden (PDF)'),
       h('button.knapp.sekundar.hel', { type: 'button', onclick: async () => toast(await kopierTekst(eksportTekst(hentJobb(j.id))) ? 'Kopiert. Lim inn i e-post, melding eller Notater.' : 'Klarte ikke kopiere.') }, ikon('kopier'), 'Kopier som tekst'),
       h('button.knapp.sekundar.hel', { type: 'button', onclick: () => dupliserArk(j) }, ikon('dupliser'), 'Dupliser til nytt rom'),
       h('button.knapp.fare.hel', { type: 'button', onclick: () => slettJobbSporsmal(j) }, ikon('slett'), 'Slett jobben')))));
@@ -763,7 +780,7 @@ function dupliserArk(j) {
     const ber = h('input.bryter', { type: 'checkbox' });
     return h('div',
       h('h2', 'Dupliser jobben'),
-      h('p.dempet', { style: { marginTop: '-6px' } }, 'Samme kunde og arbeid, med blank sjekkliste. Bilder, mål og farger blir igjen på denne jobben.'),
+      h('p.dempet', { style: { marginTop: '-6px' } }, 'Samme kunde og arbeid. Bilder, mål og farger blir igjen på denne jobben.'),
       h('label.tallfelt', h('span', 'Ta med notat og forbehold'), notat),
       h('label.tallfelt', h('span', 'Ta med beregninger'), ber),
       h('button.knapp.hel', {

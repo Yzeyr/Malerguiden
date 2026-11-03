@@ -9,6 +9,7 @@ import { tilbudsData, tilbudTekst, tilbudPrompt, tallStemmer } from '../tilbud.j
 import { iApp, appInfo, kall } from '../native.js';
 import { veggRegnestykke, etasjeFor, fremgangPerEtasje, handleliste, handlelisteLinjer, linjerForHandel, ytterhjornerAuto, tomKalkyle, romMengder, beregn, perRom, materialer, arbeidsdager, dagerMedTork, ARBEID, timerPerArbeid, grupperLinjer, SPARKLING, MED_ALT, STANDARD_HOYDE, fraSkanning, leggInnSkannet, likeVinduer, vindusareal, rensPlan } from '../kalkyle.js';
 import { egnePriser } from '../priser.js';
+import { varerFraUtregning, leggTilVarer } from '../handel.js';
 import { uiLes, uiSkriv } from '../store.js';
 import { klokkeTimer, klokkeTekst, timerTilForing, LANG_KLOKKE, startTikker } from '../klokke.js';
 import { gaTil } from '../nav.js';
@@ -588,6 +589,11 @@ export function handlelisteArk(jobId, { bareIgjen = false } = {}) {
           if (!linjer.length) { toast('Ingenting å handle.'); return; }
           toast(await kopierTekst(linjer.join('\n')) ? 'Kopiert. Åpne Handleliste og lim inn i feltet øverst.' : 'Klarte ikke kopiere.', { ms: 5000 });
         } }, 'Til Handleliste')),
+      jobId !== KLADD_ID && medSpann.length > 0 && h('button.knapp.hel', { type: 'button', style: { marginTop: '8px' }, onclick: () => {
+        const nye = varerFraUtregning(medSpann);
+        if (endreJobb(jobId, (x) => { leggTilVarer(x.handel, nye, { lagId: () => nyId('h-') }); })) toast('Lagt i Handle-fanen på jobben.');
+        lukk();
+      } }, ikon('pluss'), 'Legg i Handle-fanen'),
       h('p.dempet.liten', { style: { margin: '8px 2px 0' } }, '«Til Handleliste» kopierer én vare per linje, med fargene på jobben. Lim inn i Handleliste, så kommer alle varene inn på én gang.'));
   };
   let lukk = () => {};

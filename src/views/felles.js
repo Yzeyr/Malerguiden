@@ -3,7 +3,7 @@
 import { h, ikon, ark, toast } from '../dom.js';
 import { datoEtikett, dagerTil, visTidspunkt, iDagIso } from '../util.js';
 import { FAG_DEFS, FAG_BY_ID, JOBBTYPER } from '../data/checklists.js';
-import { framdrift, nesteSteg, hovedfag, arbeidTekst, STATUS_LABEL, nyJobb, leggTilJobb } from '../jobs.js';
+import { romStatus, hovedfag, arbeidTekst, STATUS_LABEL, nyJobb, leggTilJobb } from '../jobs.js';
 import { gaTil } from '../nav.js';
 import { uiLes, uiSkriv } from '../store.js';
 
@@ -24,9 +24,10 @@ const UKE = 7 * 86400000;
 export function jobbkort(job) {
   const fag = hovedfag(job);
   const def = FAG_BY_ID[fag] || FAG_BY_ID.annet;
-  const f = framdrift(job);
-  const neste = job.status !== 'ferdig' ? nesteSteg(job) : null;
+  // Fremgangen kommer fra rommene (sparklet, grunnet, malt), ikke fra sjekklista
+  const f = romStatus(job);
   const ferdig = job.status === 'ferdig';
+  const neste = !ferdig && f?.neste ? f : null;
   const under = [job.rom, job.kunde.adresse].filter(Boolean).join(' · ') || arbeidTekst(job);
   const merker = [];
   if (job.dato && !ferdig) {
@@ -37,17 +38,17 @@ export function jobbkort(job) {
   if (ferdig) merker.push(h('span.merke', 'Ferdig ' + visTidspunkt(job.updated)));
   else if (Date.now() - job.updated > UKE) merker.push(h('span.merke', 'Urørt siden ' + visTidspunkt(job.updated)));
   const segmenter = 8;
-  const fylt = Math.round(f.andel * segmenter);
+  const fylt = Math.round((f?.andel || 0) * segmenter);
 
   return h('a.jobbkort.f-' + fag, { href: '#jobb-' + job.id, style: ferdig ? { opacity: '.72' } : null },
     h('div.stripe', h('span', def.emoji), h('small', def.kort)),
     h('div.tekst',
       h('div.navn', h('span', job.kunde.navn || 'Uten navn')),
       h('div.under', under),
-      neste && h('div.neste', '→ ' + neste.item.label),
-      !neste && !ferdig && f.av > 0 && h('div.neste', '✓ Alt er huket av'),
+      neste && h('div.neste', '→ ' + neste.tekst),
+      f && !neste && !ferdig && h('div.neste', '✓ Alle rommene er ferdige'),
       merker.length && h('div.merker', merker),
-      !ferdig && job.status !== 'planlagt' && h('div.strok', { 'aria-label': f.gjort + ' av ' + f.av + ' ferdig' },
+      f && !ferdig && job.status !== 'planlagt' && h('div.strok', { 'aria-label': Math.round(f.andel * 100) + ' prosent ferdig' },
         Array.from({ length: segmenter }, (_, i) => h('i' + (i < fylt ? '.på' : '')))),
     ));
 }

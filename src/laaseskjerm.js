@@ -5,7 +5,7 @@
    åpner jobben. Her velges jobbene, og de sendes til appen hver gang noe endres. */
 
 import { iApp, appInfo, kall } from './native.js';
-import { alleJobber, vedEndring, jobbNavn, nesteSteg } from './jobs.js';
+import { alleJobber, vedEndring, jobbNavn, romStatus } from './jobs.js';
 import { iDagIso } from './util.js';
 
 /** Aktiv: pågår, eller planlagt til i dag. Klokka som går først, så de som pågår, så sist endret. */
@@ -23,7 +23,7 @@ export function tavleData(jobber, idag) {
     id: j.id,
     navn: jobbNavn(j),
     adresse: j.kunde?.adresse || '',
-    neste: nesteSteg(j)?.item.label || '',
+    neste: romStatus(j)?.tekst || '',
     husk: (j.utstyr || []).filter((u) => !u.checked).sort((a, b) => (a.created || 0) - (b.created || 0)).map((u) => u.tekst).slice(0, 6),
     klokke: j.klokke?.start || null,
     tork: j.tork?.klar || null,

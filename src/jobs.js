@@ -13,8 +13,9 @@ import { NOKLER, lesJson, skrivJson, reddOdelagt, senere } from './store.js';
 import { nyId, erIsoDag, datoEtikett, visTidspunkt, visDato, fmt } from './util.js';
 import { FAG_BY_ID, JOBBTYPER, sjekklisteFor, delTittel } from './data/checklists.js';
 import { MAAL_GRUPPER, FORBEHOLD_VALG, BILDE_KATEGORIER } from './data/misc.js';
-import { rensKalkyle, beregn } from './kalkyle.js';
+import { rensKalkyle, beregn, romFremgang } from './kalkyle.js';
 import { egnePriser } from './priser.js';
+import { rensHandel } from './handel.js';
 
 export const STATUS = ['planlagt', 'pagar', 'pauset', 'ferdig'];
 export const STATUS_LABEL = { planlagt: 'Planlagt', pagar: 'Pågår', pauset: 'Pauset', ferdig: 'Ferdig' };
@@ -57,6 +58,8 @@ export function normaliserJobb(j) {
       ? j.utstyr.filter((u) => obj(u) && u.id && typeof u.tekst === 'string' && u.tekst)
           .map((u) => ({ id: String(u.id), tekst: u.tekst, checked: !!u.checked, created: Number(u.created) || 0 }))
       : [],
+    // Det som skal kjøpes til jobben (Handle-fanen)
+    handel: rensHandel(j.handel),
     bilder: Array.isArray(j.bilder)
       ? j.bilder.filter((b) => obj(b) && b.id)
           .map((b) => ({ id: String(b.id), kategori: KATEGORI_IDER.includes(b.kategori) ? b.kategori : 'underveis', tatt: Number(b.tatt) || 0 }))
@@ -381,6 +384,25 @@ export function nesteSteg(job) {
     }
   }
   return null;
+}
+
+/**
+ * Hvor langt jobben har kommet etter rommene (sparklet, grunnet, malt …).
+ * Dette har tatt over for sjekklista. null når jobben ikke har rom.
+ */
+export function romStatus(job) {
+  const k = job?.kalkyle;
+  if (!k?.rom?.length) return null;
+  const priser = egnePriser();
+  let timer = 0, gjort = 0, neste = null, medSteg = 0;
+  for (const rom of k.rom) {
+    const f = romFremgang(k, rom, priser);
+    if (f.steg.length) medSteg++;
+    timer += f.timer; gjort += f.gjortTimer;
+    if (!neste && f.neste) neste = { romId: rom.id, rom: rom.navn || 'Rom', stegId: f.neste.id, steg: f.neste.navn };
+  }
+  if (!medSteg) return null;
+  return { andel: timer > 0 ? gjort / timer : 0, neste, ferdig: !neste, tekst: neste ? neste.rom + ': ' + neste.steg : '' };
 }
 
 export function hovedfag(job) { return job.deler[0]?.fag || 'annet'; }

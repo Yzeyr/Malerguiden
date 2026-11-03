@@ -80,7 +80,7 @@ export function rapportArk(jobId) {
       }
     };
     return h('div',
-      h('h2', 'Rapport til kunden'),
+      h('h2', 'Sluttrapport'),
       h('p.dempet', { style: { marginTop: '-6px' } }, 'En PDF med det som er gjort, uten priser. Send den når jobben er ferdig.'),
       h('label.felt', h('span', 'Firma / utført av', h('small', 'valgfritt')), firma),
       h('label.felt', h('span', 'Hilsen'), hilsen),
