@@ -96,7 +96,7 @@ private final class Leseko: @unchecked Sendable {
 }
 
 /// En vegg: et plan (et punkt på veggen og retningen rett ut fra den).
-private struct Plan {
+private struct VeggPlan {
     var id = UUID()
     var punkt: SIMD3<Float>
     var normal: SIMD3<Float>
@@ -107,7 +107,7 @@ private struct Plan {
 
 /// En vegg som skal males, og fargen.
 private struct ValgtVegg {
-    var plan: Plan
+    var plan: VeggPlan
     var farge: Int
 }
 
@@ -133,7 +133,7 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     private var biter: [UUID: VeggBiter] = [:]
     private var vegger: [ValgtVegg] = [] { didSet { antallVegger = vegger.count } }
     /// Veggene funnet i skanningen, til «Alle vegger».
-    private var autoVegger: [Plan] = []
+    private var autoVegger: [VeggPlan] = []
     private var skitne = false
     private var tidtaker: Timer?
     /// Nye skanninger samles her (på ARKit-tråden) og leses høyst to ganger i sekundet.
@@ -257,7 +257,7 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     /// Alle store, loddrette flater i skanningen som er vegg, største først.
-    private func finnAlleVegger() -> [Plan] {
+    private func finnAlleVegger() -> [VeggPlan] {
         struct Klynge { var nSum: SIMD3<Float>; var dSum: Float; var areal: Float; var n: SIMD3<Float>; var d: Float }
         var k: [Klynge] = []
         for b in biter.values {
@@ -286,7 +286,7 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
         let gamle = autoVegger
         return k.filter { $0.areal >= 0.6 }.sorted { $0.areal > $1.areal }.prefix(24).map { kl in
             let p = kl.n * kl.d
-            var plan = Plan(punkt: p, normal: kl.n)
+            var plan = VeggPlan(punkt: p, normal: kl.n)
             if let g = gamle.first(where: { $0.sammeSom(p, kl.n) }) { plan.id = g.id }
             return plan
         }
@@ -321,7 +321,7 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
             if vegger[i].farge == valgt { vegger.remove(at: i); melding = "Malingen er tatt bort." }
             else { vegger[i].farge = valgt; melding = "Ny farge på veggen." }
         } else {
-            vegger.append(ValgtVegg(plan: Plan(punkt: punktet, normal: normal), farge: valgt))
+            vegger.append(ValgtVegg(plan: VeggPlan(punkt: punktet, normal: normal), farge: valgt))
             melding = vegger.count == 1 ? "Malt! Trykk på flere vegger, eller ta et bilde." : "\(vegger.count) vegger malt."
         }
         oppdaterMaling()
@@ -344,7 +344,7 @@ final class VeggMaler: NSObject, ObservableObject, ARSessionDelegate {
     /// Sender veggene og fargene til tegningen. Veggene man har trykket på går først.
     private func oppdaterMaling() {
         var liste: [Etterbehandler.Vegg] = []
-        func legg(_ p: Plan, _ f: Int) {
+        func legg(_ p: VeggPlan, _ f: Int) {
             guard f < farger.count else { return }
             liste.append(.init(id: p.id, plan: SIMD4(p.normal, simd_dot(p.normal, p.punkt)), farge: srgb(f)))
         }
