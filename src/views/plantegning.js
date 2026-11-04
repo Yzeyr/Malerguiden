@@ -13,7 +13,7 @@ import { hentJobb, endreJobb, vedEndring, bildeIBruk } from '../jobs.js';
 import { lagreNyttBilde, hentBilde, slettBilde } from '../photos.js';
 import { polygonMal, STANDARD_HOYDE, tall } from '../kalkyle.js';
 import { endreKalkyle, romArk } from './pris.js';
-import { finnRom, graatoner, arealPx } from '../plangjenkjenning.js';
+import { finnRom, finnMerker, viskUtMerker, graatoner, arealPx } from '../plangjenkjenning.js';
 
 const TEGNING_MAKS = 2600; // høyere enn vanlige bilder, så små mål på tegningen kan leses
 
@@ -488,6 +488,7 @@ async function verktoy(jobId, bildeId) {
   /* ---------- Finn rom automatisk ---------- */
   // Rommene på tegningen, funnet én gang og husket (i tegningens egne punkter).
   let oppdaget = null;
+  let merker = [];
   async function oppdag() {
     if (oppdaget) return oppdaget;
     await new Promise((r) => setTimeout(r, 40)); // la meldingen vises før arbeidet starter
@@ -501,16 +502,24 @@ async function verktoy(jobId, bildeId) {
     cx.drawImage(img, 0, 0, cw, chh);
     const data = cx.getImageData(0, 0, cw, chh).data;
     lerret.width = lerret.height = 0;
-    let resultat;
-    try { resultat = finnRom(graatoner(data, cw, chh), cw, chh); }
+    let resultat, funneMerker = [];
+    try {
+      let g = graatoner(data, cw, chh);
+      // Kryss med ring finnes først og viskes ut, ellers deler strekene rommet de står i
+      try { funneMerker = finnMerker(g, cw, chh); g = viskUtMerker(g, cw, chh, funneMerker); } catch (e) { console.error(e); }
+      resultat = finnRom(g, cw, chh);
+    }
     catch (e) { console.error(e); return null; }
     const tilbake = (p) => [p[0] / f, p[1] / f];
+    // Kryss med ring rundt (⊗), tegnet for hånd: rommene som er med i jobben
+    merker = funneMerker.map((m) => ({ midt: tilbake(m.midt), r: m.r / f }));
     oppdaget = resultat.rom.map((r) => ({
       polygon: r.polygon.map(tilbake),
       dorer: r.dorer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
       vinduer: r.vinduer.map((l) => ({ a: tilbake(l.a), b: tilbake(l.b) })),
       trapp: !!r.trapp, // trinnstreker funnet: trappehull
     }));
+    for (const r of oppdaget) r.merket = merker.some((m) => inni(m.midt, r.polygon));
     return oppdaget;
   }
   const midtpunkt = (poly) => poly.reduce(([a, b], [x, y]) => [a + x / poly.length, b + y / poly.length], [0, 0]);
@@ -527,7 +536,9 @@ async function verktoy(jobId, bildeId) {
       // Bort med «rom» under 1 m² (skap, sjakter, symboler). Uten målestokk: når den settes.
       .filter((r) => modus === 'skala' || malFor(r.polygon).gulv >= 1);
     const hva = modus === 'skala' ? ' Trykk på et rom du vet arealet på.' : ' Trykk på et rom for å justere det.';
-    toast(forslag.length ? 'Fant ' + flertall(forslag.length, 'rom', 'rom') + '.' + hva : 'Fant ingen rom. Tegn dem selv ved å trykke på hjørnene.', { ms: 4000 });
+    const merkede = forslag.filter((r) => r.merket).length;
+    const omMerker = merkede ? ' ' + flertall(merkede, 'rom er', 'rom er') + ' merket med kryss og ring.' : '';
+    toast(forslag.length ? 'Fant ' + flertall(forslag.length, 'rom', 'rom') + '.' + omMerker + hva : 'Fant ingen rom. Tegn dem selv ved å trykke på hjørnene.', { ms: 5000 });
     tegn();
   }
 
@@ -586,11 +597,15 @@ async function verktoy(jobId, bildeId) {
       etikett(r.polygon, r.navn || 'Rom', '#1E6B74');
     }
     forslag.forEach((f, i) => {
-      ny('polygon', { points: f.polygon.map((p) => p.join(',')).join(' '), fill: 'rgba(59,76,160,.14)', stroke: '#3B4CA0', 'stroke-width': STROK * k, 'stroke-dasharray': `${8 * k} ${6 * k}` });
+      // Rom merket med kryss og ring på tegningen vises grønne
+      const fg = f.merket ? '#2E7D4F' : '#3B4CA0';
+      ny('polygon', { points: f.polygon.map((p) => p.join(',')).join(' '), fill: f.merket ? 'rgba(46,125,79,.22)' : 'rgba(59,76,160,.14)', stroke: fg, 'stroke-width': STROK * k, 'stroke-dasharray': `${8 * k} ${6 * k}` });
       linjer(f.dorer, '#B9482A');
       linjer(f.vinduer, '#4F8FD1');
-      etikett(f.polygon, 'Forslag ' + (i + 1) + (f.trapp ? ' · trapp' : ''), '#3B4CA0');
+      etikett(f.polygon, (f.merket ? '⊗ ' : '') + 'Forslag ' + (i + 1) + (f.trapp ? ' · trapp' : ''), fg);
     });
+    // Merkene som ble funnet, så man ser hva appen så
+    if (forslag.length) for (const m of merker) ny('circle', { cx: m.midt[0], cy: m.midt[1], r: m.r * 1.25, fill: 'none', stroke: '#2E7D4F', 'stroke-width': STROK * k });
     if (fraForslag) { linjer(fraForslag.dorer, '#B9482A'); linjer(fraForslag.vinduer, '#4F8FD1'); }
     const farge = modus === 'skala' ? '#3B4CA0' : '#B9482A';
     if (punkter.length > 1) {
@@ -601,6 +616,17 @@ async function verktoy(jobId, bildeId) {
     // Hjørnene: store nok til å ta tak i med en finger
     punkter.forEach(([x, y], i) => ny('circle', { cx: x, cy: y, r: (i === 0 && !lukket && modus === 'rom' && punkter.length >= 3 ? 12 : 10) * k, fill: i === dra ? farge : '#fff', stroke: farge, 'stroke-width': STROK * k }));
     tegnPanel();
+  }
+
+  // Er noen av forslagene merket med kryss og ring på tegningen, kan resten tas bort med ett trykk
+  function bareMerkedeKnapp() {
+    const merkede = forslag.filter((f) => f.merket).length;
+    if (!merkede || merkede === forslag.length) return null;
+    return h('button.knapp.sekundar.hel', { type: 'button', style: { marginTop: '8px' }, onclick: () => {
+      forslag = forslag.filter((f) => f.merket);
+      toast('Bare rommene med kryss og ring er igjen. Trykk i et rom for å legge til flere.', { ms: 4000 });
+      tegn();
+    } }, '⊗ Bare merkede rom (' + merkede + ')');
   }
 
   function tegnPanel() {
@@ -621,6 +647,7 @@ async function verktoy(jobId, bildeId) {
           !punkter.length && (forslag.length
             ? h('button.knapp', { type: 'button', onclick: lagreUtenSkala }, ikon('hake'), forslag.length === 1 ? 'Lagre rommet' : 'Lagre ' + forslag.length + ' rom')
             : h('button.knapp', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom'))),
+        !punkter.length && bareMerkedeKnapp(),
         !punkter.length && forslag.length > 0 && h('button.lenkeknapp', { type: 'button', style: { marginTop: '4px' }, onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'));
       return;
     }
@@ -637,6 +664,7 @@ async function verktoy(jobId, bildeId) {
               h('button.knapp', { type: 'button', onclick: leggTilAlle }, ikon('hake'), forslag.length === 1 ? 'Lagre rommet' : 'Lagre alle ' + forslag.length + ' rom'),
               h('button.knapp.sekundar', { type: 'button', onclick: () => { forslag = []; tegn(); } }, 'Fjern forslag'))
           : h('button.knapp.hel', { type: 'button', onclick: finnAutomatisk }, '✨ Finn rom automatisk'),
+        bareMerkedeKnapp(),
         h('p.dempet.liten', { style: { margin: '8px 0 0' } }, 'Appen finner hjørnene, dørene og vinduene i rommet du trykker på. Trykk på et lagret rom for å endre eller slette det.'));
       return;
     }

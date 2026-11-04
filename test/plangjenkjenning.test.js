@@ -1,7 +1,7 @@
 // Romgjenkjenning på syntetiske plantegninger: tykke vegger, døråpninger, tekst og målelinjer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finnRom, otsu, forenkle, rettOpp, arealPx, graatoner } from '../src/plangjenkjenning.js';
+import { finnRom, otsu, forenkle, rettOpp, arealPx, graatoner, finnMerker, viskUtMerker } from '../src/plangjenkjenning.js';
 
 /** Lager en tegning: hvit bakgrunn, svarte fylte rektangler. */
 function tegning(w, h, svarte) {
@@ -115,4 +115,21 @@ test('foto av tegningen: skygge nederst og tusjstreker endrer ikke rommene', () 
   tusj(80, 110, 260, 122, [70, 160, 230]);
   const { rom } = finnRom(graatoner(rgba, w, h), w, h);
   assert.equal(rom.length, 3, 'antall rom: ' + rom.map((r) => Math.round(r.areal)).join(', '));
+});
+
+test('kryss med ring (⊗) i et rom blir funnet, og viskes ut uten å dele rommet', () => {
+  const w = 600, h = 400;
+  const g = leilighet();
+  // Tegnet for hånd midt i det store rommet til høyre: ring med radius 16 og et kryss
+  const cx = 420, cy = 190, R = 16;
+  const prikk = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) g[(Math.round(y) + dy) * w + Math.round(x) + dx] = 30; };
+  for (let a = 0; a < Math.PI * 2; a += 0.02) prikk(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+  for (let s = -R; s <= R; s += 0.5) { prikk(cx + s * 0.7, cy + s * 0.7); prikk(cx + s * 0.7, cy - s * 0.7); }
+  // Grid-sirkel med et tall i: ikke et merke
+  for (let a = 0; a < Math.PI * 2; a += 0.02) prikk(150 + Math.cos(a) * 14, 375 + Math.sin(a) * 14);
+  const merker = finnMerker(g, w, h);
+  assert.equal(merker.length, 1, JSON.stringify(merker.map((m) => m.midt)));
+  assert.ok(Math.hypot(merker[0].midt[0] - cx, merker[0].midt[1] - cy) < 5);
+  const { rom } = finnRom(viskUtMerker(g, w, h, merker), w, h);
+  assert.equal(rom.length, 3);
 });

@@ -896,3 +896,110 @@ export function finnRom(g, w, h, { minsteAndel = 0.002, sammen = 0.75, feilsok =
   rom.sort((a, b) => b.areal - a.areal);
   return feilsok ? { rom, veggtykkelse: tykk, vegger, mork, gra, utenfor, eier, vedKant, topp, uteAndel, sum: Object.fromEntries(sum), grenseInfo } : { rom, veggtykkelse: tykk };
 }
+
+/**
+ * Merker tegnet for hånd: et kryss med ring rundt (⊗). Brukes til å se hvilke rom som er
+ * med i jobben. Leter i de mørke strekene etter figurer med en ring (den beste sirkelen
+ * prøves ut inne i figuren, for håndtegnede ringer er skjeve) og to streker på kryss
+ * gjennom midten av ringen.
+ * @returns [{ midt: [x, y], r }] i bildets piksler
+ */
+export function finnMerker(g, w, h, feilsok = null) {
+  const t = otsu(g);
+  const mork = new Uint8Array(w * h);
+  for (let i = 0; i < mork.length; i++) mork[i] = g[i] <= t ? 1 : 0;
+  const stor = Math.max(w, h);
+  const rMin = Math.max(6, stor * 0.009), rMaks = stor * 0.03;
+  const etikett = new Int32Array(w * h).fill(-1);
+  const ko = new Int32Array(w * h);
+  const ut = [];
+  let id = 0;
+  for (let start = 0; start < mork.length; start++) {
+    if (!mork[start] || etikett[start] !== -1) continue;
+    let les = 0, skriv = 0, x0 = w, y0 = h, x1 = 0, y1 = 0;
+    ko[skriv++] = start; etikett[start] = id;
+    while (les < skriv) {
+      const i = ko[les++], x = i % w, y = (i - x) / w;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const n = ny * w + nx;
+        if (mork[n] && etikett[n] === -1) { etikett[n] = id; ko[skriv++] = n; }
+      }
+    }
+    const egen = id++;
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    // Ringen kan henge fast i litt tekst eller en strek, men ikke i en hel vegg
+    if (Math.max(bw, bh) < rMin * 2 || Math.max(bw, bh) > rMaks * 4 || Math.min(bw, bh) < rMin * 1.6) continue;
+    const logg = feilsok && feilsok.some(([px, py]) => px >= x0 - 3 && px <= x1 + 3 && py >= y0 - 3 && py <= y1 + 3) ? (...a) => console.log('  figur', x0, y0, bw, bh, ...a) : () => {};
+    const er = (x, y) => {
+      const xi = Math.round(x), yi = Math.round(y);
+      return xi >= 0 && yi >= 0 && xi < w && yi < h && etikett[yi * w + xi] === egen;
+    };
+    // Den beste ringen: andelen retninger der det er strek like ved sirkelen
+    const N = 32;
+    const ring = (cx, cy, r) => {
+      let n = 0;
+      for (let k = 0; k < N; k++) {
+        const a = (k / N) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a);
+        for (const f of [0.86, 0.93, 1, 1.07, 1.14]) if (er(cx + ux * r * f, cy + uy * r * f)) { n++; break; }
+      }
+      return n / N;
+    };
+    let best = null;
+    const steg = Math.max(2, rMin / 2);
+    for (let r = rMin; r <= Math.min(rMaks, Math.min(bw, bh) / 2 + 2); r += steg / 1.5) {
+      for (let cy = y0 + r * 0.8; cy <= y1 - r * 0.8; cy += steg) for (let cx = x0 + r * 0.8; cx <= x1 - r * 0.8; cx += steg) {
+        const v = ring(cx, cy, r);
+        if (!best || v > best.v + 0.01 || (Math.abs(v - best.v) <= 0.01 && r > best.r)) best = { v, cx, cy, r };
+      }
+    }
+    if (!best || best.v < 0.75) { logg('ring', best && best.v.toFixed(2)); continue; }
+    const { cx, cy, r: R } = best;
+    // Krysset: to streker gjennom midten, i retninger minst 45° fra hverandre
+    const naer = (x, y) => er(x, y) || er(x + 1, y) || er(x - 1, y) || er(x, y + 1) || er(x, y - 1);
+    const dekning = [];
+    for (let grad = 0; grad < 180; grad += 5) {
+      const a = (grad * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
+      // Håndtegnede streker går sjelden helt gjennom midten: prøv linjen litt til hver side
+      let bestLinje = 0;
+      for (let o = -R * 0.3; o <= R * 0.3; o += 1) {
+        const px = cx - uy * o, py = cy + ux * o;
+        let treff = 0, alle = 0;
+        for (let s = -R * 0.6; s <= R * 0.6; s += 1) { alle++; if (naer(px + ux * s, py + uy * s)) treff++; }
+        bestLinje = Math.max(bestLinje, treff / alle);
+      }
+      dekning.push([grad, bestLinje]);
+    }
+    const [g1, d1] = dekning.reduce((a, b) => (b[1] > a[1] ? b : a));
+    const andre = dekning.filter(([gr]) => { const f = Math.abs(gr - g1) % 180; return Math.min(f, 180 - f) >= 45; });
+    const d2 = andre.length ? Math.max(...andre.map((x) => x[1])) : 0;
+    if (d1 < 0.7 || d2 < 0.6) { logg('kryss', d1.toFixed(2), d2.toFixed(2), 'ring', best.v.toFixed(2)); continue; }
+    logg('OK', best.v.toFixed(2), d1.toFixed(2), d2.toFixed(2));
+    // Strekene i merket, så de kan viskes ut før rommene letes etter
+    const piksler = [];
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (etikett[y * w + x] === egen) piksler.push(y * w + x);
+    ut.push({ midt: [cx, cy], r: R, piksler });
+  }
+  return ut;
+}
+
+/**
+ * Visker ut merkene (⊗) i gråtonebildet, så strekene ikke tolkes som vegger og deler rommet.
+ * Bare strekene i selve merket, og en piksel rundt, blir papir. En vegg som merket berører, står.
+ */
+export function viskUtMerker(g, w, h, merker) {
+  if (!merker.length) return g;
+  const ut = g.slice();
+  for (const m of merker) {
+    for (const i of m.piksler) {
+      const x = i % w, y = (i - x) / w;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < w && ny < h) ut[ny * w + nx] = 245;
+      }
+    }
+  }
+  return ut;
+}
