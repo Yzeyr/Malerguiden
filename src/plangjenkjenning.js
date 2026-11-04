@@ -10,15 +10,78 @@
 
    Ren funksjon av gråtonebildet, så den kan testes i Node. */
 
-/** Gråtoner (0–255) fra RGBA-piksler. */
+/**
+ * Gråtoner (0–255) fra RGBA-piksler, gjort klar for et foto av en tegning:
+ * - Tusj og farget tekst (rosa, blå, grønn) er sterke farger. De regnes etter den lyseste
+ *   fargekanalen, så lyse tusjstreker blir papir, mens mørke fargede vegger forblir mørke.
+ * - Lyset på papiret er ujevnt (skygge fra telefonen, mørkere hjørner). Hver piksel deles på
+ *   hvor lyst papiret er rundt den, så hele arket blir like hvitt.
+ */
 export function graatoner(rgba, w, h) {
   const g = new Uint8Array(w * h);
   for (let i = 0, j = 0; i < g.length; i++, j += 4) {
     // Gjennomsiktig regnes som hvitt (PNG-er med gjennomsiktig bakgrunn)
     const a = rgba[j + 3] / 255;
-    g[i] = Math.round((0.299 * rgba[j] + 0.587 * rgba[j + 1] + 0.114 * rgba[j + 2]) * a + 255 * (1 - a));
+    const r = rgba[j], gr = rgba[j + 1], b = rgba[j + 2];
+    const maks = Math.max(r, gr, b), min = Math.min(r, gr, b);
+    const lys = maks - min > 45 ? maks : 0.299 * r + 0.587 * gr + 0.114 * b;
+    g[i] = Math.round(lys * a + 255 * (1 - a));
   }
-  return g;
+  return jevntLys(g, w, h);
+}
+
+/**
+ * Jevner ut lyset: papirets lyshet anslås i ruter (den lyseste verdien i hver rute og
+ * naborutene, så ruter som bare er strek også får papiret rundt seg), glattes, og hver
+ * piksel skaleres så papiret blir 245.
+ */
+export function jevntLys(g, w, h) {
+  const S = Math.max(8, Math.round(Math.max(w, h) / 48));
+  const bw = Math.ceil(w / S), bh = Math.ceil(h / S);
+  const blokk = new Float32Array(bw * bh);
+  // Nest lyseste prosent i ruta, så enkeltpunkter med gjenskinn ikke styrer
+  const hist = new Uint32Array(256);
+  for (let by = 0; by < bh; by++) {
+    for (let bx = 0; bx < bw; bx++) {
+      hist.fill(0);
+      let n = 0;
+      for (let y = by * S; y < Math.min(h, (by + 1) * S); y++) for (let x = bx * S; x < Math.min(w, (bx + 1) * S); x++) { hist[g[y * w + x]]++; n++; }
+      let sum = 0, v = 255;
+      for (; v > 0; v--) { sum += hist[v]; if (sum >= n * 0.02) break; }
+      blokk[by * bw + bx] = v;
+    }
+  }
+  // Ruter som nesten bare er strek, får naborutenes papir: det lyseste av egen verdi og
+  // midtverdien rundt. (Det lyseste rundt ville gjort skyggekanter for lyse.)
+  const utvidet = new Float32Array(bw * bh);
+  for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+    const rundt = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = bx + dx, y = by + dy;
+      if (x >= 0 && y >= 0 && x < bw && y < bh) rundt.push(blokk[y * bw + x]);
+    }
+    rundt.sort((p, q) => p - q);
+    utvidet[by * bw + bx] = Math.max(blokk[by * bw + bx], rundt[rundt.length >> 1]);
+  }
+  const glatt = new Float32Array(bw * bh);
+  for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+    let s = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = bx + dx, y = by + dy;
+      if (x >= 0 && y >= 0 && x < bw && y < bh) { s += utvidet[y * bw + x]; n++; }
+    }
+    glatt[by * bw + bx] = s / n;
+  }
+  const ut = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const fy = Math.min(bh - 1, Math.max(0, (y + 0.5) / S - 0.5)), y0 = Math.floor(fy), y1 = Math.min(bh - 1, y0 + 1), ty = fy - y0;
+    for (let x = 0; x < w; x++) {
+      const fx = Math.min(bw - 1, Math.max(0, (x + 0.5) / S - 0.5)), x0 = Math.floor(fx), x1 = Math.min(bw - 1, x0 + 1), tx = fx - x0;
+      const p = (glatt[y0 * bw + x0] * (1 - tx) + glatt[y0 * bw + x1] * tx) * (1 - ty) + (glatt[y1 * bw + x0] * (1 - tx) + glatt[y1 * bw + x1] * tx) * ty;
+      ut[y * w + x] = Math.min(255, Math.round((g[y * w + x] * 245) / Math.max(40, p)));
+    }
+  }
+  return ut;
 }
 
 /** Otsu-terskel: skiller mørkt fra lyst. */
@@ -513,17 +576,49 @@ export function arealPx(p) {
  * @param g gråtoner, w × h
  * @returns { rom: [{ polygon: [[x,y],…], areal, midt }], veggtykkelse }
  */
-export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok = false } = {}) {
+export function finnRom(g, w, h, { minsteAndel = 0.002, sammen = 0.75, feilsok = false } = {}) {
   const t = otsu(g);
   const mork = new Uint8Array(w * h);
   for (let i = 0; i < mork.length; i++) mork[i] = g[i] <= t ? 1 : 0;
+  // Mange tegninger har grå vegger med tynn, mørk kant. Grått som er godt mørkere enn papiret
+  // (90-persentilen av lysheten), men lysere enn strekene, kan derfor også være vegg.
+  const lysHist = new Uint32Array(256);
+  for (let i = 0; i < g.length; i++) lysHist[g[i]]++;
+  let papirLys = 255;
+  for (let v = 0, s = 0; v < 256; v++) { s += lysHist[v]; if (s >= g.length * 0.9) { papirLys = v; break; } }
+  const tGra = Math.max(t, papirLys - 60);
+  const gratt = new Uint8Array(w * h);
+  for (let i = 0; i < gratt.length; i++) gratt[i] = g[i] <= tGra ? 1 : 0;
+  // Store mørke flater er ikke vegger: fargeprøver, bordet rundt arket, en hånd eller skygge.
+  // Ingen vegg er tykkere enn ca. 1/35 av bildet.
+  {
+    const halv = Math.max(12, Math.max(w, h) / 35) / 2;
+    // Kanten av bildet regnes som papir, så en vegg som er kuttet av bildekanten ikke ser tykk ut
+    const m = gratt.slice();
+    for (let x = 0; x < w; x++) { m[x] = 0; m[(h - 1) * w + x] = 0; }
+    for (let y = 0; y < h; y++) { m[y * w] = 0; m[y * w + w - 1] = 0; }
+    const d = avstand(m, w, h);
+    const kjerne = new Uint8Array(w * h);
+    let finnes = false;
+    for (let i = 0; i < d.length; i++) if (d[i] > halv) { kjerne[i] = 1; finnes = true; }
+    if (finnes) {
+      const flate = utvid(kjerne, w, h, halv + 2);
+      for (let i = 0; i < mork.length; i++) if (flate[i]) { mork[i] = 0; gratt[i] = 0; }
+    }
+  }
 
   // 2. Bare tykke streker: krymp så tynne streker forsvinner, utvid tilbake.
   let tykk = veggtykkelse(mork, w, h);
+  // Grå vegger: bare grått som danner brede felt teller. Den grå kanten rundt tekst og tynne
+  // streker (uskarpt foto) og stiplede linjer er smalere og forsvinner.
+  const tykkGra = tGra > t ? veggtykkelse(gratt, w, h) : 0;
+  const graVegger = tykkGra > tykk + 1;
   // Hule vegger: noen tegninger viser veggene som to tynne parallelle streker. Da er ingen streker
   // tykke, og mellomrommet mellom de doble strekene fylles først, så veggene blir hele.
+  // (Er veggene grå med mørk kant, fyller det grå dem allerede.)
   let veggKilde = mork;
-  if (tykk <= 3) {
+  if (tykk <= 3 && graVegger) tykk = Math.min(tykkGra, 6);
+  else if (tykk <= 3) {
     const lukket = krymp(utvid(mork, w, h, 3), w, h, 3);
     const ny = veggtykkelse(lukket, w, h);
     if (ny > tykk + 1) { veggKilde = lukket; tykk = ny; }
@@ -532,6 +627,11 @@ export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok =
   // så grensen holdes lav.
   const tynnGrense = Math.max(1, Math.min(tykk * 0.3, 4));
   const vegger = utvid(krymp(veggKilde, w, h, tynnGrense), w, h, tynnGrense + 0.5);
+  if (graVegger) {
+    const r = Math.max(1.5, tykkGra * 0.35);
+    const graVegg = utvid(krymp(gratt, w, h, r), w, h, r + 0.5);
+    for (let i = 0; i < vegger.length; i++) if (graVegg[i]) vegger[i] = 1;
+  }
 
   const lukk = Math.max(3, tykk * 2.5);
 
@@ -540,11 +640,24 @@ export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok =
   // så vindushullene ikke slipper utsiden inn i rommene. (Dørslag og møbler, som også er
   // tynne streker inne i rommene, påvirker da ingenting.)
   const bred = Math.max(lukk * 2, tykk * 10);
+  // Bare selve bygget avgjør hva som er utenfor. Håndskrift, tegningsrammen, aksesirkler og
+  // tekstfeltet ligger for seg selv og ville ellers stengt inne store biter av arket.
+  // Veggbiter som ligger nær hverandre (vinduer imellom) hører til samme bygg.
+  const bygg = (() => {
+    const naer = utvid(vegger, w, h, bred / 2);
+    const { etikett: e, liste: l } = omrader(naer, w, h);
+    if (!l.length) return vegger;
+    const storst = Math.max(...l.map((o) => o.antall));
+    const behold = new Set(l.filter((o) => o.antall >= storst * 0.15).map((o) => o.id));
+    const ut = new Uint8Array(w * h);
+    for (let i = 0; i < ut.length; i++) if (vegger[i] && behold.has(e[i])) ut[i] = 1;
+    return ut;
+  })();
   const utenfor = (() => {
     // En hvit ramme rundt bildet, så det finnes «utenfor» selv om tegningen går nesten helt ut til kanten
     const P = Math.ceil(bred) + 2, W2 = w + 2 * P, H2 = h + 2 * P;
     const v2 = new Uint8Array(W2 * H2);
-    for (let y = 0; y < h; y++) v2.set(vegger.subarray(y * w, (y + 1) * w), (y + P) * W2 + P);
+    for (let y = 0; y < h; y++) v2.set(bygg.subarray(y * w, (y + 1) * w), (y + P) * W2 + P);
     const tett = utvid(v2, W2, H2, bred);
     const fritt = new Uint8Array(W2 * H2);
     for (let i = 0; i < fritt.length; i++) fritt[i] = tett[i] ? 0 : 1;
@@ -736,7 +849,7 @@ export function finnRom(g, w, h, { minsteAndel = 0.004, sammen = 0.95, feilsok =
       const ra = rot(a), rb = rot(b);
       if (ra === rb || vedKant[ra] || vedKant[rb]) continue;
       const forhold = sadel / Math.max(1, Math.min(topp[ra], topp[rb]));
-      if (forhold < 0.5) continue; // smal som en dør: under halvparten av bredden på det minste rommet
+      if (forhold < 0.7) continue; // smal som en dør: under 70 % av bredden på det minste rommet
       let samme = forhold >= 0.9;
       if (!samme && harDorslag) {
         const { e1, e2, L, dor } = info;

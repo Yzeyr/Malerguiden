@@ -1,7 +1,7 @@
 // Romgjenkjenning på syntetiske plantegninger: tykke vegger, døråpninger, tekst og målelinjer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finnRom, otsu, forenkle, rettOpp, arealPx } from '../src/plangjenkjenning.js';
+import { finnRom, otsu, forenkle, rettOpp, arealPx, graatoner } from '../src/plangjenkjenning.js';
 
 /** Lager en tegning: hvit bakgrunn, svarte fylte rektangler. */
 function tegning(w, h, svarte) {
@@ -95,4 +95,24 @@ test('grå strek i ytterveggen er et vindu', () => {
   assert.equal(rom.length, 1);
   assert.equal(rom[0].vinduer.length, 1, 'vinduer: ' + JSON.stringify(rom[0].vinduer) + ' dører: ' + JSON.stringify(rom[0].dorer));
   assert.equal(rom[0].dorer.length, 0);
+});
+
+test('foto av tegningen: skygge nederst og tusjstreker endrer ikke rommene', () => {
+  const g0 = leilighet();
+  const w = 600, h = 400;
+  const rgba = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    // Skygge: nederste del av arket blir gradvis mørkere, ned til 55 % lys
+    const lys = y < h * 0.5 ? 1 : 1 - 0.45 * ((y - h * 0.5) / (h * 0.5));
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x, v = g0[i] * lys;
+      rgba.set([v, v, v, 255], i * 4);
+    }
+  }
+  // Rosa og blå tusj tvers over rommene
+  const tusj = (x0, y0, x1, y1, f) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) rgba.set([...f, 255], (y * w + x) * 4); };
+  tusj(320, 270, 520, 284, [250, 95, 175]);
+  tusj(80, 110, 260, 122, [70, 160, 230]);
+  const { rom } = finnRom(graatoner(rgba, w, h), w, h);
+  assert.equal(rom.length, 3, 'antall rom: ' + rom.map((r) => Math.round(r.areal)).join(', '));
 });
