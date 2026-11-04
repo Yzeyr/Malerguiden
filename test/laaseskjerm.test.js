@@ -68,3 +68,16 @@ test('kortet med dagens jobber sendes bare i arbeidstiden, og morgenvarselet gje
   assert.equal(tidlig.morgen, 'Kunde a, Kunde b. Husk: Tape');
   assert.equal(liveMelding(liste, new Date(2026, 10, 3, 5, 0)).morgen, 'Kunde a. Husk: Tape');
 });
+
+test('det som skal kjøpes fra Handle-fanen er med på låseskjermen og i morgenvarselet', async () => {
+  const { liveMelding } = await import('../src/laaseskjerm.js');
+  const j = jobb('a', { status: 'pagar', handel: [
+    { id: '1', tekst: 'Maling 10 L', antall: 2, farge: 'Lady 1453', kjopt: false, created: 2 },
+    { id: '2', tekst: 'Pensel', antall: 1, kjopt: true, created: 1 },
+    { id: '3', tekst: 'Malertape', antall: 1, kjopt: false, created: 1 },
+  ] });
+  const [t] = tavleData([j], '2026-11-03');
+  assert.deepEqual(t.handle, ['Malertape', 'Maling 10 L × 2']);
+  assert.deepEqual(tavleData([jobb('b', { status: 'pagar' })], '2026-11-03')[0].handle, []);
+  assert.equal(liveMelding([j], new Date(2026, 10, 3, 5, 0)).morgen, 'Kunde a. Kjøp: Malertape, Maling 10 L × 2');
+});

@@ -33,7 +33,10 @@ struct Dagskort: Widget {
                         if let j {
                             Text(Kortvisning.linje(j)).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                             if !j.husk.isEmpty {
-                                Text("Husk: " + j.husk.joined(separator: " · ")).font(.subheadline).foregroundStyle(Self.terrakotta).lineLimit(2)
+                                Text("Husk: " + j.husk.joined(separator: " · ")).font(.subheadline).foregroundStyle(Self.terrakotta).lineLimit(j.kjop.isEmpty ? 2 : 1)
+                            }
+                            if !j.kjop.isEmpty {
+                                Text("Kjøp: " + j.kjop.joined(separator: " · ")).font(.subheadline).foregroundStyle(Self.terrakotta).lineLimit(1)
                             }
                         }
                         if context.state.jobber.count > 1 {
@@ -73,7 +76,7 @@ struct Kortvisning: View {
         if let klar = j.tork, klar > .now {
             return (j.torkTekst.isEmpty ? "Tørker" : j.torkTekst) + " · klar kl. " + klar.formatted(date: .omitted, time: .shortened)
         }
-        return j.neste.isEmpty ? "Ingen steg igjen i sjekklista" : "Neste: " + j.neste
+        return j.neste.isEmpty ? "Ingen steg igjen" : "Neste: " + j.neste
     }
 
     var body: some View {
@@ -106,7 +109,11 @@ struct Kortvisning: View {
                         .font(.caption2.monospacedDigit()).foregroundStyle(.white.opacity(0.6)).frame(maxWidth: 56, alignment: .trailing)
                 }
                 if !j.husk.isEmpty {
-                    Label { Text(j.husk.joined(separator: " · ")).lineLimit(2) } icon: { Image(systemName: "bag") }
+                    Label { Text(j.husk.joined(separator: " · ")).lineLimit(j.kjop.isEmpty ? 2 : 1) } icon: { Image(systemName: "bag") }
+                        .font(.subheadline.weight(.medium)).foregroundStyle(Dagskort.terrakotta)
+                }
+                if !j.kjop.isEmpty {
+                    Label { Text(j.kjop.joined(separator: " · ")).lineLimit(j.husk.isEmpty ? 2 : 1) } icon: { Image(systemName: "cart") }
                         .font(.subheadline.weight(.medium)).foregroundStyle(Dagskort.terrakotta)
                 }
                 if tilstand.jobber.count > 1 {
@@ -122,4 +129,9 @@ struct Kortvisning: View {
             }
         }
     }
+}
+
+extension DagensJobber.Jobb {
+    /// Det som skal kjøpes, tom når det ikke er noe.
+    var kjop: [String] { handle ?? [] }
 }

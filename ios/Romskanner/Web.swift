@@ -186,6 +186,7 @@ extension WebKobling: WKScriptMessageHandlerWithReply {
                 guard let id = d["id"] as? String else { return nil }
                 return Tavlejobb(id: id, navn: d["navn"] as? String ?? "", adresse: d["adresse"] as? String ?? "",
                                  neste: d["neste"] as? String ?? "", husk: d["husk"] as? [String] ?? [],
+                                 handle: d["handle"] as? [String] ?? [],
                                  klokke: (d["klokke"] as? NSNumber)?.doubleValue, tork: (d["tork"] as? NSNumber)?.doubleValue,
                                  torkTekst: d["torkTekst"] as? String ?? "")
             }

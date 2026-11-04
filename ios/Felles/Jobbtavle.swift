@@ -7,10 +7,12 @@ struct Tavlejobb: Codable, Hashable, Identifiable {
     var id: String
     var navn: String
     var adresse: String
-    /// Neste steg i sjekklista.
+    /// Neste steg fra rommene.
     var neste: String
     /// «Ta med neste gang» som ikke er huket av.
     var husk: [String]
+    /// Det som står på Handle-fanen og ikke er kjøpt. nil: fra en eldre versjon.
+    var handle: [String]? = nil
     /// Når stoppeklokka ble startet (millisekunder). nil: står stille.
     var klokke: Double?
     /// Når neste strøk kan tas (millisekunder). nil: ingenting tørker.

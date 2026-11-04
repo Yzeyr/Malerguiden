@@ -1,12 +1,19 @@
 /* Jobbene på låseskjermen i iPhone-appen.
 
    Appen viser de aktive jobbene mellom 06:45 og 15:00: navnet, klokka som
-   går eller neste steg, og «Ta med neste gang» som ikke er huket av. Trykk
+   går eller neste steg, «Ta med neste gang» som ikke er huket av, og det som
+   står på Handle-fanen og ikke er kjøpt. Trykk
    åpner jobben. Her velges jobbene, og de sendes til appen hver gang noe endres. */
 
 import { iApp, appInfo, kall } from './native.js';
 import { alleJobber, vedEndring, jobbNavn, romStatus } from './jobs.js';
 import { iDagIso } from './util.js';
+
+/** Det som skal kjøpes, kort: «Maling 10 L × 2». Fargen er med i appen, ikke her. */
+export function handleKort(handel = []) {
+  return handel.filter((v) => !v.kjopt).sort((a, b) => (a.created || 0) - (b.created || 0))
+    .map((v) => v.tekst + (v.antall > 1 ? ' × ' + v.antall : '')).slice(0, 6);
+}
 
 /** Aktiv: pågår, eller planlagt til i dag. Klokka som går først, så de som pågår, så sist endret. */
 export function aktiveJobber(jobber, idag) {
@@ -25,6 +32,7 @@ export function tavleData(jobber, idag) {
     adresse: j.kunde?.adresse || '',
     neste: romStatus(j)?.tekst || '',
     husk: (j.utstyr || []).filter((u) => !u.checked).sort((a, b) => (a.created || 0) - (b.created || 0)).map((u) => u.tekst).slice(0, 6),
+    handle: handleKort(j.handel),
     klokke: j.klokke?.start || null,
     tork: j.tork?.klar || null,
     torkTekst: j.tork?.tekst || '',
@@ -54,12 +62,13 @@ export function liveMelding(jobber, naa = new Date()) {
   if (min >= FRA) morgenDag.setDate(morgenDag.getDate() + 1);
   const morgen = tavleData(jobber, iDagIso(morgenDag));
   const husk = [...new Set(morgen.flatMap((j) => j.husk))];
+  const kjop = [...new Set(morgen.flatMap((j) => j.handle))];
   return {
     liste: dagens.length ? [] : liveData(jobber, naa.getTime()),
     dagens,
     start: klokkeslett(naa, FRA),
     slutt: klokkeslett(naa, TIL),
-    morgen: morgen.length ? morgen.map((j) => j.navn).join(', ') + (husk.length ? '. Husk: ' + husk.join(', ') : '') : '',
+    morgen: morgen.length ? morgen.map((j) => j.navn).join(', ') + (husk.length ? '. Husk: ' + husk.join(', ') : '') + (kjop.length ? '. Kjøp: ' + kjop.join(', ') : '') : '',
   };
 }
 

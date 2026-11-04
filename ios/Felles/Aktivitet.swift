@@ -23,6 +23,8 @@ struct DagensJobber: ActivityAttributes {
         var navn: String
         var neste: String
         var husk: [String]
+        /// Det som skal kjøpes (Handle-fanen). nil: fra en eldre versjon.
+        var handle: [String]? = nil
         var klokke: Date?
         var tork: Date?
         var torkTekst: String

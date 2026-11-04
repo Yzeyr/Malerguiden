@@ -35,7 +35,7 @@ struct Innslag: TimelineEntry {
 
 struct Leverandor: TimelineProvider {
     static let eksempel = Tavlejobb(id: "", navn: "Hansen – stue", adresse: "Storgata 5", neste: "Sparkle 2. strøk",
-                                    husk: ["Sparkel", "Slipepapir 120"], klokke: nil, tork: nil, torkTekst: "")
+                                    husk: ["Sparkel", "Slipepapir 120"], handle: ["Maling 10 L × 2"], klokke: nil, tork: nil, torkTekst: "")
 
     func placeholder(in context: Context) -> Innslag {
         Innslag(date: .now, jobber: [Self.eksempel], synlig: true, mangler: false)
@@ -94,7 +94,7 @@ struct Jobbvisning: View {
     @ViewBuilder private var inline: some View {
         if let j = jobber.first {
             if let start = j.klokke { Text(Date(timeIntervalSince1970: start / 1000), style: .timer) + Text(" · " + j.navn) }
-            else { Text(j.navn + (j.husk.isEmpty ? "" : " · Husk: " + j.husk.joined(separator: ", "))) }
+            else { Text(j.navn + (!j.husk.isEmpty ? " · Husk: " + j.husk.joined(separator: ", ") : !j.kjop.isEmpty ? " · Kjøp: " + j.kjop.joined(separator: ", ") : "")) }
         } else {
             Text(innslag.mangler ? "Åpne Malerguiden" : innslag.synlig ? "Ingen aktive jobber" : "Jobbene vises fra 06:45")
         }
@@ -111,6 +111,8 @@ struct Jobbvisning: View {
                 linje2(j).font(.caption).lineLimit(1)
                 if !j.husk.isEmpty {
                     Text("Husk: " + j.husk.joined(separator: ", ")).font(.caption).lineLimit(1)
+                } else if !j.kjop.isEmpty {
+                    Text("Kjøp: " + j.kjop.joined(separator: ", ")).font(.caption).lineLimit(1)
                 } else if !j.adresse.isEmpty {
                     Text(j.adresse).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -161,6 +163,9 @@ struct Jobbvisning: View {
                             if !j.husk.isEmpty {
                                 Text("Husk: " + j.husk.joined(separator: ", ")).font(.caption).foregroundStyle(Color(red: 0.73, green: 0.28, blue: 0.16)).lineLimit(1)
                             }
+                            if !j.kjop.isEmpty {
+                                Text("Kjøp: " + j.kjop.joined(separator: ", ")).font(.caption).foregroundStyle(Color(red: 0.73, green: 0.28, blue: 0.16)).lineLimit(1)
+                            }
                         }
                     }
                 }
@@ -170,4 +175,9 @@ struct Jobbvisning: View {
             .foregroundStyle(Color(red: 0.17, green: 0.15, blue: 0.13))
         }
     }
+}
+
+extension Tavlejobb {
+    /// Det som skal kjøpes, tom når det ikke er noe.
+    var kjop: [String] { handle ?? [] }
 }

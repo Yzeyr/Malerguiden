@@ -17,7 +17,8 @@ enum Liveaktivitet {
         let jobber = (dagens ?? []).compactMap { d -> DagensJobber.Jobb? in
             guard let id = d["id"] as? String else { return nil }
             return DagensJobber.Jobb(id: id, navn: d["navn"] as? String ?? "", neste: d["neste"] as? String ?? "",
-                                     husk: d["husk"] as? [String] ?? [], klokke: tid(d, "klokke"), tork: tid(d, "tork"),
+                                     husk: d["husk"] as? [String] ?? [], handle: d["handle"] as? [String] ?? [],
+                                     klokke: tid(d, "klokke"), tork: tid(d, "tork"),
                                      torkTekst: d["torkTekst"] as? String ?? "")
         }
         if !jobber.isEmpty, let start, let slutt {
