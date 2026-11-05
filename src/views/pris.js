@@ -1117,13 +1117,21 @@ export function planSvg(plan, { bredde, hoyde, mal = false }) {
       // Teksten står vannrett: på loddrette vegger må den flyttes en halv tekstbredde ekstra.
       const halvBredde = tekst.length * storrelse * 0.29;
       avstand = Math.sign(avstand) * (Math.abs(avstand) + Math.abs(nx) * halvBredde);
-      const t = ny('text', { x: mx + nx * avstand, y: my + ny_ * avstand + 4, 'text-anchor': 'middle', 'font-size': storrelse, 'font-weight': 650, fill: farge, 'font-family': 'var(--sans)' });
+      const tx = mx + nx * avstand, ty = my + ny_ * avstand + 4;
+      const t = ny('text', { x: tx, y: ty, 'text-anchor': 'middle', 'font-size': storrelse, 'font-weight': 650, fill: farge, 'font-family': 'var(--sans)' });
       t.textContent = tekst;
+      ramme.x0 = Math.min(ramme.x0, tx - halvBredde - 3); ramme.x1 = Math.max(ramme.x1, tx + halvBredde + 3);
+      ramme.y0 = Math.min(ramme.y0, ty - storrelse - 2); ramme.y1 = Math.max(ramme.y1, ty + storrelse * 0.3 + 2);
     };
+    // Tallene står utenfor veggene. Blir rommet langt og smalt, når de forbi kanten: da utvides tegneflaten.
+    const ramme = { x0: 0, y0: 0, x1: bredde, y1: hoyde };
     for (const l of [...plan.vegger, ...(plan.inne || []).filter((x) => x.sider > 0)]) if (lengde(l) >= 0.3) etikett(l, fmt(lengde(l), 2) + ' m', 13, 'var(--blekk2)', 10.5);
     const bxh = (l) => (l.bredde && l.hoyde ? fmt(l.bredde, 2) + ' × ' + fmt(l.hoyde, 2) : null);
     for (const l of plan.vinduer) { const t = bxh(l); if (t) etikett(l, t, -12, '#3F7FB8', 9.5); }
     for (const l of plan.dorer) { const t = bxh(l); if (t) etikett(l, t, -12, 'var(--terrakotta)', 9.5); }
+    // Samme midtpunkt som før, så tegningen ikke hopper til siden
+    const ux = Math.max(-ramme.x0, ramme.x1 - bredde), uy = Math.max(-ramme.y0, ramme.y1 - hoyde);
+    if (ux > 0 || uy > 0) svg.setAttribute('viewBox', `${-ux} ${-uy} ${bredde + 2 * ux} ${hoyde + 2 * uy}`);
   }
   return svg;
 }
